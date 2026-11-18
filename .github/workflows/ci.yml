@@ -305,7 +305,6 @@ jobs:
             packages/pocket_vn/test \
             packages/pocket_spine/test \
             packages/pocket_live2d/test \
-            packages/pocket_tftc/test \
             packages/pocket_diagnostics/test \
             tests \
             scripts/tests \

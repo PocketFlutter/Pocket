@@ -14,7 +14,6 @@ import { MobileButton, MobileThemeProvider, MOBILE_THEME_LIGHT } from "@pocket/u
 import { createHostBridge } from "@pocket/ui/host";
 import { createPocketPermissionsClient } from "@pocket/ui/permissions";
 import { createPocketStreamAdapter } from "@pocket/ui/streams";
-import { createPocketBluetooth } from "@pocket/tftc/pocket";
 import { createNovelEngine } from "@pocket/vn";
 ```
 
@@ -273,12 +272,6 @@ const result = await publishWidgetSnapshot(host, {
 ```
 
 Check `result.published` for the native outcome. See [Native surface bridge](OPTIONAL_PLUGINS.md#native-surface-bridge) for availability, action events, and error responses.
-
-### TFTC
-
-`@pocket/tftc` exports `.`, `./protocol`, `./security`, and `./pocket`. The root re-exports `TftcClient`, protocol and security helpers, data, and product profiles. `./pocket` exposes `createPocketBluetooth(host, options={})` and Web Bluetooth-shaped `PocketBluetooth`, device, and GATT interfaces.
-
-`createPocketBluetooth` maps `hardware.bluetooth.scan`, GATT I/O, and notification streams to HostBridge and PocketStream. `timeoutMs` defaults to 1600 and accepts 250–30,000 ms. `requestDevice({filters?,services?,optionalServices?})` returns a matching device or throws `NotFoundError`. `dispose(reason="bluetooth_adapter_disposed")` cancels adapter streams and ends local object lifecycles. See [`packages/pocket_tftc/src/index.js`](../packages/pocket_tftc/src/index.js), [`pocket-bluetooth.ts`](../packages/pocket_tftc/src/pocket-bluetooth.ts), and the [TFTC contract](TFTC_TRANSPORT_CONTRACT.md) for UUIDs, frames and checksums, and security providers.
 
 ### Visual novel (`@pocket/vn`)
 

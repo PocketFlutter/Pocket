@@ -43,7 +43,7 @@ flowchart LR
 | **Games** | App/Game starters, frame hooks, input and business Workers | [Templates](sdk/docs/PROJECT_TEMPLATES.md) · [Game demos](sdk/docs/OFFICIAL_GAME_DEMOS.md) |
 | **Mini-app containers** | JS SystemUI, catalogs, stacks, messages/results, prewarm/eviction, isolated storage | [Multi-app](sdk/docs/MULTI_APP_IMPLEMENTATION.md) · [On-demand apps](sdk/docs/ON_DEMAND_MINI_APPS.md) |
 | **Media and models** | Audio, managed local video, Spine and Live2D adapters | [Audio](sdk/docs/VISUAL_NOVEL_AUDIO.md) · [Video](sdk/docs/VIDEO_SHOWCASE_VALIDATION.md) · [Spine](sdk/docs/VISUAL_NOVEL_SPINE.md) · [Live2D](sdk/docs/VISUAL_NOVEL_LIVE2D.md) |
-| **Hardware** | Optional camera/photos, BLE/GATT, sensors, location/weather, biometrics | [Modules](sdk/docs/HARDWARE_MODULES.md) · [TFTC](sdk/packages/pocket_tftc/README.md) |
+| **Hardware** | Optional camera/photos, BLE/GATT, sensors, location/weather, biometrics | [Modules](sdk/docs/HARDWARE_MODULES.md) · [Local BLE Preview](sdk/docs/LOCAL_BLUETOOTH_PREVIEW.md) |
 | **System and network** | Permissions, haptics, system bars, opt-in links, Worker HTTP, Dio IO isolate | [Plugins](sdk/docs/OPTIONAL_PLUGINS.md) · [Workers](sdk/docs/WORKER_IO_IMPLEMENTATION.md) · [Dio](sdk/docs/DIO_WORKER.md) |
 | **Fast paths** | Binary frames, retained chunks/caches, deadline wakeups, batched 16-byte SPSC records | [Scheduling](sdk/docs/GLYPH_AND_SCHEDULER_IMPLEMENTATION.md) · [Duplex](sdk/docs/DUPLEX_TRANSPORT.md) |
 | **Resources** | PAK packaging, revision tracking, quota/path-checked native ZIP/7z extraction, JS byte codecs | [Archives](sdk/packages/pocket_archive/README.md) · [UTF-8/Base64](sdk/packages/pocket_ui/src/bytes.ts) |

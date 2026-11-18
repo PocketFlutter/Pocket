@@ -96,8 +96,6 @@ test("export_web_sdk creates a Flutter-free toolchain repo with Editor and the Q
     "docs/WEB_WORKER_IMPLEMENTATION.md",
     "docs/LARGE_IMAGE_IMPLEMENTATION.md",
     "editor/native/noble-bluetooth.mjs",
-    "packages/pocket_tftc/src/index.js",
-    "packages/pocket_tftc/README.md",
     "editor/client/index.html",
     "native/src/bin/pocket_probe.rs",
     "scripts/build_guest.ts",
@@ -123,7 +121,7 @@ test("export_web_sdk creates a Flutter-free toolchain repo with Editor and the Q
   expect(existsSync(join(output, "native/target"))).toBe(false);
   expect(existsSync(join(output, ".cache"))).toBe(false);
   expect(existsSync(join(output, "editor/test"))).toBe(false);
-  expect(existsSync(join(output, "packages/pocket_tftc/test"))).toBe(false);
+  expect(existsSync(join(output, "packages/pocket_tftc"))).toBe(false);
   expect(existsSync(join(output, "packages/pocket_cos/test"))).toBe(false);
   expect(existsSync(join(output, "packages/pocket_cos/node_modules"))).toBe(false);
   expect(existsSync(join(output, "packages/pocket_vn/test"))).toBe(false);
@@ -142,7 +140,7 @@ test("export_web_sdk creates a Flutter-free toolchain repo with Editor and the Q
   const manifest = JSON.parse(readFileSync(join(output, "package.json"), "utf8"));
   expect(manifest.version).toBe(SDK_VERSION);
   expect(manifest.license).toBe("MIT");
-  expect(manifest.workspaces).toContain("packages/pocket_tftc");
+  expect(manifest.workspaces).not.toContain("packages/pocket_tftc");
   expect(manifest.workspaces).toContain("packages/pocket_ui");
 
   // Exercise the exported scaffold boundary, including its Python URL helper.

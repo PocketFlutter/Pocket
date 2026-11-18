@@ -8,11 +8,11 @@ const firstPartyPackages = [
   "pocket_arc",
   "pocket_cos",
   "pocket_diagnostics",
+  "pocket_liquid_glass",
   "pocket_live2d",
   "pocket_looseleaf",
   "pocket_spine",
   "pocket_sync",
-  "pocket_tftc",
   "pocket_ui",
   "pocket_vn",
 ];

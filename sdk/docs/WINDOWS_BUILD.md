@@ -109,25 +109,25 @@ directory without source caches or `native/target`. Then verify these items.
 2. Verify that both App and Game templates build real `app.qjbc` and `app.pak`, and that
    theme, score, and pause/resume inputs change frames in Native Preview.
 3. Verify that Windows Noble reports `poweredOn` and returns real scan, connection, GATT
-   read/write, and notification streams. `@pocket/tftc` must parse a notification to a
-   field-level `change`. A write-success callback is separate from a device state change.
+   read/write, and notification streams. The JS `hardware.bluetooth.*` client must derive
+   state updates from real notification frames. A write-success callback is separate from
+   a device state change.
 4. After exiting Preview, verify that connections, notification streams, and helper
    processes are released. Restart and verify that Studio still uses port 8791.
 
-The GitHub Windows runner lacks the required DK-META2 hardware. CI can test the WinRT
+The GitHub Windows runner lacks physical BLE peripheral hardware. CI can test the WinRT
 addon load, simulated IO, and Preview routes. Earlier CI verified Windows npm consumer
 setup, loading the WinRT addon from the platform package, App and Game QJBC and PAK,
-and input-driven Preview frame changes. Actual DK-META2 connection, notifications, battery,
-and disconnection need a Windows machine with a BLE adapter and logged evidence.
-The workspace passed physical macOS Noble acceptance. Physical Windows acceptance is
-still pending.
+and input-driven Preview frame changes. Actual BLE peripheral connection, notifications,
+battery updates, and disconnection need a Windows machine with a BLE adapter and logged
+evidence. The workspace passed physical macOS Noble acceptance. Physical Windows acceptance
+is still pending.
 
 ## Provenance and reused boundaries
 
 Before implementation, review covered retained parent
 `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo` excluding `pocket_host/`,
-and Noble dependencies and transport conventions in the BLE reference
-`/Volumes/ORICO/Development/TryJoy.c/TryJoyMono/App/repos/dokidoki`.
+and `@abandonware/noble@1.9.2-26` BLE transport conventions.
 The main Pocket paths are as follows.
 
 - `sdk/native/Cargo.toml` pins Rust and QuickJS native dependencies.
@@ -137,9 +137,9 @@ The main Pocket paths are as follows.
 - `sdk/scripts/prebuilt_tools.mjs` selects and verifies platform packages and scopes the Noble prebuild environment variable.
 - `.github/workflows/toolchain.yml` provides the Windows 2022 release matrix.
 
-Business protocol, TFTC notification parsing, and state orchestration stay in JS.
-Any future Flutter integration with `flutter_blue_plus` uses the same transport contract
-and leaves TFTC state with JS.
+Business protocol, BLE notification parsing, and state orchestration stay in JS.
+Any future Flutter integration with `flutter_blue_plus` uses the same `hardware.bluetooth.*`
+transport contract and leaves protocol state with JS.
 
 ## Bootstrap and historical Windows CI
 

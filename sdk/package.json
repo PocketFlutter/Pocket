@@ -7,7 +7,6 @@
   "workspaces": [
     "packages/pocket_ui",
     "packages/pocket_looseleaf",
-    "packages/pocket_tftc",
     "packages/pocket_vn",
     "packages/pocket_spine",
     "packages/pocket_live2d",

@@ -38,8 +38,6 @@ The App template is for screens, forms, and product UI. The Game template uses o
 
 Generated Flutter projects use `PocketApp`. Existing Flutter projects can embed `PocketGuest`. JS pages import from `@pocket/ui`. The runtime loads actual QuickJS bytecode and PAK, checks signed updates before activation, and uses native plugins compiled into the host.
 
-TFTC device control and real-time feedback use the standalone [`@pocket/tftc` JS package](packages/pocket_tftc/README.md), including Preview connections, Windows and macOS transports, field change notifications, and physical-device acceptance.
-
 ## Guides
 
 - [Apple App Store](docs/APPLE_APP_STORE.md) covers Apple release boundaries, optional bundled code mode, and production recording exclusions. Remote loading remains the compatible default.

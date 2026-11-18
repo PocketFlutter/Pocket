@@ -16,7 +16,7 @@ This index covers the Pocket SDK API. Its baseline is the current `sdk/package.j
 - Existing Dart host reference. [Flutter SDK](FLUTTER_SDK.md)
 - Native capability registration and restrictions. [Optional native plugins](OPTIONAL_PLUGINS.md) · [Hardware modules](HARDWARE_MODULES.md) · [Dio IO Worker](DIO_WORKER.md)
 - Component names, renderer projection, and outstanding features. [Component contracts](COMPONENTS.md) · [UI feature parity](POCKETJS_FEATURE_PARITY_UI.md)
-- Specialized interfaces and runtime boundaries. [TFTC transport contract](TFTC_TRANSPORT_CONTRACT.md) · [Diagnostics package](DIAGNOSTICS_PACKAGE.md) · [Visual novel engine](VISUAL_NOVEL_ENGINE.md) · [Live2D Web support](WEB_LIVE2D.md)
+- Specialized interfaces and runtime boundaries. [Diagnostics package](DIAGNOSTICS_PACKAGE.md) · [Visual novel engine](VISUAL_NOVEL_ENGINE.md) · [Live2D Web support](WEB_LIVE2D.md)
 - Consumer guides. [Toolchain requirements](NPM_TOOLCHAIN.md) · [Studio workflow](EDITOR_STUDIO.md) · [Editor project identity and configuration](EDITOR_PROJECT_CONFIGURATION.md) · [Web SDK export](WEB_SDK_EXPORT.md) · [Update package modes](PACKAGE_UPDATE_MODES.md)
 - Machine-readable export inventory tracking package exports, recursive re-exports, Dart export filters, declaration locations, and source hashes. It catches missing coverage. Written behavior, defaults, and runtime semantics require review. [Public export inventory](API_SURFACE.json)
 
@@ -28,7 +28,6 @@ JS/TS import paths must be listed in each package's `package.json#exports`. A so
 import { View, Text, Focusable } from "@pocket/ui";
 import { createHostBridge, type HostBridge } from "@pocket/ui/host";
 import { MobileButton } from "@pocket/ui/mobile";
-import { createPocketBluetooth } from "@pocket/tftc/pocket";
 ```
 
 ```dart
@@ -48,7 +47,6 @@ Import through the published entry points. `@pocket/<package>/src/...` and SDK i
 | [`@pocket/looseleaf`](../packages/pocket_looseleaf/package.json) | Hand-drawn paper, markings, controls, navigation, data, overlays, skins, and kit. Root and named subpaths. | Current workspace source API. Export sources define props, and `@pocket/ui` and the engine constrain interaction behavior. |
 | [`@pocket/arc`](../packages/pocket_arc/package.json) | Calm-motion semantic tokens, spring helpers, surfaces, controls, navigation, data, overlays, skins, and kit. | Current workspace source API. Platform capabilities require separate acceptance. |
 | [`@pocket/liquid_glass`](../packages/pocket_liquid_glass/package.json) | JS optical surface admission, motion, controls, menus, and a skin adapter. Root and nine named subpaths. | Target behavior depends on the host's glass rendering path. [Liquid Glass](LIQUID_GLASS_PACKAGE.md) |
-| [`@pocket/tftc`](../packages/pocket_tftc/package.json) | TFTC protocol, device profiles, secure handshake, and optional Pocket Host Bluetooth/GATT adapter. | Bluetooth requires a registered real host provider. [TFTC transport contract](TFTC_TRANSPORT_CONTRACT.md) · [Migration](tftc-migration.md) |
 | [`@pocket/vn`](../packages/pocket_vn/package.json) | Visual novel state machine, authoring, saves, input, audio/video, locale, collections, inventory, mesh/skin, Spine/Live2D, and scene views. | The feature gap reference describes readiness by backend. [Engine](VISUAL_NOVEL_ENGINE.md) · [Authoring](VISUAL_NOVEL_AUTHORING.md) · [Editor](VISUAL_NOVEL_EDITOR.md) · [Feature gaps](VISUAL_NOVEL_LETSGAL_PARITY.md). See the relevant `VISUAL_NOVEL_*.md` guides for specialized features. |
 | [`@pocket/spine`](../packages/pocket_spine/package.json) | Spine input/rig/frame types, `createSpineRig`, and atlas page queries. `package.json` marks it private. | The sole package entry is `.`. The integration covers a subset of Spine runtime and attachment rendering. [Spine limits](VISUAL_NOVEL_SPINE.md) |
 | [`@pocket/live2d`](../packages/pocket_live2d/package.json) | Cubism manifest, motion, physics, pose, and interaction parsers, plus Pocket transport client. | Web Core is an external licensed dependency, and runtime/provider configuration is separate. [Live2D](VISUAL_NOVEL_LIVE2D.md) · [Web setup and limits](WEB_LIVE2D.md) |
