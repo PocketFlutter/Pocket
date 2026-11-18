@@ -191,9 +191,9 @@ function LiquidGlassStudioTelemetry(props: {
 
       <SkinSegmentedControl
         items={[
-          { id: "ultra", label: "Ultra (8)" },
-          { id: "balanced", label: "Bal (5)" },
-          { id: "performance", label: "Perf (2)" },
+          { id: "ultra", label: "Ultra (16)" },
+          { id: "balanced", label: "Bal (8)" },
+          { id: "performance", label: "Perf (3)" },
           { id: "vector", label: "Vec (0)" },
         ]}
         active={lg.governor.tier()}

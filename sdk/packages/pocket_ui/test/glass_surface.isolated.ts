@@ -185,6 +185,32 @@ assert.notEqual(firstId, registrations[4].id, "surface ids must remain instance-
 secondDispose();
 assert.deepEqual(releases, [firstId, blurId, registrations[4].id]);
 
+let glassFadeDispose;
+let setGlassOpacity;
+createRoot((dispose) => {
+  glassFadeDispose = dispose;
+  const [opacity, updateOpacity] = createSignal(0.25);
+  setGlassOpacity = updateOpacity;
+  GlassSurface({
+    material: "regular",
+    elastic: false,
+    get opacity() { return opacity(); },
+  });
+});
+await flush();
+const glassFadeStart = registrations.length;
+assert.equal(registrations[glassFadeStart - 1].payload.effect, "glass");
+assert.equal(registrations[glassFadeStart - 1].payload.opacity, 0.25, "optical glass must forward its crossfade alpha");
+setGlassOpacity(0.75);
+await flush();
+assert.equal(registrations.length, glassFadeStart + 1, "glass opacity changes must update the surface in place");
+assert.equal(registrations[glassFadeStart].payload.opacity, 0.75);
+assert.equal(registrations[glassFadeStart].id, registrations[glassFadeStart - 1].id);
+setGlassOpacity(4);
+await flush();
+assert.equal(registrations[registrations.length - 1].payload.opacity, 1, "glass opacity is clamped to [0, 1]");
+glassFadeDispose();
+
 const attempts = [];
 let failFirstAttempt = true;
 const retryBridge = {
@@ -279,7 +305,7 @@ test("GlassSurface uses the real pinned Solid runtime for registration lifecycle
     });
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     const output = result.stdout.trim().split(/\r?\n/).at(-1);
-    assert.deepEqual(JSON.parse(output ?? "{}"), { registrations: 9, attempts: 2, releases: 7 });
+    assert.deepEqual(JSON.parse(output ?? "{}"), { registrations: 12, attempts: 2, releases: 8 });
   } finally {
     rmSync(testRoot, { recursive: true, force: true });
   }

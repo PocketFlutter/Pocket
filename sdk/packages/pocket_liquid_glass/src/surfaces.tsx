@@ -62,7 +62,7 @@ export interface LiquidGlassContextValue {
   readonly governor: LiquidGlassGovernor;
 }
 
-const defaultGovernor = createLiquidGlassGovernor({ initialTier: "ultra", maxGpuSurfaces: 8 });
+const defaultGovernor = createLiquidGlassGovernor({ initialTier: "ultra" });
 const defaultPalette = resolveLiquidGlassPalette("light", "blue");
 
 export const LiquidGlassContext = createContext<LiquidGlassContextValue>({
@@ -268,6 +268,13 @@ export interface LiquidGlassSurfaceProps {
     radius: number;
   };
   pressed?: boolean;
+  /**
+   * Whole-backdrop alpha (`0..1`, default `1`) for crossfades. It fades the
+   * GPU glass through the shader and the vector fallback through its own
+   * View; foreground children keep their own opacity. A fully transparent
+   * surface releases its GPU lease and remounts nothing when it returns.
+   */
+  opacity?: number | Accessor<number>;
   elevated?: boolean;
   accentTint?: boolean;
   class?: string;
@@ -295,8 +302,16 @@ export function LiquidGlassSurface(props: LiquidGlassSurfaceProps): JSX.Element 
   const shape = (): GlassShape => props.shape ?? "rounded";
   const recipe = createMemo(() => resolveOpticalRecipe(material(), ctx.palette()));
 
+  const surfaceOpacity = (): number => {
+    const raw = typeof props.opacity === "function" ? props.opacity() : props.opacity;
+    if (raw === undefined || !Number.isFinite(raw)) return 1;
+    return quantizeOptical(Math.max(0, Math.min(1, raw)), 0.01, 1);
+  };
+  const visible = createMemo(() => surfaceOpacity() > 0.001);
+
   const wantsGpu = createMemo(
     () =>
+      visible() &&
       !inGroup &&
       recipe().usesGpuBackdrop &&
       !accessibility().reduceTransparency &&
@@ -364,6 +379,7 @@ export function LiquidGlassSurface(props: LiquidGlassSurfaceProps): JSX.Element 
             elevated={props.elevated !== false}
             accentTint={props.accentTint === true}
             inGroup={inGroup}
+            opacity={surfaceOpacity}
           />
         }
       >
@@ -380,6 +396,7 @@ export function LiquidGlassSurface(props: LiquidGlassSurfaceProps): JSX.Element 
           deformation={props.deformation}
           pressed={props.pressed}
           radius={resolvedRadius}
+          opacity={surfaceOpacity}
           class="absolute inset-0 w-full h-full"
           contentClass="p-0"
           style={{ ...ABS_FILL, hitPass: 1 }}
@@ -408,6 +425,7 @@ function VectorSpecularBackdrop(props: {
   elevated: boolean;
   accentTint: boolean;
   inGroup: boolean;
+  opacity: Accessor<number>;
 }): JSX.Element {
   const pal = () => props.palette();
   const rad = () => props.radius();
@@ -423,7 +441,10 @@ function VectorSpecularBackdrop(props: {
   };
 
   return (
-    <View class="absolute inset-0 w-full h-full" style={{ ...ABS_FILL, hitPass: 1 }}>
+    <View
+      class="absolute inset-0 w-full h-full"
+      style={{ ...ABS_FILL, opacity: props.opacity(), hitPass: 1 }}
+    >
       {/* 1. Diffused vertical ambient shadow (skipped inside grouped toolbars) */}
       <Show when={props.elevated && !props.inGroup}>
         <View

@@ -1078,7 +1078,9 @@ void main() {
     const parameters = descriptor.parameters;
     const opticalInset = clamp(number(parameters.opticalInset, 0), 0, 64);
     const effect = parameters.effect === "blur" ? "blur" : "glass";
-    const opacity = effect === "blur" ? clamp(number(parameters.opacity, 1), 0, 1) : 1;
+    // Optical glass crossfades through the shader's `uOpacity`; the frosted
+    // fallback below applies the same alpha to its 2D composite.
+    const opacity = clamp(number(parameters.opacity, 1), 0, 1);
     // A transparent entrance frame has no filtered contribution. In
     // particular, do not allocate a DPR-sized canvas or initialize the blur
     // pipeline on the same input turn merely to discard all of its pixels.

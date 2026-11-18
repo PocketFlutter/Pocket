@@ -3,7 +3,7 @@
  *
  * Implements the iOS 26 UIKit Liquid Morph & Continuous Selection architecture:
  * - `LiquidGlassMenu` & `LiquidGlassMenuButton`: True trigger-to-platter liquid morphing
- *   (`scaleX`, `scaleY`, `translateX`, `translateY`, dynamic corner radius `999 -> 22`, and
+ *   (logical rect + corner radius `999 -> 22` interpolated on the SDF quad, no affine scale, and
  *   `OpacityPair` crossfade from source pill to refractive glass platter), rubber-band
  *   `FlexInteraction` over-drag on open platters, continuous press-drag-release scrubbing
  *   (`ActionScrubbingHandoff` + `ContinuousSelection`) with spring-gliding highlight row,
@@ -23,6 +23,7 @@ import {
   createMemo,
   createSignal,
   onCleanup,
+  untrack,
   useContext,
   type JSX,
 } from "solid-js";
@@ -82,6 +83,16 @@ export interface LiquidGlassMenuSection {
 }
 
 export type LiquidGlassMenuEntry = LiquidGlassMenuItem | LiquidGlassMenuSection;
+
+/** Viewport pointer forwarded from a trigger gesture into an open menu. */
+export interface LiquidGlassMenuHandoff {
+  readonly x: number;
+  readonly y: number;
+  /** `true` while the finger is down and scrubbing. */
+  readonly active: boolean;
+  /** Set on the final, inactive pointer to select the row under it. */
+  readonly release?: boolean;
+}
 
 function isMenuSection(entry: LiquidGlassMenuEntry): entry is LiquidGlassMenuSection {
   return (
@@ -291,8 +302,13 @@ export function LiquidGlassMenu(props: {
   align?: "start" | "end" | "center";
   placement?: "below" | "above" | "auto";
   width?: number;
-  /** Optional externally driven scrub viewport coordinates (for trigger press-drag handoff). */
-  handoffPointer?: () => { x: number; y: number; active: boolean } | undefined;
+  /**
+   * Optional externally driven scrub viewport coordinates (for trigger
+   * press-drag handoff). `active` scrubs; a new `{ active: false, release: true }`
+   * object commits the row under that point exactly once, like a native
+   * single-stroke press-drag-release.
+   */
+  handoffPointer?: () => LiquidGlassMenuHandoff | undefined;
   onSelect?: (item: LiquidGlassMenuItem) => void;
   onClose: () => void;
 }): JSX.Element {
@@ -339,6 +355,46 @@ export function LiquidGlassMenu(props: {
   });
 
   const layoutModel = createMemo(() => buildFlatMenuRows(sections(), submenuStack()));
+
+  // Push/pop row reveal. Each stack change bumps a generation; the spring
+  // lags behind it by exactly one unit, so `rowReveal()` restarts at 0 and
+  // settles at 1 without a separate imperative reset.
+  const [stackGeneration, setStackGeneration] = createSignal(0);
+  const [stackDirection, setStackDirection] = createSignal(1);
+  let lastTop: unknown = undefined;
+  let lastDepth = 0;
+  createEffect(() => {
+    const stack = submenuStack();
+    const top = stack[stack.length - 1];
+    if (top === lastTop) return;
+    const depth = stack.length;
+    lastTop = top;
+    untrack(() => {
+      if (!isOpen()) {
+        lastDepth = depth;
+        return;
+      }
+      setStackDirection(depth >= lastDepth ? 1 : -1);
+      lastDepth = depth;
+      setStackGeneration((g) => g + 1);
+    });
+  });
+  const revealSpring = createGlassSpring(stackGeneration, {
+    preset: "snappy",
+    reducedMotion: ctx.reducedMotion,
+    quantizeStep: 0.01,
+  });
+  const rowReveal = (): number =>
+    Math.max(0, Math.min(1, 1 - (stackGeneration() - revealSpring())));
+  const rowMotion = (index: number): { translateY: number; opacity: number } => {
+    const delay = Math.min(0.4, index * 0.05);
+    const t = Math.max(0, Math.min(1, (rowReveal() - delay) / (1 - delay)));
+    const eased = t * t * (3 - 2 * t);
+    return {
+      translateY: quantizeOptical((1 - eased) * 10 * stackDirection(), 0.25, 0),
+      opacity: quantizeOptical(eased, 0.02, 1),
+    };
+  };
 
   const animatedHeight = createGlassSpring(() => layoutModel().totalHeight, {
     preset: "snappy",
@@ -493,13 +549,24 @@ export function LiquidGlassMenu(props: {
     return hit;
   };
 
-  // Support external press-and-drag handoff from `LiquidGlassMenuButton`
+  // Support external press-and-drag handoff from `LiquidGlassMenuButton`.
+  // The trigger owns the gesture recognizer, so its release must commit here.
+  let committedHandoff: LiquidGlassMenuHandoff | undefined;
   createEffect(() => {
     const hp = props.handoffPointer?.();
     if (!hp || !isOpen()) return;
     if (hp.active) {
-      updateScrubAtViewportPoint(hp.x, hp.y);
+      untrack(() => updateScrubAtViewportPoint(hp.x, hp.y));
+      return;
     }
+    if (!hp.release || hp === committedHandoff) return;
+    committedHandoff = hp;
+    untrack(() => {
+      const hit = updateScrubAtViewportPoint(hp.x, hp.y);
+      setFlexOffset({ x: 0, y: 0 });
+      setHoveredKey(null);
+      if (hit) activateRow(hit);
+    });
   });
 
   // Continuous selection scrub directly inside the open menu platter
@@ -533,33 +600,44 @@ export function LiquidGlassMenu(props: {
     },
   });
 
-  // True Trigger-to-Platter Morph Interpolation:
-  // At p=0, the platter sits centered on the trigger pill with trigger pill dimensions & pill radius;
-  // at p=1, it blooms to full `(box.width, box.height)` at `(box.x, box.y)` with `radius: 22`!
+  // True Trigger-to-Platter Geometry Morph:
+  // The glass quad itself interpolates its logical rect and corner radius from
+  // the trigger pill to the platter. No affine scale is applied, so the
+  // shader's bevel, rim and 36px optical halo stay undistorted, and the rows
+  // keep their final typography while the growing rounded mask reveals them.
   const morphTransform = createMemo(() => {
     const p = Math.max(0, Math.min(1.08, morph()));
     const clampedP = Math.max(0, Math.min(1, p));
     const box = menuBox();
     const anc = box.anchor;
+    const lerp = (a: number, b: number) => a + (b - a) * p;
 
-    const startScaleX = Math.max(0.18, Math.min(1, anc.width / Math.max(1, box.width)));
-    const startScaleY = Math.max(0.14, Math.min(1, anc.height / Math.max(1, box.height)));
-    const sx = startScaleX + (1 - startScaleX) * p;
-    const sy = startScaleY + (1 - startScaleY) * p;
-
+    const width = Math.max(8, lerp(anc.width, box.width));
+    const height = Math.max(8, lerp(anc.height, box.height));
     const ancCenterX = anc.x + anc.width * 0.5;
     const ancCenterY = anc.y + anc.height * 0.5;
     const boxCenterX = box.x + box.width * 0.5;
     const boxCenterY = box.y + box.height * 0.5;
+    const centerX = ancCenterX + (boxCenterX - ancCenterX) * p + flexX();
+    const centerY = ancCenterY + (boxCenterY - ancCenterY) * p + flexY();
+    const x = centerX - width * 0.5;
+    const y = centerY - height * 0.5;
 
-    const tx = (ancCenterX - boxCenterX) * (1 - p) + flexX();
-    const ty = (ancCenterY - boxCenterY) * (1 - p) + flexY();
     const startRad = Math.min(anc.width, anc.height) * 0.5;
-    const radius = Math.max(14, Math.round(startRad + (22 - startRad) * clampedP));
+    const radius = Math.max(
+      8,
+      Math.min(Math.min(width, height) * 0.5, Math.round(startRad + (22 - startRad) * clampedP)),
+    );
     const shellOpacity = Math.max(0, Math.min(1, clampedP * 1.35));
     const contentOpacity = Math.max(0, Math.min(1, (clampedP - 0.18) / 0.68));
+    // Rows stay at their final viewport position, offset into the moving quad.
+    const contentX = box.x + flexX() - x;
+    const contentY = box.y + flexY() - y;
 
-    return { sx, sy, tx, ty, radius, shellOpacity, contentOpacity, clampedP };
+    return {
+      x, y, width, height, radius, shellOpacity, contentOpacity, clampedP,
+      contentX, contentY, boxWidth: box.width, boxHeight: box.height,
+    };
   });
 
   return (
@@ -586,25 +664,18 @@ export function LiquidGlassMenu(props: {
           />
         </Focusable>
 
-        {/* Morphing Liquid Glass Menu Platter */}
+        {/* Morphing Liquid Glass Menu Platter (geometry morph, no affine scale) */}
         <View
           ref={(node) => {
             platterNode = node;
           }}
-          class="absolute overflow-hidden"
+          class="absolute"
           style={{
             posType: 1,
-            insetL: Math.round(menuBox().x),
-            insetT: Math.round(menuBox().y),
-            width: Math.round(menuBox().width),
-            height: Math.round(menuBox().height),
-            scaleX: quantizeOptical(morphTransform().sx, 0.004, 1),
-            scaleY: quantizeOptical(morphTransform().sy, 0.004, 1),
-            translateX: quantizeOptical(morphTransform().tx, 0.25, 0),
-            translateY: quantizeOptical(morphTransform().ty, 0.25, 0),
-            opacity: quantizeOptical(morphTransform().shellOpacity, 0.01, 1),
-            radius: morphTransform().radius,
-            overflow: 1,
+            insetL: quantizeOptical(morphTransform().x, 0.5, 0),
+            insetT: quantizeOptical(morphTransform().y, 0.5, 0),
+            width: Math.round(morphTransform().width),
+            height: Math.round(morphTransform().height),
           }}
         >
           <LiquidGlassSurface
@@ -612,6 +683,7 @@ export function LiquidGlassMenu(props: {
             priority="critical"
             shape="rounded"
             radius={morphTransform().radius}
+            opacity={() => morphTransform().shellOpacity}
             magnification={1.05}
             deformation={{
               anchorX: flexX() * 2.5,
@@ -623,10 +695,33 @@ export function LiquidGlassMenu(props: {
             class="w-full h-full"
             contentClass="relative w-full h-full p-0"
             style={{
-              width: Math.round(menuBox().width),
-              height: Math.round(menuBox().height),
+              width: Math.round(morphTransform().width),
+              height: Math.round(morphTransform().height),
             }}
           >
+            {/* Rounded foreground mask: only the rows are clipped, never the glass halo */}
+            <View
+              class="absolute inset-0 overflow-hidden"
+              style={{
+                posType: 1,
+                insetL: 0,
+                insetT: 0,
+                insetR: 0,
+                insetB: 0,
+                overflow: 1,
+                radius: morphTransform().radius,
+              }}
+            >
+            <View
+              class="absolute"
+              style={{
+                posType: 1,
+                insetL: quantizeOptical(morphTransform().contentX, 0.5, 0),
+                insetT: quantizeOptical(morphTransform().contentY, 0.5, 0),
+                width: Math.round(morphTransform().boxWidth),
+                height: Math.round(morphTransform().boxHeight),
+              }}
+            >
             {/* Spring-gliding SelectionView highlight row */}
             <Show when={hoveredRow() !== undefined}>
               <View
@@ -655,7 +750,7 @@ export function LiquidGlassMenu(props: {
               }}
             >
               <For each={layoutModel().rows}>
-                {(row) => {
+                {(row, rowIndex) => {
                   if (row.kind === "header") {
                     return (
                       <View
@@ -666,6 +761,8 @@ export function LiquidGlassMenu(props: {
                           insetR: 0,
                           insetT: row.y,
                           height: row.height,
+                          translateY: rowMotion(rowIndex()).translateY,
+                          opacity: rowMotion(rowIndex()).opacity,
                         }}
                       >
                         <Show when={row.showTopDivider}>
@@ -702,6 +799,8 @@ export function LiquidGlassMenu(props: {
                           insetR: 0,
                           insetT: row.y,
                           height: row.height,
+                          translateY: rowMotion(rowIndex()).translateY,
+                          opacity: rowMotion(rowIndex()).opacity,
                         }}
                         onPress={() => activateRow(row)}
                       >
@@ -739,6 +838,8 @@ export function LiquidGlassMenu(props: {
                           insetR: 0,
                           insetT: row.y,
                           height: row.height,
+                          translateY: rowMotion(rowIndex()).translateY,
+                          opacity: rowMotion(rowIndex()).opacity,
                         }}
                       >
                         <Text
@@ -767,7 +868,8 @@ export function LiquidGlassMenu(props: {
                         insetR: 0,
                         insetT: row.y,
                         height: row.height,
-                        opacity: row.disabled ? 0.45 : 1,
+                        translateY: rowMotion(rowIndex()).translateY,
+                        opacity: (row.disabled ? 0.45 : 1) * rowMotion(rowIndex()).opacity,
                       }}
                       onPress={
                         row.disabled
@@ -853,6 +955,8 @@ export function LiquidGlassMenu(props: {
                 }}
               </For>
             </View>
+            </View>
+            </View>
           </LiquidGlassSurface>
         </View>
       </Modal>
@@ -894,9 +998,7 @@ export function LiquidGlassMenuButton(props: {
 
   let triggerNode: NodeMirror | undefined;
   const [anchor, setAnchor] = createSignal<LiquidGlassAnchorRect | undefined>(undefined);
-  const [handoff, setHandoff] = createSignal<
-    { x: number; y: number; active: boolean } | undefined
-  >(undefined);
+  const [handoff, setHandoff] = createSignal<LiquidGlassMenuHandoff | undefined>(undefined);
 
   const syncAnchor = (): void => {
     const measured = measureViewportRect(triggerNode, scrollPage);
@@ -928,8 +1030,10 @@ export function LiquidGlassMenuButton(props: {
     onPanMove: (c) => {
       setHandoff({ x: c.x, y: c.y, active: true });
     },
-    onPanEnd: () => {
-      setHandoff(undefined);
+    onPanEnd: (c) => {
+      // Single-stroke press-drag-release: the menu commits the row under the
+      // final pointer. A fresh object makes the commit exactly-once.
+      setHandoff({ x: c.x, y: c.y, active: false, release: true });
     },
     onCancel: () => {
       setHandoff(undefined);
@@ -1001,9 +1105,7 @@ export function LiquidGlassMenuButton(props: {
           radius={999}
           class="relative shrink-0"
           contentClass="items-center justify-center p-0"
-          style={{
-            opacity: quantizeOptical(pillOpacity(), 0.02, 1),
-          }}
+          opacity={() => quantizeOptical(pillOpacity(), 0.02, 1)}
         >
           {buttonPill}
         </LiquidGlassSurface>
@@ -1177,6 +1279,7 @@ export function LiquidGlassContextMenu(props: {
               shape="rounded"
               radius={22}
               magnification={1.06}
+              opacity={() => Math.max(0, Math.min(1, lift() * 1.2))}
               class="w-full"
               contentClass="flex-col gap-1.5 p-4 w-full"
             >
@@ -1301,6 +1404,7 @@ export function LiquidGlassPopover(props: {
             priority="critical"
             shape="rounded"
             radius={24}
+            opacity={() => Math.max(0, Math.min(1, morph() * 1.25))}
             class="w-full"
             contentClass="flex-col gap-3 p-4 w-full"
           >
@@ -1442,14 +1546,15 @@ export function LiquidGlassAlertModal(props: {
           <View class="w-full h-full" />
         </Focusable>
 
+        {/* No clip on the platter wrapper: the glass quad's optical halo and
+            shadow must stay visible; the glass fades via its own opacity. */}
         <View
-          class="w-[296] shrink-0 overflow-hidden"
+          class="w-[296] shrink-0"
           style={{
             width: 296,
             opacity: clamped(),
             scale: quantizeOptical(0.86 + 0.14 * presence(), 0.005, 1),
             radius: 28,
-            overflow: 1,
           }}
         >
           <LiquidGlassSurface
@@ -1458,6 +1563,7 @@ export function LiquidGlassAlertModal(props: {
             shape="rounded"
             radius={28}
             magnification={1.06}
+            opacity={clamped}
             class="w-full flex-col"
             contentClass="flex-col w-full p-0"
           >

@@ -2662,7 +2662,10 @@ export function GlassSurface(props: {
   warp?: boolean;
   /** `blur` is a colorless backdrop sample; `glass` keeps the liquid recipe. */
   effect?: GlassSurfaceEffect;
-  /** Plain-backdrop-blur alpha; optical glass keeps its provider default. */
+  /**
+   * Whole-surface alpha for plain blur and optical glass. A compositor
+   * surface ignores ancestor View opacity, so crossfades must use this.
+   */
   opacity?: GlassSurfaceNumber;
   /** Optional tint override; a blur backdrop should pass zero. */
   tintOpacity?: GlassSurfaceNumber;
@@ -2693,7 +2696,7 @@ export function GlassSurface(props: {
   }));
   const effect = props.effect ?? "glass";
   const solidMaterial = () => effect === "glass" && (accessibility().reduceTransparency === true || accessibility().increaseContrast);
-  const surfaceOpacity = createMemo(() => effect === "blur" ? resolveGlassSurfaceNumber(props.opacity, 1, 0, 1) : 1);
+  const surfaceOpacity = createMemo(() => resolveGlassSurfaceNumber(props.opacity, 1, 0, 1));
   const surfaceRadius = createMemo(() => effect === "blur" ? 0 : resolveGlassSurfaceNumber(props.radius, recipe().radius, 0, 10000));
   // Keep the shell transparent when a native surface is registered; the
   // gradient layer below is only the unsupported-host fallback.

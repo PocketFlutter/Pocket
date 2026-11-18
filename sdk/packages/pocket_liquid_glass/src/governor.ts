@@ -7,9 +7,13 @@
  * a single scroll view can cause costly overdraw.
  *
  * `LiquidGlassGovernor` limits guest surface work by:
- * 1. Enforcing a deterministic per-route GPU surface budget (`ultra` = 8, `balanced` = 5,
- *    `performance` = 2, `vector` = 0) with priority admission (`critical` > `high` > `normal` > `low`).
- *    Surfaces exceeding the budget seamlessly render via Zero-Pass Specular Vector Glass!
+ * 1. Enforcing a deterministic per-route GPU surface budget (`ultra` = 16, `balanced` = 8,
+ *    `performance` = 3, `vector` = 0) with priority admission (`critical` > `high` > `normal` > `low`).
+ *    Surfaces exceeding the budget render via Zero-Pass Specular Vector Glass.
+ *    A small critical-only overlay reserve (`TIER_OVERLAY_RESERVE`) admits menus,
+ *    popovers and alerts without evicting the resting surfaces underneath them,
+ *    and granted surfaces keep their slot against equal-priority newcomers, so a
+ *    background card never snaps from refractive glass to a flat fill mid-animation.
  * 2. Running a zero-allocation `Float64Array` ring-buffer frame profiler to track live FPS
  *    and 95th-percentile frame work (`p95WorkMs`), stepping down quality tier automatically
  *    (`autoAdapt`) if active frame cadence dips below `minFps` (default 58 FPS).
@@ -60,9 +64,20 @@ const PRIORITY_RANK: Readonly<Record<LiquidGlassSurfacePriority, number>> = {
 };
 
 export const TIER_GPU_BUDGET: Readonly<Record<LiquidGlassQualityTier, number>> = {
-  ultra: 8,
-  balanced: 5,
-  performance: 2,
+  ultra: 16,
+  balanced: 8,
+  performance: 3,
+  vector: 0,
+};
+
+/**
+ * Extra slots usable only by `critical` leases (transient overlays). They are
+ * consumed before a critical lease may displace a lower-priority surface.
+ */
+export const TIER_OVERLAY_RESERVE: Readonly<Record<LiquidGlassQualityTier, number>> = {
+  ultra: 4,
+  balanced: 2,
+  performance: 1,
   vector: 0,
 };
 
@@ -144,15 +159,33 @@ export function createLiquidGlassGovernor(
   const budget = (): number => resolveBudget(tier());
 
   const rebalance = (): void => {
-    const cap = resolveBudget(untrack(tier));
+    const currentTier = untrack(tier);
+    const cap = resolveBudget(currentTier);
+    // The reserve scales with an explicit `maxGpuSurfaces` override of zero:
+    // a zero budget means no GPU work at all, overlays included.
+    const reserve = cap > 0 ? TIER_OVERLAY_RESERVE[currentTier] : 0;
+    // Priority first; within one priority an incumbent keeps its slot so a
+    // newly mounted peer cannot make a visible surface flip to vector glass.
     const ordered = Array.from(slots.values()).sort(
-      (a, b) => b.rank - a.rank || a.id - b.id,
+      (a, b) =>
+        b.rank - a.rank ||
+        Number(b.grantedNow) - Number(a.grantedNow) ||
+        a.id - b.id,
     );
     batch(() => {
       let grantedCount = 0;
+      let reserveUsed = 0;
+      let baseUsed = 0;
       for (let i = 0; i < ordered.length; i += 1) {
         const slot = ordered[i]!;
-        const shouldGrant = grantedCount < cap;
+        let shouldGrant = false;
+        if (slot.priority === "critical" && reserveUsed < reserve) {
+          reserveUsed += 1;
+          shouldGrant = true;
+        } else if (baseUsed < cap) {
+          baseUsed += 1;
+          shouldGrant = true;
+        }
         if (shouldGrant) grantedCount += 1;
         if (slot.grantedNow !== shouldGrant) {
           slot.grantedNow = shouldGrant;

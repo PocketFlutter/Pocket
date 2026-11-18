@@ -146,13 +146,17 @@ final class _PocketGlassFilterState extends State<_PocketGlassFilter> {
       builder: (context, constraints) {
         // Modal blur samples the scene without the optical glass material's
         // tint, refraction or rim. JS supplies the animation progress.
-        if (plainBlur && opacity == 0) return const SizedBox.expand();
+        // A fully faded surface contributes no pixels; skip the backdrop
+        // pass for both plain blur and optical glass crossfades.
+        if (opacity == 0) return const SizedBox.expand();
         final shader = plainBlur ? null : _shader;
         ui.ImageFilter filter = ui.ImageFilter.blur(
           sigmaX: sigma,
           sigmaY: sigma,
         );
-        if (plainBlur && opacity < 1) {
+        // The optical shader fades itself through `uOpacity`; plain blur and
+        // the frosted glass fallback fade the filtered backdrop instead.
+        if ((plainBlur || shader == null) && opacity < 1) {
           // Fade the filtered backdrop itself. An Opacity ancestor would put
           // BackdropFilter in an isolated layer and change what it samples.
           filter = ui.ImageFilter.compose(
@@ -216,6 +220,7 @@ final class _PocketGlassFilterState extends State<_PocketGlassFilter> {
             deformationOffsetY,
             deformationRadius,
             magnification,
+            opacity,
           ];
           for (var i = 0; i < values.length; i++) {
             shader.setFloat(i + 2, values[i]);
@@ -243,12 +248,14 @@ final class _PocketGlassFilterState extends State<_PocketGlassFilter> {
               borderRadius: rounded,
               color: !plainBlur && shader == null
                   ? materialStrength > 0
-                        ? materialColor.withValues(alpha: materialStrength)
-                        : Colors.white.withValues(alpha: tint)
+                        ? materialColor.withValues(
+                            alpha: materialStrength * opacity,
+                          )
+                        : Colors.white.withValues(alpha: tint * opacity)
                   : null,
               border: !plainBlur && shader == null
                   ? Border.all(
-                      color: Colors.white.withValues(alpha: .4),
+                      color: Colors.white.withValues(alpha: .4 * opacity),
                       width: .75,
                     )
                   : null,

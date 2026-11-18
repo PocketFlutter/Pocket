@@ -1878,7 +1878,7 @@
             "LiquidGlassSwitch",
             "LiquidGlassTone"
           ],
-          "sourceSha256": "ac938defb32e15ecd661e3cd35eb1bece0fe0c6263d22509c12726ff9c6fc5ba",
+          "sourceSha256": "0bac358291d0d409ed449eaa342f36409c732aaa4a75844c0b7da94bb29114ac",
           "reexports": []
         },
         {
@@ -1892,10 +1892,11 @@
             "LiquidGlassQualityTier",
             "LiquidGlassSurfacePriority",
             "TIER_GPU_BUDGET",
+            "TIER_OVERLAY_RESERVE",
             "createGlassFrameProfiler",
             "createLiquidGlassGovernor"
           ],
-          "sourceSha256": "d73f2db2242ab9ff1c192974a5522a0450a5db1d97f0efd13738df20207db5e9",
+          "sourceSha256": "44e56d77ab24b6ac45fdb0ee0db9d5220eeea4f553a27fa34606f959b2d5f05d",
           "reexports": []
         },
         {
@@ -1934,13 +1935,14 @@
             "LiquidGlassMenu",
             "LiquidGlassMenuButton",
             "LiquidGlassMenuEntry",
+            "LiquidGlassMenuHandoff",
             "LiquidGlassMenuItem",
             "LiquidGlassMenuSection",
             "LiquidGlassPopover",
             "measureViewportRect",
             "normalizeMenuSections"
           ],
-          "sourceSha256": "0d0bb1938d129d62c7add1298c13564e59aae79aba8c71e7486a8a9541ca1f1a",
+          "sourceSha256": "d24621b052a73282a90bef48801ac7b4d4022614abc5112f7711e309d1563020",
           "reexports": []
         },
         {
@@ -2002,7 +2004,7 @@
             "useInLiquidGlassGroup",
             "useLiquidGlass"
           ],
-          "sourceSha256": "b1cbe0142c73618855160d7c8dc4a4d61b4cbf6bdd07dc209309d876f5247de4",
+          "sourceSha256": "d94afb8728ab51a89ed1b5aa64cc9973903e19a6c46955b6fe7fc3cbb4bb79b7",
           "reexports": [
             "export type { NodeMirror };"
           ]
@@ -3632,7 +3634,7 @@
             "useWindowSizeClass",
             "wrapTextLines"
           ],
-          "sourceSha256": "9bb35893f17b4044abce111762424326c6de2ec92a9c3dbe4ecb69882ed60388",
+          "sourceSha256": "959d699cc2cf1ec14981d5440315beeb447b02be05e840c806c8f0b9222e0811",
           "reexports": [
             "export { MOBILE_MOTION, motionEaseInOut, motionEaseOut } from \"./motion.ts\";"
           ]

@@ -130,6 +130,7 @@ const {
 } = await import("../src/motion.ts");
 const {
   TIER_GPU_BUDGET,
+  TIER_OVERLAY_RESERVE,
   createLiquidGlassGovernor,
   createGlassFrameProfiler,
 } = await import("../src/governor.ts");
@@ -283,9 +284,15 @@ export function runLiquidGlassPackageTests(): void {
 
   // 5. Prioritized >=60 FPS GPU Governor (`critical > high > normal > low` + `autoAdapt`)
   assert.deepEqual(TIER_GPU_BUDGET, {
-    ultra: 8,
-    balanced: 5,
-    performance: 2,
+    ultra: 16,
+    balanced: 8,
+    performance: 3,
+    vector: 0,
+  });
+  assert.deepEqual(TIER_OVERLAY_RESERVE, {
+    ultra: 4,
+    balanced: 2,
+    performance: 1,
     vector: 0,
   });
 
@@ -295,26 +302,52 @@ export function runLiquidGlassPackageTests(): void {
     minFps: 58,
     autoAdapt: true,
   });
-  assert.equal(gov.budget(), 2);
+  assert.equal(gov.budget(), 3);
 
   const low1 = gov.acquireLease("low");
   const normal1 = gov.acquireLease("normal");
+  const normal2 = gov.acquireLease("normal");
   assert.equal(low1.granted(), true);
   assert.equal(normal1.granted(), true);
-  assert.equal(gov.activeGpuCount(), 2);
+  assert.equal(normal2.granted(), true);
+  assert.equal(gov.activeGpuCount(), 3);
 
+  // Higher priority still outranks a lower-priority incumbent...
+  const normal3 = gov.acquireLease("normal");
+  assert.equal(normal3.granted(), true);
+  assert.equal(low1.granted(), false);
+  // ...but an equal-priority newcomer must not evict a visible peer.
+  const normal4 = gov.acquireLease("normal");
+  assert.equal(normal4.granted(), false, "over-budget equal-priority newcomer waits");
+  assert.equal(normal1.granted(), true);
+  assert.equal(normal2.granted(), true);
+  assert.equal(normal3.granted(), true);
+  normal4.release();
+  normal3.release();
+  assert.equal(low1.granted(), true);
+
+  // A critical overlay first consumes the overlay reserve, so the resting
+  // surfaces underneath keep their refractive leases while it animates.
   const crit1 = gov.acquireLease("critical");
   assert.equal(crit1.granted(), true);
+  assert.equal(low1.granted(), true, "overlay reserve must not evict resting surfaces");
   assert.equal(normal1.granted(), true);
+  assert.equal(gov.activeGpuCount(), 4);
+  assert.equal(gov.totalRegisteredCount(), 4);
+
+  // Once the reserve is exhausted, a second overlay displaces the lowest slot.
+  const crit2 = gov.acquireLease("critical");
+  assert.equal(crit2.granted(), true);
   assert.equal(low1.granted(), false);
-  assert.equal(gov.activeGpuCount(), 2);
-  assert.equal(gov.totalRegisteredCount(), 3);
+  assert.equal(gov.activeGpuCount(), 4);
+  crit2.release();
+  assert.equal(low1.granted(), true);
 
   crit1.release();
   assert.equal(crit1.granted(), false, "released leases must stop reporting admission");
   crit1.release();
   assert.equal(low1.granted(), true);
-  assert.equal(gov.activeGpuCount(), 2);
+  assert.equal(gov.activeGpuCount(), 3);
 
   let t = 1000;
   for (let i = 0; i < 40; i += 1) {
@@ -328,6 +361,7 @@ export function runLiquidGlassPackageTests(): void {
 
   low1.release();
   normal1.release();
+  normal2.release();
   assert.equal(gov.totalRegisteredCount(), 0);
 
   const profile = createGlassFrameProfiler();
@@ -357,7 +391,11 @@ export function runLiquidGlassPackageTests(): void {
   const leases = Array.from({ length: 12 }, (_, idx) =>
     benchGov.acquireLease(idx < 2 ? "critical" : idx < 6 ? "high" : "normal"),
   );
-  assert.equal(benchGov.activeGpuCount(), 8);
+  assert.equal(benchGov.activeGpuCount(), 12);
+  const zeroGov = createLiquidGlassGovernor({ maxGpuSurfaces: 0 });
+  const zeroCritical = zeroGov.acquireLease("critical");
+  assert.equal(zeroCritical.granted(), false, "a zero budget admits no overlay reserve either");
+  zeroCritical.release();
 
   let spring = { value: 0, velocity: 0, settled: false };
   const startMs = performance.now();

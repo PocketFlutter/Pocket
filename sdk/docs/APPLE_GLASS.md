@@ -143,8 +143,10 @@ Capture uses the existing 2D scratch canvas, cropped to the optical sample ROI.
 additional required sampling halo is captured. Magnification contracts sample
 coordinates toward the lens center and needs no extra capture margin.
 
-A bounded LRU retains at most eight projected static output canvases and four
-million pixels (16 MiB of RGBA storage). A moving deformation draws directly
+A bounded LRU retains at most 32 projected static output canvases and twelve
+mebi-pixels (48 MiB of RGBA storage), so dense gallery pages keep their resting
+surfaces while an overlay animates. A crossfading surface (`opacity < 1`) is
+treated like a moving field and is not snapshotted until it settles. A moving deformation draws directly
 from the one GL canvas; it does not copy an additional output bitmap every
 spring frame. Resting or unchanged held fields can reuse their projection.
 The ordered backdrop key includes only paint intersecting the sample ROI;
