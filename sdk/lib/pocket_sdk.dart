@@ -1,0 +1,91 @@
+/// Public Pocket integration API. Application pages and navigation remain JS.
+library;
+
+export 'package:pocket_flutter/pocket_flutter.dart'
+    show
+        PocketViewController,
+        PocketLoadingBuilder,
+        PocketStartupProgress,
+        PocketStartupStage,
+        PocketCompositorSlot,
+        PocketHostSurfaceBuilder,
+        PocketWorkerProgram,
+        PocketWorkerLimits,
+        PocketMemoryLimits,
+        PocketOffloadProvider,
+        PocketBoundedOffloadProvider,
+        PocketOffloadKey,
+        PocketOffloadRequest,
+        PocketOffloadCompletion,
+        PocketOffloadCancellationToken,
+        PocketEvent,
+        PocketLongFrameEvent,
+        PocketPerformanceSample,
+        PocketDuplexMessage,
+        PocketDuplexEvent,
+        PocketDuplexChannel,
+        PocketDuplexEventCallback,
+        PocketDuplexEndpoint,
+        PocketRecordingController,
+        PocketRecording,
+        PocketRecordingEntry,
+        PocketRecordingMetadata,
+        PocketReplayAssets,
+        PocketReplayResult,
+        PocketReplayMismatch,
+        PocketReplayRunner,
+        PocketRecordingReplay,
+        PocketRecordingFormatException,
+        replayPocketRecording;
+export 'package:pocket_services/pocket_services.dart'
+    show
+        PocketPlugin,
+        PocketPluginContext,
+        PocketPluginDescriptor,
+        PocketPluginCapability,
+        PocketPluginMethod,
+        PocketPluginLimits,
+        PocketPermissionRequest,
+        PocketPermissionRequestHandler,
+        PocketUpdateProgress,
+        PocketUpdateStage,
+        PocketPackagePreparationStage,
+        PocketPackagePreparationProgress,
+        PocketCancellationToken,
+        PocketUpdateCancellation,
+        PocketCapabilityKind,
+        PocketCapabilityException,
+        PocketHostStreamContext;
+export 'package:pocket_diagnostics/pocket_diagnostics.dart';
+export 'src/pocket_app.dart' show PocketApp, PocketGuest;
+export 'src/pocket_config.dart';
+export 'src/pocket_distribution.dart'
+    show
+        pocketAppStoreDistribution,
+        pocketRemoteCodeEnabled,
+        pocketSessionRecordingEnabled;
+export 'src/pocket_diagnostics.dart' show PocketHostDiagnostics;
+export 'src/pocket_bundled_application_catalog.dart';
+export 'src/pocket_host_config.dart';
+export 'src/pocket_session.dart'
+    show PocketSession, PocketSessionGenerationMountHook;
+export 'src/performance_history.dart' show PerformanceHistory;
+export 'src/pocket_recordings.dart' show PocketRecordingLibrary;
+export 'src/package_info_plugin.dart' show PackageInfoPlugin;
+export 'src/pocket_system_host.dart'
+    show
+        PocketSystemHost,
+        PocketSystemHostApplication,
+        PocketSystemHostApplicationCatalogLoader,
+        PocketSystemHostApplicationsBuilder,
+        PocketSystemHostAppBuilder,
+        PocketSystemHostSystemUIBuilder,
+        PocketSystemHostApplicationApprover,
+        PocketSystemHostCatalog,
+        PocketSystemHostCatalogLoader,
+        PocketSystemHostSystemUIApprover,
+        PocketSystemHostController,
+        PocketSystemInstanceSnapshot,
+        PocketSystemLaunchRequest,
+        PocketSystemLaunchResult;
+export 'src/pocket_worker.dart';

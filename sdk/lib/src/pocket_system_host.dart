@@ -1,0 +1,4944 @@
+// This SDK host intentionally reuses the externally managed guest surface.
+// ignore_for_file: invalid_use_of_visible_for_testing_member
+
+import 'dart:async';
+import 'dart:collection';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, visibleForTesting;
+import 'package:flutter/gestures.dart' show VelocityTracker, kTouchSlop;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'
+    show LogicalKeyboardKey, SystemNavigator, rootBundle;
+import 'package:path_provider/path_provider.dart';
+import 'package:pocket_flutter/pocket_flutter.dart'
+    show PocketViewController, PocketEvent;
+import 'package:pocket_services/pocket_services.dart';
+import 'package:pocket_flutter/src/pocket_memory_limits.dart';
+import 'package:pocket_flutter/src/pocket_view.dart' show PocketViewCapture;
+
+import 'pocket_app.dart' show PocketGuestSession, PocketGuestSessionState;
+import 'pocket_bundled_application_catalog.dart';
+import 'pocket_config.dart';
+import 'pocket_diagnostics.dart';
+import 'pocket_host_config.dart';
+import 'pocket_image_store.dart';
+import 'pocket_startup_indicator.dart';
+import 'pocket_update_factory.dart';
+
+import 'package:pocket_flutter/src/pocket_compositor.dart';
+
+import 'pocket_platform_data.dart';
+import 'pocket_recordings.dart';
+import 'pocket_distribution.dart';
+import 'pocket_session.dart';
+
+const Duration _platformRequestTimeout = Duration(seconds: 30);
+const Duration _nativeBackRequestTimeout = Duration(milliseconds: 600);
+const String _nativeBackRequestEvent = 'platform.back.request';
+const String _nativeBackResponseEvent = 'platform.back.response';
+const String _nativeBackGestureEvent = 'platform.back.gesture';
+const String _nativeBackGestureResponseEvent = 'platform.back.gesture.response';
+const String _nativeBackGestureReadyEvent = 'platform.back.gesture.ready';
+
+String _runtimeFailureCode(Object error, {String fallback = 'runtime_failed'}) {
+  if (error is PocketCapabilityException) return error.code;
+  final message = error.toString().toLowerCase();
+  if (message.contains('memory_limits.') ||
+      message.contains('out of memory') ||
+      message.contains('allocation failed')) {
+    return 'memory_limit_exceeded';
+  }
+  return fallback;
+}
+
+const int _maxPendingPlatformRequests = 64;
+const String _systemInstanceId = 'system-ui';
+const String _compositorSurfacesCapability = 'ui.compositor-surfaces';
+const String _platformImagesCaptureCapability = 'platform.images.capture';
+const String _platformImagesReadCapability = 'platform.images.read';
+const String _platformImagesListCapability = 'platform.images.list';
+const String _platformImagesRemoveCapability = 'platform.images.remove';
+const int _maxPlatformImageWidth = PocketImageStore.maxWidth;
+const int _maxPlatformImageHeight = PocketImageStore.maxHeight;
+const int _maxPlatformImagePixels =
+    _maxPlatformImageWidth * _maxPlatformImageHeight;
+const List<String> _platformImageCapabilities = <String>[
+  _platformImagesCaptureCapability,
+  _platformImagesReadCapability,
+  _platformImagesListCapability,
+  _platformImagesRemoveCapability,
+];
+final RegExp _storageNamespacePattern = RegExp(
+  r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$',
+);
+
+const List<String> _platformRequestCapabilities = <String>[
+  'platform.apps.list',
+  'platform.apps.open',
+  'platform.apps.cancel',
+  'platform.apps.return',
+  'platform.apps.prewarm',
+  'platform.apps.update.status',
+  'platform.apps.update.prepare',
+  'platform.storage.get',
+  'platform.storage.set',
+  'platform.storage.remove',
+  'platform.storage.keys',
+  'platform.storage.batch',
+  'platform.messages.send',
+  'platform.messages.receive',
+];
+
+const List<String> _systemRequestCapabilities = <String>[
+  'system.container.close',
+  'system.runtime.configure',
+  'system.runtime.create',
+  'system.runtime.prepareOpen',
+  'system.runtime.appUpdateStatus',
+  'system.runtime.appUpdatePrepare',
+  'system.runtime.awaitFirstFrame',
+  'system.runtime.destroy',
+  'system.runtime.post',
+  'system.runtime.respond',
+  'system.storage.get',
+  'system.storage.set',
+  'system.storage.remove',
+  'system.storage.keys',
+  'system.storage.batch',
+];
+
+typedef PocketSystemHostCatalogLoader =
+    Future<PocketSystemHostCatalog?> Function(String? rootPayloadSha256);
+
+typedef PocketSystemHostSystemUIApprover =
+    PocketAppConfig Function(PocketAppConfig config);
+
+typedef PocketSystemHostApplicationApprover =
+    PocketAppConfig Function(String appId, PocketAppConfig config);
+
+typedef PocketSystemHostApplicationCatalogLoader =
+    Future<PocketBundledApplicationCatalog> Function();
+
+typedef PocketSystemHostSystemUIBuilder =
+    PocketAppConfig Function(PocketBundledApplicationCatalog catalog);
+
+typedef PocketSystemHostApplicationsBuilder =
+    Map<String, PocketAppConfig> Function(
+      PocketBundledApplicationCatalog catalog,
+    );
+
+typedef PocketSystemHostAppBuilder =
+    Widget Function(BuildContext context, Widget child);
+
+/// A verified, native-approved catalog selected for one signed root payload.
+/// The loader must return a catalog whose [rootPayloadSha256] matches the
+/// mounted root generation before the host installs its child registry.
+final class PocketSystemHostCatalog {
+  const PocketSystemHostCatalog({
+    required this.systemUI,
+    required this.applications,
+    required this.rootPayloadSha256,
+  });
+
+  final PocketAppConfig systemUI;
+  final Map<String, PocketAppConfig> applications;
+  final String? rootPayloadSha256;
+}
+
+/// Host-originated launch intent delivered to the trusted SystemUI.
+@immutable
+final class PocketSystemLaunchRequest {
+  const PocketSystemLaunchRequest({
+    required this.appId,
+    this.arguments,
+    this.presentationStyle,
+    this.closeContainerWhenEmpty = true,
+  });
+
+  final String appId;
+  final Object? arguments;
+  final String? presentationStyle;
+  final bool closeContainerWhenEmpty;
+
+  Map<String, dynamic> toEventParams() => <String, dynamic>{
+    'appId': appId,
+    if (arguments != null) 'arguments': arguments,
+    if (presentationStyle != null) 'presentationStyle': presentationStyle,
+    'closeContainerWhenEmpty': closeContainerWhenEmpty,
+  };
+
+  void validate({
+    String? systemUIAppId,
+    Map<String, PocketAppConfig>? applications,
+  }) {
+    if (appId.trim().isEmpty) {
+      throw ArgumentError.value(
+        appId,
+        'appId',
+        'must be a non-empty application ID',
+      );
+    }
+    if (systemUIAppId != null && appId == systemUIAppId) {
+      throw ArgumentError.value(
+        appId,
+        'appId',
+        'must target a child application, not SystemUI',
+      );
+    }
+    if (applications != null && !applications.containsKey(appId)) {
+      throw ArgumentError.value(
+        appId,
+        'appId',
+        'must be present in the trusted applications map',
+      );
+    }
+    if (presentationStyle != null && presentationStyle!.trim().isEmpty) {
+      throw ArgumentError.value(
+        presentationStyle,
+        'presentationStyle',
+        'must be a non-empty string when provided',
+      );
+    }
+    if (arguments != null) {
+      final String encoded;
+      try {
+        encoded = jsonEncode(arguments);
+      } on Object catch (error) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'must be JSON-encodable: $error',
+        );
+      }
+      if (utf8.encode(encoded).length > 65536) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'encoded launch arguments must not exceed 65536 UTF-8 bytes',
+        );
+      }
+    }
+  }
+}
+
+/// Optional launch result delivered when the SystemUI closes the host container.
+@immutable
+final class PocketSystemLaunchResult {
+  const PocketSystemLaunchResult({
+    required this.appId,
+    required this.cancelled,
+    this.value,
+    this.reason,
+  });
+
+  final String appId;
+  final bool cancelled;
+  final Object? value;
+  final String? reason;
+}
+
+final class _SystemHostLoadResult<T> {
+  const _SystemHostLoadResult(this.value, this.error);
+
+  final T? value;
+  final Object? error;
+}
+
+final class _SystemHostBootstrap {
+  const _SystemHostBootstrap({required this.host, required this.catalog});
+
+  final _SystemHostLoadResult<PocketHostConfig?> host;
+  final _SystemHostLoadResult<PocketBundledApplicationCatalog> catalog;
+}
+
+final class _BundledCatalogAssetSource {
+  _BundledCatalogAssetSource({
+    required this.catalogAsset,
+    required this.assetPrefix,
+    required this.firstCompositorHandle,
+    required this.lastCompositorHandle,
+    required this.bundle,
+    required Set<String> reservedAppIds,
+  }) : reservedAppIds = Set<String>.unmodifiable(reservedAppIds);
+
+  final String catalogAsset;
+  final String assetPrefix;
+  final int firstCompositorHandle;
+  final int lastCompositorHandle;
+  final AssetBundle? bundle;
+  final Set<String> reservedAppIds;
+
+  Future<PocketBundledApplicationCatalog> load() =>
+      PocketBundledApplicationCatalog.loadFromBundle(
+        catalogAsset,
+        bundle: bundle,
+        assetPrefix: assetPrefix,
+        firstCompositorHandle: firstCompositorHandle,
+        lastCompositorHandle: lastCompositorHandle,
+        reservedAppIds: reservedAppIds,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is _BundledCatalogAssetSource &&
+      catalogAsset == other.catalogAsset &&
+      assetPrefix == other.assetPrefix &&
+      firstCompositorHandle == other.firstCompositorHandle &&
+      lastCompositorHandle == other.lastCompositorHandle &&
+      identical(bundle, other.bundle) &&
+      reservedAppIds.length == other.reservedAppIds.length &&
+      reservedAppIds.containsAll(other.reservedAppIds);
+
+  @override
+  int get hashCode => Object.hash(
+    catalogAsset,
+    assetPrefix,
+    firstCompositorHandle,
+    lastCompositorHandle,
+    identityHashCode(bundle),
+    Object.hashAll(reservedAppIds.toList()..sort()),
+  );
+}
+
+/// Generic Material app shell for a trusted Pocket System host.
+///
+/// Consumers supply their own catalog loader and native config builders. This
+/// widget owns only bootstrap/error presentation and the local-versus-signed
+/// host selection; it introduces no application IDs or capability policy.
+final class PocketSystemHostApplication extends StatefulWidget {
+  const PocketSystemHostApplication({
+    super.key,
+    required this.loadBundledApplications,
+    required this.buildSystemUI,
+    required this.buildApplications,
+    this.loadHostConfig,
+    this.hostConfigUrl,
+    this.initialHostConfig,
+    this.initialHostConfigError,
+    this.initialBundledApplications,
+    this.initialCatalogError,
+    this.controller,
+    this.recordings,
+    this.diagnostics,
+    this.approveSystemUI,
+    this.approveApplication,
+    this.appBuilder,
+    this.onExit,
+    this.onCloseWithResult,
+    this.initialLaunch,
+    this.active = true,
+    this.showPerformanceOverlay = false,
+    this.backgroundColor = const Color(0xFF000000),
+    this.nativeEdgeExitEnabled = true,
+  }) : _bundledCatalogAssetSource = null;
+
+  /// Builds the standard shell configuration from one embedded app catalog.
+  /// Native grants and host-selected input namespaces remain caller-owned.
+  factory PocketSystemHostApplication.fromBundledAssets({
+    Key? key,
+    required String catalogAsset,
+    required String assetPrefix,
+    required int firstCompositorHandle,
+    required int lastCompositorHandle,
+    Set<String> reservedAppIds = const <String>{},
+    AssetBundle? bundle,
+    required PocketAppConfig systemUI,
+    Map<String, PocketAppConfig> nativePolicies =
+        const <String, PocketAppConfig>{},
+    Set<String> keyboardInputAppIdPrefixes = const <String>{},
+    Future<PocketHostConfig?> Function()? loadHostConfig,
+    Uri? hostConfigUrl,
+    PocketHostConfig? initialHostConfig,
+    Object? initialHostConfigError,
+    PocketBundledApplicationCatalog? initialBundledApplications,
+    Object? initialCatalogError,
+    PocketSystemHostController? controller,
+    PocketRecordingLibrary? recordings,
+    PocketHostDiagnostics? diagnostics,
+    PocketSystemHostSystemUIApprover? approveSystemUI,
+    PocketSystemHostApplicationApprover? approveApplication,
+    PocketSystemHostAppBuilder? appBuilder,
+    VoidCallback? onExit,
+    ValueChanged<PocketSystemLaunchResult?>? onCloseWithResult,
+    PocketSystemLaunchRequest? initialLaunch,
+    bool active = true,
+    bool showPerformanceOverlay = false,
+    Color backgroundColor = const Color(0xFF000000),
+    bool nativeEdgeExitEnabled = true,
+  }) {
+    final source = _BundledCatalogAssetSource(
+      catalogAsset: catalogAsset,
+      assetPrefix: assetPrefix,
+      firstCompositorHandle: firstCompositorHandle,
+      lastCompositorHandle: lastCompositorHandle,
+      bundle: bundle,
+      reservedAppIds: <String>{...reservedAppIds, systemUI.appId},
+    );
+    final inputPrefixes = Set<String>.unmodifiable(keyboardInputAppIdPrefixes);
+    final policies = Map<String, PocketAppConfig>.unmodifiable(nativePolicies);
+    PocketAppConfig buildSystemUI(PocketBundledApplicationCatalog catalog) =>
+        systemUI.copyWith(
+          compositorSurfaces: <String, int>{
+            ...systemUI.compositorSurfaces,
+            ...catalog.compositorSurfaces,
+          },
+        );
+    Map<String, PocketAppConfig> buildApplications(
+      PocketBundledApplicationCatalog catalog,
+    ) {
+      final configured = catalog.applicationsWithNativePolicies(
+        nativePolicies: policies,
+      );
+      if (inputPrefixes.isEmpty) return configured;
+      return Map<String, PocketAppConfig>.unmodifiable({
+        for (final entry in configured.entries)
+          entry.key: inputPrefixes.any(entry.key.startsWith)
+              ? entry.value.copyWith(keyboardInputEnabled: true)
+              : entry.value,
+      });
+    }
+
+    return PocketSystemHostApplication._fromBundledAssets(
+      key: key,
+      source: source,
+      buildSystemUI: buildSystemUI,
+      buildApplications: buildApplications,
+      loadHostConfig: loadHostConfig,
+      hostConfigUrl: hostConfigUrl,
+      initialHostConfig: initialHostConfig,
+      initialHostConfigError: initialHostConfigError,
+      initialBundledApplications: initialBundledApplications,
+      initialCatalogError: initialCatalogError,
+      controller: controller,
+      recordings: recordings,
+      diagnostics: diagnostics,
+      approveSystemUI: approveSystemUI,
+      approveApplication: approveApplication,
+      appBuilder: appBuilder,
+      onExit: onExit,
+      onCloseWithResult: onCloseWithResult,
+      initialLaunch: initialLaunch,
+      active: active,
+      showPerformanceOverlay: showPerformanceOverlay,
+      backgroundColor: backgroundColor,
+      nativeEdgeExitEnabled: nativeEdgeExitEnabled,
+    );
+  }
+
+  PocketSystemHostApplication._fromBundledAssets({
+    Key? key,
+    required _BundledCatalogAssetSource source,
+    required PocketSystemHostSystemUIBuilder buildSystemUI,
+    required PocketSystemHostApplicationsBuilder buildApplications,
+    Future<PocketHostConfig?> Function()? loadHostConfig,
+    Uri? hostConfigUrl,
+    PocketHostConfig? initialHostConfig,
+    Object? initialHostConfigError,
+    PocketBundledApplicationCatalog? initialBundledApplications,
+    Object? initialCatalogError,
+    PocketSystemHostController? controller,
+    PocketRecordingLibrary? recordings,
+    PocketHostDiagnostics? diagnostics,
+    PocketSystemHostSystemUIApprover? approveSystemUI,
+    PocketSystemHostApplicationApprover? approveApplication,
+    PocketSystemHostAppBuilder? appBuilder,
+    VoidCallback? onExit,
+    ValueChanged<PocketSystemLaunchResult?>? onCloseWithResult,
+    PocketSystemLaunchRequest? initialLaunch,
+    bool active = true,
+    bool showPerformanceOverlay = false,
+    Color backgroundColor = const Color(0xFF000000),
+    bool nativeEdgeExitEnabled = true,
+  }) : loadHostConfig = loadHostConfig,
+       hostConfigUrl = hostConfigUrl,
+       loadBundledApplications = source.load,
+       buildSystemUI = buildSystemUI,
+       buildApplications = buildApplications,
+       initialHostConfig = initialHostConfig,
+       initialHostConfigError = initialHostConfigError,
+       initialBundledApplications = initialBundledApplications,
+       initialCatalogError = initialCatalogError,
+       controller = controller,
+       recordings = recordings,
+       diagnostics = diagnostics,
+       approveSystemUI = approveSystemUI,
+       approveApplication = approveApplication,
+       appBuilder = appBuilder,
+       onExit = onExit,
+       onCloseWithResult = onCloseWithResult,
+       initialLaunch = initialLaunch,
+       active = active,
+       showPerformanceOverlay = showPerformanceOverlay,
+       backgroundColor = backgroundColor,
+       nativeEdgeExitEnabled = nativeEdgeExitEnabled,
+       _bundledCatalogAssetSource = source,
+       super(key: key);
+
+  final Future<PocketHostConfig?> Function()? loadHostConfig;
+
+  /// Runtime URL for a Debug/container route. The SDK owns this request and
+  /// cancels it on exit. A custom [loadHostConfig] takes precedence and owns
+  /// its own IO cancellation.
+  final Uri? hostConfigUrl;
+  final PocketSystemHostApplicationCatalogLoader loadBundledApplications;
+  final PocketAppConfig Function(PocketBundledApplicationCatalog catalog)
+  buildSystemUI;
+  final PocketSystemHostApplicationsBuilder buildApplications;
+  final PocketHostConfig? initialHostConfig;
+  final Object? initialHostConfigError;
+  final PocketBundledApplicationCatalog? initialBundledApplications;
+  final Object? initialCatalogError;
+  final PocketSystemHostController? controller;
+  final PocketRecordingLibrary? recordings;
+  final PocketHostDiagnostics? diagnostics;
+  final PocketSystemHostSystemUIApprover? approveSystemUI;
+  final PocketSystemHostApplicationApprover? approveApplication;
+  final PocketSystemHostAppBuilder? appBuilder;
+
+  /// Leaves the remote container immediately. Cleanup continues in the
+  /// background. Without a callback, an enclosing route is popped, or the
+  /// bundled host is restored when this application is the root route.
+  final VoidCallback? onExit;
+  final ValueChanged<PocketSystemLaunchResult?>? onCloseWithResult;
+  final PocketSystemLaunchRequest? initialLaunch;
+  final bool active;
+  final bool showPerformanceOverlay;
+  final Color backgroundColor;
+
+  /// Whether an unhandled native edge swipe may leave the Pocket container.
+  /// Guest-managed page gestures remain enabled when this is false.
+  final bool nativeEdgeExitEnabled;
+
+  final _BundledCatalogAssetSource? _bundledCatalogAssetSource;
+
+  @override
+  State<PocketSystemHostApplication> createState() =>
+      _PocketSystemHostApplicationState();
+}
+
+final class _PocketSystemHostApplicationState
+    extends State<PocketSystemHostApplication> {
+  final PocketSystemHostController _backController =
+      PocketSystemHostController();
+
+  Future<void> _handleBack() async {
+    final handled = await (widget.controller ?? _backController).requestBack();
+    if (mounted && !handled) _exitRemote();
+  }
+
+  late Future<_SystemHostBootstrap> _bootstrap;
+  PocketHostLoadProgress? _hostConfigProgress;
+  PocketCancellationToken _hostConfigProgressOwner = PocketCancellationToken();
+  bool _remoteDismissed = false;
+  bool _remoteHostConfigLoading = false;
+
+  bool get _hasRemoteHostConfigEntry =>
+      widget.loadHostConfig != null ||
+      widget.hostConfigUrl != null ||
+      const String.fromEnvironment('POCKET_HOST_CONFIG_URL').isNotEmpty;
+
+  bool get _hasSdkRemoteHostConfigEntry =>
+      widget.loadHostConfig == null &&
+      (widget.hostConfigUrl != null ||
+          const String.fromEnvironment('POCKET_HOST_CONFIG_URL').isNotEmpty);
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap = _loadBootstrap();
+  }
+
+  @override
+  void didUpdateWidget(covariant PocketSystemHostApplication oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final catalogSourceChanged =
+        oldWidget._bundledCatalogAssetSource != null ||
+            widget._bundledCatalogAssetSource != null
+        ? oldWidget._bundledCatalogAssetSource !=
+              widget._bundledCatalogAssetSource
+        : oldWidget.loadBundledApplications != widget.loadBundledApplications;
+    if (oldWidget.loadHostConfig != widget.loadHostConfig ||
+        oldWidget.hostConfigUrl != widget.hostConfigUrl ||
+        catalogSourceChanged ||
+        oldWidget.initialHostConfig != widget.initialHostConfig ||
+        oldWidget.initialHostConfigError != widget.initialHostConfigError ||
+        oldWidget.initialBundledApplications !=
+            widget.initialBundledApplications ||
+        oldWidget.initialCatalogError != widget.initialCatalogError) {
+      _hostConfigProgress = null;
+      _remoteDismissed = false;
+      _bootstrap = _loadBootstrap();
+    }
+  }
+
+  Future<_SystemHostBootstrap> _loadBootstrap({bool localOnly = false}) async {
+    _hostConfigProgressOwner.cancel();
+    final progressOwner = PocketCancellationToken();
+    _hostConfigProgressOwner = progressOwner;
+    _remoteHostConfigLoading =
+        !localOnly &&
+        widget.initialHostConfig == null &&
+        widget.initialHostConfigError == null &&
+        _hasSdkRemoteHostConfigEntry;
+    final hostFuture = localOnly
+        ? Future.value(
+            const _SystemHostLoadResult<PocketHostConfig?>(null, null),
+          )
+        : _loadHostConfig(progressOwner);
+    final catalogFuture = _loadCatalog();
+    final host = await hostFuture;
+    if (mounted &&
+        identical(_hostConfigProgressOwner, progressOwner) &&
+        (_remoteHostConfigLoading || _hostConfigProgress != null)) {
+      setState(() {
+        _remoteHostConfigLoading = false;
+        _hostConfigProgress = null;
+      });
+    }
+    final catalog = await catalogFuture;
+    return _SystemHostBootstrap(host: host, catalog: catalog);
+  }
+
+  void _onHostConfigProgress(
+    PocketCancellationToken progressOwner,
+    PocketHostLoadProgress progress,
+  ) {
+    if (!mounted ||
+        progressOwner.isCancelled ||
+        !identical(_hostConfigProgressOwner, progressOwner)) {
+      return;
+    }
+    setState(() => _hostConfigProgress = progress);
+  }
+
+  Future<_SystemHostLoadResult<PocketHostConfig?>> _loadHostConfig(
+    PocketCancellationToken progressOwner,
+  ) async {
+    if (widget.initialHostConfigError != null) {
+      return _SystemHostLoadResult<PocketHostConfig?>(
+        null,
+        widget.initialHostConfigError,
+      );
+    }
+    if (widget.initialHostConfig != null) {
+      return _SystemHostLoadResult<PocketHostConfig?>(
+        widget.initialHostConfig,
+        null,
+      );
+    }
+    try {
+      final url = widget.hostConfigUrl;
+      final config = widget.loadHostConfig != null
+          ? await widget.loadHostConfig!()
+          : url != null
+          ? await PocketHostConfig.load(
+              url,
+              cancellation: progressOwner,
+              onProgress: (progress) =>
+                  _onHostConfigProgress(progressOwner, progress),
+            )
+          : await PocketHostConfig.loadFromEnvironment(
+              cancellation: progressOwner,
+              onProgress: (progress) =>
+                  _onHostConfigProgress(progressOwner, progress),
+            );
+      progressOwner.throwIfCancelled();
+      return _SystemHostLoadResult<PocketHostConfig?>(config, null);
+    } catch (error) {
+      return _SystemHostLoadResult<PocketHostConfig?>(null, error);
+    }
+  }
+
+  void _exitRemote() {
+    if (_remoteDismissed) return;
+    _remoteDismissed = true;
+    _hostConfigProgressOwner.cancel();
+    final navigator = Navigator.maybeOf(context);
+    final hasOuterExit =
+        widget.onExit != null || (navigator?.canPop() ?? false);
+    setState(() {
+      _hostConfigProgress = null;
+      if (!hasOuterExit) _bootstrap = _loadBootstrap(localOnly: true);
+    });
+    // Navigation must never await network cancellation, verification or
+    // native plugin teardown. Removing the remote host disposes its session.
+    if (widget.onExit case final exit?) {
+      exit();
+    } else if (navigator?.canPop() ?? false) {
+      navigator!.pop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _hostConfigProgressOwner.cancel();
+    _backController.dispose();
+    super.dispose();
+  }
+
+  Future<_SystemHostLoadResult<PocketBundledApplicationCatalog>>
+  _loadCatalog() async {
+    if (widget.initialCatalogError != null) {
+      return _SystemHostLoadResult<PocketBundledApplicationCatalog>(
+        null,
+        widget.initialCatalogError,
+      );
+    }
+    if (widget.initialBundledApplications != null) {
+      return _SystemHostLoadResult<PocketBundledApplicationCatalog>(
+        widget.initialBundledApplications,
+        null,
+      );
+    }
+    try {
+      return _SystemHostLoadResult<PocketBundledApplicationCatalog>(
+        await widget.loadBundledApplications(),
+        null,
+      );
+    } catch (error) {
+      return _SystemHostLoadResult<PocketBundledApplicationCatalog>(
+        null,
+        error,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveActive = widget.active && TickerMode.of(context);
+    // PocketSystemHostApplication creates an inner MaterialApp. Capture the
+    // enclosing route before building that nested Navigator so edge preview
+    // animates the route that actually owns the container.
+    final nativeExitRoute = ModalRoute.of(context);
+    // A popped route can remain mounted during its exit animation. Drop the
+    // remote surface now, rather than waiting for that animation to dispose it.
+    if (_remoteDismissed && _hostConfigProgressOwner.isCancelled) {
+      return const SizedBox.shrink();
+    }
+    return FutureBuilder<_SystemHostBootstrap>(
+      future: _bootstrap,
+      builder: (context, snapshot) {
+        final bootstrap = snapshot.connectionState == ConnectionState.done
+            ? snapshot.data
+            : null;
+        final catalog =
+            bootstrap?.catalog.value ?? PocketBundledApplicationCatalog.empty;
+        final error = bootstrap?.host.error ?? bootstrap?.catalog.error;
+        final remoteEntry =
+            _hasRemoteHostConfigEntry ||
+            widget.initialHostConfig != null ||
+            widget.initialHostConfigError != null;
+        final canExit =
+            !_remoteDismissed &&
+            (bootstrap?.host.value != null ||
+                (bootstrap == null && remoteEntry) ||
+                (error != null && remoteEntry));
+        var systemHostMounted = false;
+        Widget loadingError(Object cause) => Center(
+          child: SelectableText(
+            'Pocket 宿主配置加载失败：$cause',
+            style: TextStyle(
+              color: widget.backgroundColor.computeLuminance() > 0.179
+                  ? Colors.black
+                  : Colors.white,
+            ),
+          ),
+        );
+        Widget body;
+        if (bootstrap == null) {
+          if (_remoteHostConfigLoading) {
+            final background = widget.backgroundColor;
+            body = PocketStartupIndicator(
+              stage: _hostConfigProgress?.stage ?? 'initializing',
+              downloadedBytes: _hostConfigProgress?.downloadedBytes,
+              totalBytes: _hostConfigProgress?.totalBytes,
+              foregroundColor: background.computeLuminance() > 0.179
+                  ? Colors.black
+                  : Colors.white,
+            );
+          } else {
+            body = const SizedBox.expand();
+          }
+        } else if (error != null) {
+          body = loadingError(error);
+        } else {
+          try {
+            final systemUI = widget.buildSystemUI(catalog);
+            final applications = widget.buildApplications(catalog);
+            final remote = bootstrap.host.value;
+            body = remote == null
+                ? PocketSystemHost(
+                    key: ObjectKey(_hostConfigProgressOwner),
+                    systemUI: systemUI,
+                    applications: applications,
+                    controller: widget.controller ?? _backController,
+                    recordings: widget.recordings,
+                    diagnostics: widget.diagnostics,
+                    onClose: widget.onExit,
+                    onCloseWithResult: widget.onCloseWithResult,
+                    initialLaunch: widget.initialLaunch,
+                    active: effectiveActive,
+                    nativeEdgeExitEnabled: widget.nativeEdgeExitEnabled,
+                    nativeExitRoute: nativeExitRoute,
+                  )
+                : PocketSystemHost.fromHostConfig(
+                    key: ObjectKey(_hostConfigProgressOwner),
+                    config: remote,
+                    controller: widget.controller ?? _backController,
+                    recordings: widget.recordings,
+                    diagnostics: widget.diagnostics,
+                    onClose: _exitRemote,
+                    onCloseWithResult: widget.onCloseWithResult,
+                    initialLaunch: widget.initialLaunch,
+                    active: effectiveActive,
+                    nativeEdgeExitEnabled: widget.nativeEdgeExitEnabled,
+                    nativeExitRoute: nativeExitRoute,
+                    approveSystemUI:
+                        widget.approveSystemUI ??
+                        ((app) => app.withNativePolicy(
+                          applications[app.appId] ?? systemUI,
+                        )),
+                    approveApplication:
+                        widget.approveApplication ??
+                        ((id, app) => app.withNativePolicy(
+                          applications[id] ?? PocketAppConfig(appId: id),
+                        )),
+                  );
+            systemHostMounted = true;
+          } catch (cause) {
+            body = loadingError(cause);
+          }
+        }
+        final scaffold = Scaffold(
+          appBar: canExit
+              ? AppBar(
+                  backgroundColor: widget.backgroundColor,
+                  foregroundColor:
+                      widget.backgroundColor.computeLuminance() > 0.179
+                      ? Colors.black
+                      : Colors.white,
+                  leading: IconButton(
+                    key: const ValueKey('pocket-container-exit'),
+                    tooltip: '返回退出',
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: _exitRemote,
+                  ),
+                  title: const Text('远程容器'),
+                )
+              : null,
+          backgroundColor: bootstrap == null || error != null
+              ? widget.backgroundColor
+              : null,
+          body: body,
+        );
+        final homeContent = !systemHostMounted && canExit
+            ? _PocketBackInputBoundary(
+                controller: widget.controller ?? _backController,
+                enabled: effectiveActive,
+                nativeEdgeExitEnabled: widget.nativeEdgeExitEnabled,
+                nativeExitRoute: nativeExitRoute,
+                onUnhandled: _exitRemote,
+                child: scaffold,
+              )
+            : scaffold;
+        // This application owns a nested Navigator. Guard its enclosing route
+        // too, so Cupertino's outer edge recognizer cannot remove the entire
+        // container before the guest's back-input listener receives the drag.
+        return PopScope(
+          canPop: !effectiveActive || !canExit,
+          onPopInvokedWithResult: (didPop, _) {
+            if (effectiveActive && !didPop && canExit) {
+              if (systemHostMounted) {
+                unawaited(_handleBack());
+              } else {
+                _exitRemote();
+              }
+            }
+          },
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            showPerformanceOverlay: widget.showPerformanceOverlay,
+            builder: (context, child) =>
+                widget.appBuilder?.call(
+                  context,
+                  child ?? const SizedBox.shrink(),
+                ) ??
+                child ??
+                const SizedBox.shrink(),
+            home: CallbackShortcuts(
+              bindings: {
+                if (effectiveActive && canExit)
+                  const SingleActivator(LogicalKeyboardKey.escape): _exitRemote,
+              },
+              child: Focus(
+                autofocus: true,
+                child: PopScope(
+                  canPop: !effectiveActive || systemHostMounted || !canExit,
+                  onPopInvokedWithResult: (didPop, _) {
+                    // The mounted PocketSystemHost boundary owns guest Back.
+                    if (effectiveActive &&
+                        !didPop &&
+                        canExit &&
+                        !systemHostMounted) {
+                      _exitRemote();
+                    }
+                  },
+                  child: homeContent,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+final class _PendingSystemHostCatalog {
+  const _PendingSystemHostCatalog({
+    required this.generation,
+    required this.catalog,
+  });
+
+  final int generation;
+  final PocketSystemHostCatalog catalog;
+}
+
+/// Flutter's thin runtime surface for a trusted SystemUI and guest apps.
+///
+/// The consuming application owns the root MaterialApp. SystemUI emits child
+/// surfaces into its ordinary DrawOps tree; this widget resolves those slots
+/// to independent resident Pocket sessions.
+final class PocketSystemHost extends StatefulWidget {
+  const PocketSystemHost({
+    super.key,
+    required this.systemUI,
+    required this.applications,
+    this.maxInstances = 8,
+    this.controller,
+    this.recordings,
+    this.diagnostics,
+    this.catalogLoader,
+    this.onClose,
+    this.onCloseWithResult,
+    this.initialLaunch,
+    this.active = true,
+    this.cacheFirst = false,
+    this.backgroundColor = const Color(0xFF000000),
+    this.nativeEdgeExitEnabled = true,
+    this.nativeExitRoute,
+    @visibleForTesting this.platformUpdateRequestTimeoutForTesting,
+  });
+
+  @visibleForTesting
+  final Duration? platformUpdateRequestTimeoutForTesting;
+
+  /// Construct the host from one bootstrap document.
+  ///
+  /// [PocketHostConfig.load] is intentionally performed before `runApp` (or
+  /// by a host-owned loading screen). Once constructed, this is the exact same
+  /// SystemHost and signed `downloadOnOpen` flow as the explicit constructor;
+  /// the factory only removes duplicate child URL/configuration inputs.
+  factory PocketSystemHost.fromHostConfig({
+    Key? key,
+    required PocketHostConfig config,
+    int maxInstances = 8,
+    PocketSystemHostController? controller,
+    PocketRecordingLibrary? recordings,
+    PocketHostDiagnostics? diagnostics,
+    PocketSystemHostSystemUIApprover? approveSystemUI,
+    PocketSystemHostApplicationApprover? approveApplication,
+    Future<PocketHostConfig?> Function(String? rootPayloadSha256)?
+    reloadHostConfig,
+    VoidCallback? onClose,
+    ValueChanged<PocketSystemLaunchResult?>? onCloseWithResult,
+    PocketSystemLaunchRequest? initialLaunch,
+    bool active = true,
+    bool cacheFirst = false,
+    Color backgroundColor = const Color(0xFF000000),
+    bool nativeEdgeExitEnabled = true,
+    TransitionRoute<dynamic>? nativeExitRoute,
+  }) {
+    PocketAppConfig approveRoot(PocketAppConfig value) =>
+        approveSystemUI?.call(value) ?? value;
+    PocketAppConfig approveChild(String appId, PocketAppConfig value) =>
+        approveApplication?.call(appId, value) ?? value;
+
+    PocketSystemHostCatalog approvedCatalog(PocketHostConfig value) {
+      final applications = <String, PocketAppConfig>{};
+      for (final entry in value.applications.entries) {
+        applications[entry.key] = approveChild(entry.key, entry.value);
+      }
+      return PocketSystemHostCatalog(
+        systemUI: approveRoot(value.systemUI),
+        applications: Map<String, PocketAppConfig>.unmodifiable(applications),
+        rootPayloadSha256: value.rootPayloadSha256,
+      );
+    }
+
+    final initial = approvedCatalog(config);
+    final allowedHttpHosts = Set<String>.unmodifiable(
+      config.systemUI.updates?.debugHttpHosts ?? const <String>[],
+    );
+    final reload = config.catalog.isEmpty
+        ? null
+        : (String? rootPayloadSha256) async {
+            // Reuse the verified descriptor before invoking any custom IO.
+            // Direct host documents have no immutable catalog to refresh.
+            if (rootPayloadSha256 != null &&
+                config.rootPayloadSha256?.toLowerCase() ==
+                    rootPayloadSha256.toLowerCase()) {
+              return config;
+            }
+            if (reloadHostConfig != null) {
+              return reloadHostConfig(rootPayloadSha256);
+            }
+            return PocketHostConfig.load(
+              config.source,
+              allowInsecureHttpHosts: allowedHttpHosts,
+              requiredRootPayloadSha256: rootPayloadSha256,
+              cacheFirst: cacheFirst,
+            );
+          };
+    final loader = reload == null
+        ? null
+        : (String? rootPayloadSha256) async {
+            final next = await reload(rootPayloadSha256);
+            if (next == null) return null;
+            return approvedCatalog(next);
+          };
+    return PocketSystemHost(
+      key: key,
+      systemUI: initial.systemUI,
+      applications: initial.applications,
+      maxInstances: maxInstances,
+      controller: controller,
+      recordings: recordings,
+      diagnostics: diagnostics,
+      catalogLoader: loader,
+      onClose: onClose,
+      onCloseWithResult: onCloseWithResult,
+      initialLaunch: initialLaunch,
+      active: active,
+      cacheFirst: cacheFirst,
+      backgroundColor: backgroundColor,
+      nativeEdgeExitEnabled: nativeEdgeExitEnabled,
+      nativeExitRoute: nativeExitRoute,
+    );
+  }
+
+  /// The trusted host-selected SystemUI package and authorization boundary.
+  final PocketAppConfig systemUI;
+
+  /// Host-approved package configurations indexed by their exact app ID.
+  /// Guest input can select an app ID from this map, never an asset path.
+  final Map<String, PocketAppConfig> applications;
+
+  /// Maximum live sessions, including the fixed SystemUI session.
+  /// This is a hard resource bound; it never evicts an instance.
+  final int maxInstances;
+
+  /// Optional fact-only view of the runtime instances for host integrations.
+  final PocketSystemHostController? controller;
+
+  /// Explicit bounded debug recording for every native guest generation.
+  /// Only SystemUI receives the optional export/replay diagnostic controls.
+  final PocketRecordingLibrary? recordings;
+
+  /// Persistent crash and session boundary diagnostics collector shared across
+  /// SystemUI and child runtimes. When omitted, the host automatically owns a
+  /// default app-support diagnostics instance.
+  final PocketHostDiagnostics? diagnostics;
+
+  /// Optional signed-root catalog reload boundary. The loader runs at the
+  /// native session's pre-mount boundary and is also reused by the
+  /// SystemUI `runtime.configure` gate. It must return a catalog for the
+  /// supplied root payload hash; the host installs its child registry
+  /// atomically only after that match is verified.
+  final PocketSystemHostCatalogLoader? catalogLoader;
+
+  /// Optional host callback invoked when the trusted SystemUI requests
+  /// closure of the current host container via `system.container.close`.
+  final VoidCallback? onClose;
+
+  /// Optional structured launch result callback invoked when the trusted
+  /// SystemUI closes the host container or an unhandled Back leaves it.
+  final ValueChanged<PocketSystemLaunchResult?>? onCloseWithResult;
+
+  /// Optional initial launch request injected into SystemUI at t=0 before its
+  /// first frame.
+  final PocketSystemLaunchRequest? initialLaunch;
+
+  /// Whether this host surface is active in its embedding Flutter route/tab.
+  /// When false (or when an ancestor [TickerMode] is disabled), both SystemUI
+  /// and child sessions are suspended (`foreground == false`) and back input
+  /// interception is disabled.
+  final bool active;
+
+  /// Reuse a healthy, verified SystemUI package before checking remote updates.
+  /// Cache misses still await the signed download; updates are staged for the
+  /// next open without hiding the current cached UI.
+  final bool cacheFirst;
+
+  /// Opaque root fill for the SystemUI surface, including startup and error
+  /// states. Child compositor sessions stay transparent and reveal this fill.
+  final Color backgroundColor;
+
+  /// Whether an unhandled native edge swipe may leave this host container.
+  /// Pocket guest back gestures are still delivered when this is false.
+  final bool nativeEdgeExitEnabled;
+
+  /// Optional enclosing route to preview when this host is below a nested
+  /// Navigator. Usually supplied automatically by PocketSystemHostApplication.
+  final TransitionRoute<dynamic>? nativeExitRoute;
+
+  @override
+  State<PocketSystemHost> createState() => _PocketSystemHostState();
+}
+
+/// Read-only runtime facts for embedding apps and integration tests.
+///
+/// It deliberately exposes no app selection, stack, result-token, or eviction
+/// policy. Those decisions belong to SystemUI JavaScript.
+final class PocketSystemHostController extends ChangeNotifier {
+  PocketSystemHostController();
+
+  _PocketSystemHostState? _owner;
+  List<PocketSystemInstanceSnapshot> _instances =
+      const <PocketSystemInstanceSnapshot>[];
+
+  List<PocketSystemInstanceSnapshot> get instances => _instances;
+
+  /// Ask the active guest to handle one native back action. Returns false when
+  /// no guest accepts the request so the embedding route can apply its fallback.
+  Future<bool> requestBack() =>
+      _owner?._requestBack() ?? Future<bool>.value(false);
+
+  /// Sends a host-originated launch intent to the resident SystemUI.
+  /// Returns true when the attached SystemUI controller accepted the event.
+  bool requestLaunchApp(PocketSystemLaunchRequest request) {
+    request.validate();
+    return _owner?._requestLaunchApp(request) ?? false;
+  }
+
+  Future<bool> _beginBackGesture(Map<String, dynamic> input) =>
+      _owner?._beginBackGesture(input) ?? Future<bool>.value(false);
+
+  void _updateBackGesture(Map<String, dynamic> input) =>
+      _owner?._updateBackGesture(input);
+
+  void _attach(_PocketSystemHostState owner) {
+    if (_owner != null && !identical(_owner, owner)) {
+      throw StateError('PocketSystemHostController is already attached');
+    }
+    _owner = owner;
+  }
+
+  void _detach(_PocketSystemHostState owner) {
+    if (!identical(_owner, owner)) return;
+    _owner = null;
+    _publish(const <PocketSystemInstanceSnapshot>[]);
+  }
+
+  void _publish(
+    List<PocketSystemInstanceSnapshot> next, {
+    bool sessionChanged = false,
+  }) {
+    // The session reference also exposes live failure/update facts. Preserve
+    // its notifications even when the immutable snapshot fields are equal.
+    if (!sessionChanged && _instances.length == next.length) {
+      var unchanged = true;
+      for (var index = 0; index < next.length; index++) {
+        if (!_instances[index]._sameFacts(next[index])) {
+          unchanged = false;
+          break;
+        }
+      }
+      if (unchanged) return;
+    }
+    _instances = List<PocketSystemInstanceSnapshot>.unmodifiable(next);
+    notifyListeners();
+  }
+}
+
+/// An immutable snapshot of one native Pocket session.
+@immutable
+final class PocketSystemInstanceSnapshot {
+  const PocketSystemInstanceSnapshot({
+    required this.instanceId,
+    required this.appId,
+    required this.session,
+    required this.firstFrame,
+    required this.generation,
+    required this.isSystemUI,
+    required this.ready,
+    required this.firstFrameReady,
+    required this.foreground,
+    required this.isPresented,
+    required this.compositorFocused,
+  });
+
+  final String instanceId;
+  final String appId;
+  final PocketSession session;
+  final Future<void>? firstFrame;
+  final int generation;
+  final bool isSystemUI;
+  final bool ready;
+  final bool firstFrameReady;
+  final bool foreground;
+
+  /// Whether this runtime has a compositor presentation. The resident
+  /// SystemUI is the compositor root and remains presented beneath child
+  /// surfaces; child runtimes are presented only while their visible slot has
+  /// a non-empty clip. This is not a topmost/foreground indicator.
+  final bool isPresented;
+  final bool compositorFocused;
+
+  bool _sameFacts(PocketSystemInstanceSnapshot other) =>
+      instanceId == other.instanceId &&
+      appId == other.appId &&
+      identical(session, other.session) &&
+      identical(firstFrame, other.firstFrame) &&
+      generation == other.generation &&
+      isSystemUI == other.isSystemUI &&
+      ready == other.ready &&
+      firstFrameReady == other.firstFrameReady &&
+      foreground == other.foreground &&
+      isPresented == other.isPresented &&
+      compositorFocused == other.compositorFocused;
+}
+
+final class _PocketSystemHostState extends State<PocketSystemHost>
+    with WidgetsBindingObserver {
+  late PocketSystemHostController _controller;
+  late final PocketRecordingLibrary? _recordings;
+  late final PocketHostDiagnostics? _diagnostics;
+  bool _ownsDiagnostics = false;
+  late final _RuntimeInstance _systemUIInstance;
+  final LinkedHashMap<String, _RuntimeInstance> _applications =
+      LinkedHashMap<String, _RuntimeInstance>();
+  final Map<String, PocketAppConfig> _trustedApplications =
+      <String, PocketAppConfig>{};
+  final Map<int, String> _surfaceAppIds = <int, String>{};
+  final Map<String, int> _surfaceHandles = <String, int>{};
+  final Map<String, _PendingPlatformRequest> _pendingRequests =
+      <String, _PendingPlatformRequest>{};
+  final Set<PocketCancellationToken> _miniAppUpdateCancellations =
+      <PocketCancellationToken>{};
+  Future<bool>? _activeBackRequest;
+  _NativeBackGesture? _backGesture;
+
+  Future<void>? _configurationFuture;
+  int? _configurationFutureGeneration;
+  String? _configurationSignature;
+  Future<void>? _catalogFuture;
+  int? _catalogFutureGeneration;
+  int? _catalogGeneration;
+  _PendingSystemHostCatalog? _pendingCatalog;
+  bool _catalogReady = true;
+  Future<PocketPlatformData>? _platformDataFuture;
+  PocketPlatformData? _platformData;
+  Future<PocketImageStore>? _imageStoreFuture;
+  PocketImageStore? _imageStore;
+  AppLifecycleState? _lifecycleState;
+  bool _hostActive = true;
+  bool _containerCloseDelivered = false;
+  int _nextInstanceId = 0;
+  int _nextRequestId = 0;
+  int _nextBackRequestId = 0;
+  int _systemUIGeneration = 0;
+  bool _disposed = false;
+
+  bool get _lifecycleResumed =>
+      _lifecycleState == null || _lifecycleState == AppLifecycleState.resumed;
+
+  // A signed root can advance its PocketSession generation while the bridge
+  // is still being reconfigured, before the generation listener commits the
+  // verified catalog. Do not let a transient rebuild create a PocketView with
+  // the previous compositor map; native registration is strictly pre-load.
+  bool get _catalogMatchesMountedGeneration =>
+      widget.catalogLoader == null ||
+      (_catalogReady &&
+          _catalogGeneration != null &&
+          _catalogGeneration == _systemUIInstance.session.generation);
+
+  Future<bool> _requestBack() {
+    final gesture = _backGesture;
+    if (gesture != null) {
+      _updateBackGesture(<String, dynamic>{
+        ...gesture.start,
+        'phase': 'cancel',
+      });
+    }
+    final active = _activeBackRequest;
+    if (active != null) return active;
+    late final Future<bool> tracked;
+    tracked = _dispatchBackRequest().whenComplete(() {
+      if (identical(_activeBackRequest, tracked)) _activeBackRequest = null;
+    });
+    _activeBackRequest = tracked;
+    return tracked;
+  }
+
+  // Only input ownership and guest generations live here. JS decides whether
+  // a page can be dragged and whether its final position commits navigation.
+  Future<bool> _beginBackGesture(Map<String, dynamic> input) async {
+    final previous = _backGesture;
+    if (previous != null) {
+      _updateBackGesture(<String, dynamic>{
+        ...previous.start,
+        'phase': 'cancel',
+      });
+    }
+    if (_disposed || !_catalogMatchesMountedGeneration) return false;
+    final focused = _focusedBackInputRuntime;
+    final gesture = _NativeBackGesture(Map<String, dynamic>.of(input), focused);
+    _backGesture = gesture;
+    final targets = <_RuntimeInstance>[
+      // A guest with no registered interactive handler cannot answer start.
+      // Skip the timeout and let SystemUI preview its existing app-call stack.
+      if (focused != null &&
+          focused.backGestureGeneration == focused.session.generation)
+        focused,
+      _systemUIInstance,
+    ];
+    for (final target in targets) {
+      final generation = target.session.generation;
+      final handled = await _sendBackGestureStart(target, input);
+      if (!identical(_backGesture, gesture)) {
+        if (handled &&
+            _isCurrent(target) &&
+            target.session.generation == generation) {
+          target.session.controller.send(
+            method: _nativeBackGestureEvent,
+            params: <String, dynamic>{...input, 'phase': 'cancel'},
+          );
+        }
+        return true; // A superseded contact must never close a newer page.
+      }
+      if (!_isCurrent(target) ||
+          target.session.generation != generation ||
+          !_backInputFocusMatches(gesture) ||
+          _disposed) {
+        if (handled &&
+            _isCurrent(target) &&
+            target.session.generation == generation) {
+          target.session.controller.send(
+            method: _nativeBackGestureEvent,
+            params: <String, dynamic>{...input, 'phase': 'cancel'},
+          );
+        }
+        _backGesture = null;
+        return true;
+      }
+      // Also retires a start whose response arrived after the time budget.
+      if (!handled && _lifecycleResumed && _hostActive) {
+        target.session.controller.send(
+          method: _nativeBackGestureEvent,
+          params: <String, dynamic>{...input, 'phase': 'cancel'},
+        );
+        continue;
+      }
+      if (!handled) {
+        continue;
+      }
+      gesture.target = target;
+      gesture.generation = generation;
+      final latest = gesture.latest;
+      if (latest != null) _updateBackGesture(latest);
+      return true;
+    }
+    if (identical(_backGesture, gesture)) _backGesture = null;
+    return !_lifecycleResumed || gesture.latest?['phase'] == 'cancel';
+  }
+
+  void _updateBackGesture(Map<String, dynamic> input) {
+    final gesture = _backGesture;
+    if (gesture == null || input['gestureId'] != gesture.start['gestureId'])
+      return;
+    input = <String, dynamic>{...gesture.latest ?? gesture.start, ...input};
+    gesture.latest = input;
+    final target = gesture.target;
+    if (target == null) {
+      return; // Coalesce movement while start is negotiated.
+    }
+    if (_disposed ||
+        !_isCurrent(target) ||
+        target.session.generation != gesture.generation ||
+        !_backInputFocusMatches(gesture)) {
+      if (!_disposed &&
+          _isCurrent(target) &&
+          target.session.generation == gesture.generation) {
+        target.session.controller.send(
+          method: _nativeBackGestureEvent,
+          params: <String, dynamic>{...input, 'phase': 'cancel'},
+        );
+      }
+      _backGesture = null;
+      return;
+    }
+    target.session.controller.send(
+      method: _nativeBackGestureEvent,
+      params: input,
+    );
+    if (input['phase'] == 'end' || input['phase'] == 'cancel')
+      _backGesture = null;
+  }
+
+  void _watchBackGestureRegistration(_RuntimeInstance instance) {
+    instance.session.addEventListener((event) {
+      if (event.method != _nativeBackGestureReadyEvent ||
+          event.params['ready'] is! bool ||
+          !_isCurrent(instance))
+        return;
+      instance.backGestureGeneration = event.params['ready'] == true
+          ? instance.session.generation
+          : null;
+    });
+  }
+
+  _RuntimeInstance? get _focusedBackInputRuntime {
+    for (final instance in _applications.values) {
+      if (instance.compositorVisible && instance.compositorFocused)
+        return instance;
+    }
+    return null;
+  }
+
+  bool _backInputFocusMatches(_NativeBackGesture gesture) {
+    final focused = _focusedBackInputRuntime;
+    return identical(focused, gesture.focused) &&
+        (focused == null ||
+            focused.session.generation == gesture.focusedGeneration);
+  }
+
+  Future<bool> _sendBackGestureStart(
+    _RuntimeInstance target,
+    Map<String, dynamic> input,
+  ) async {
+    if (!_isCurrent(target) ||
+        target.closing ||
+        !target.firstFrameReady ||
+        target.session.failure != null ||
+        !target.session.controller.isReady)
+      return false;
+    final session = target.session;
+    final generation = session.generation;
+    final response = Completer<bool>();
+    void listener(PocketEvent event) {
+      if (event.method == _nativeBackGestureResponseEvent &&
+          event.params['gestureId'] == input['gestureId'] &&
+          event.params['handled'] is bool &&
+          session.generation == generation &&
+          _isCurrent(target) &&
+          !response.isCompleted) {
+        response.complete(event.params['handled'] as bool);
+      }
+    }
+
+    session.addEventListener(listener);
+    try {
+      if (!session.controller.send(
+        method: _nativeBackGestureEvent,
+        params: input,
+      ))
+        return false;
+      return await response.future.timeout(
+        _nativeBackRequestTimeout,
+        onTimeout: () {
+          return false;
+        },
+      );
+    } catch (error) {
+      return false;
+    } finally {
+      session.removeEventListener(listener);
+    }
+  }
+
+  Future<bool> _dispatchBackRequest() async {
+    if (_disposed || !_catalogMatchesMountedGeneration) {
+      debugPrint(
+        '[PocketBack] dispatch skipped: disposed=$_disposed '
+        'catalogReady=$_catalogMatchesMountedGeneration',
+      );
+      return false;
+    }
+    final systemGeneration = _systemUIInstance.session.generation;
+    _RuntimeInstance? focusedChild;
+    for (final instance in _applications.values) {
+      if (instance.compositorVisible && instance.compositorFocused) {
+        focusedChild = instance;
+      }
+    }
+    if (focusedChild != null) {
+      final childGeneration = focusedChild.session.generation;
+      if (await _sendBackRequest(focusedChild)) return true;
+      if (!_isCurrent(focusedChild) ||
+          focusedChild.session.generation != childGeneration) {
+        return true;
+      }
+      if (_disposed ||
+          !mounted ||
+          !_isCurrent(_systemUIInstance) ||
+          _systemUIInstance.session.generation != systemGeneration) {
+        return true;
+      }
+    }
+    // SystemUI owns the app invocation stack and is the fallback when the
+    // focused child has no in-page route to pop.
+    final systemHandled = await _sendBackRequest(_systemUIInstance);
+    if (_disposed ||
+        !mounted ||
+        !_isCurrent(_systemUIInstance) ||
+        _systemUIInstance.session.generation != systemGeneration) {
+      return true;
+    }
+    return systemHandled;
+  }
+
+  Future<bool> _sendBackRequest(_RuntimeInstance target) async {
+    if (!_isCurrent(target) ||
+        target.closing ||
+        !target.firstFrameReady ||
+        target.session.failure != null ||
+        !target.session.controller.isReady) {
+      debugPrint(
+        '[PocketBack] target skipped: id=${target.instanceId} '
+        'appId=${target.appId} firstFrameReady=${target.firstFrameReady} '
+        'ready=${target.session.controller.isReady}',
+      );
+      return false;
+    }
+    final session = target.session;
+    final generation = session.generation;
+    final requestId = 'native-back-${++_nextBackRequestId}';
+    final response = Completer<bool>();
+    late final PocketSessionEventListener listener;
+    listener = (event) {
+      if (event.method != _nativeBackResponseEvent ||
+          event.params['requestId'] != requestId ||
+          event.params['handled'] is! bool ||
+          session.generation != generation ||
+          !_isCurrent(target)) {
+        return;
+      }
+      if (!response.isCompleted) {
+        response.complete(event.params['handled'] as bool);
+      }
+    };
+    session.addEventListener(listener);
+    try {
+      final accepted = session.controller.send(
+        method: _nativeBackRequestEvent,
+        params: <String, dynamic>{'requestId': requestId},
+      );
+      if (!accepted) {
+        debugPrint(
+          '[PocketBack] send rejected: id=${target.instanceId} '
+          'requestId=$requestId',
+        );
+        return false;
+      }
+      var timedOut = false;
+      final handled = await response.future.timeout(
+        _nativeBackRequestTimeout,
+        onTimeout: () {
+          timedOut = true;
+          return false;
+        },
+      );
+      debugPrint(
+        '[PocketBack] reply: id=${target.instanceId} appId=${target.appId} '
+        'requestId=$requestId handled=$handled timeout=$timedOut',
+      );
+      return handled &&
+          !_disposed &&
+          mounted &&
+          session.generation == generation &&
+          _isCurrent(target);
+    } finally {
+      session.removeEventListener(listener);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _validateHostConfiguration(widget.systemUI, widget.applications);
+    _catalogReady = widget.catalogLoader == null;
+    _trustedApplications.addAll(widget.applications);
+    _surfaceAppIds.addEntries(
+      widget.systemUI.compositorSurfaces.entries.map(
+        (entry) => MapEntry<int, String>(entry.value, entry.key),
+      ),
+    );
+    _surfaceHandles.addAll(widget.systemUI.compositorSurfaces);
+    _lifecycleState = WidgetsBinding.instance.lifecycleState;
+    WidgetsBinding.instance.addObserver(this);
+
+    _controller = widget.controller ?? PocketSystemHostController();
+    _controller._attach(this);
+
+    if (widget.recordings != null) requirePocketSessionRecording();
+    _recordings = pocketSessionRecordingEnabled
+        ? widget.recordings ??
+              (widget.systemUI.recordingFactory == null
+                  ? PocketRecordingLibrary()
+                  : null)
+        : null;
+
+    final explicitDiagnostics =
+        widget.diagnostics ?? widget.systemUI.diagnostics;
+    _ownsDiagnostics = explicitDiagnostics == null;
+    _diagnostics = explicitDiagnostics ?? PocketHostDiagnostics();
+    if (_diagnostics case final diagnostics?
+        when diagnostics.captureFlutterErrors ||
+            diagnostics.capturePlatformDispatcherErrors) {
+      unawaited(
+        diagnostics
+            .ensureCollector()
+            .then<void>((_) {})
+            .catchError((Object _) {}),
+      );
+    }
+
+    final recordedRootConfig =
+        _recordings?.attach(widget.systemUI, controls: true) ?? widget.systemUI;
+    final rootConfig =
+        _diagnostics?.attach(recordedRootConfig, controls: true) ??
+        recordedRootConfig;
+    final systemConfig = _ensureSystemCaps(rootConfig)
+        .withPlugins(<PocketPluginFactory>[
+          ...rootConfig.pluginFactories,
+          (_) => _SystemRuntimePlugin(
+            this,
+            widget.systemUI.appId,
+            _systemUIInstance.session.generation,
+          ),
+          (_) => _PlatformProxyPlugin(
+            this,
+            _systemUIInstance,
+            _systemUIInstance.session.generation,
+          ),
+        ]);
+    _systemUIInstance = _RuntimeInstance(
+      instanceId: _systemInstanceId,
+      appId: widget.systemUI.appId,
+      config: systemConfig,
+      isSystemUI: true,
+      ownerGeneration: 0,
+    );
+    _systemUIInstance.session = PocketSession(
+      config: systemConfig,
+      beforeGenerationMount: widget.catalogLoader == null
+          ? null
+          : _prepareSystemUIGeneration,
+    );
+    _watchBackGestureRegistration(_systemUIInstance);
+    _systemUIGeneration = _systemUIInstance.session.generation;
+    // A fixed-index bootstrap may advance between Flutter loading the host
+    // document and the signed root mount. Dynamic hosts must therefore resolve
+    // the catalog once more at generation 0 against the actually mounted
+    // payload. Explicit constructor users keep their historical static map.
+    _catalogGeneration = widget.catalogLoader == null
+        ? _systemUIGeneration
+        : null;
+    _systemUIInstance.observedGeneration = _systemUIGeneration;
+    _systemUIInstance.firstFrame = Completer<void>();
+    unawaited(_systemUIInstance.firstFrame!.future.catchError((Object _) {}));
+    if (widget.initialLaunch case final launch?) {
+      _systemUIInstance.session.setInitialEvents(<Map<String, dynamic>>[
+        <String, dynamic>{
+          'method': 'system.host.launch',
+          'params': launch.toEventParams(),
+        },
+      ]);
+      if (_trustedApplications[launch.appId] case final targetConfig?
+          when targetConfig.updates?.configured == true) {
+        unawaited(_prewarmInitialLaunchPackage(targetConfig));
+      }
+    }
+    _systemUIInstance.session.addListener(_systemUIChanged);
+    unawaited(
+      _systemUIInstance.session
+          .initialize(cacheFirst: widget.cacheFirst)
+          .catchError((Object error) {
+            _systemUIInstance.startupError = error;
+            final firstFrame = _systemUIInstance.firstFrame;
+            if (firstFrame != null && !firstFrame.isCompleted) {
+              firstFrame.completeError(error);
+            }
+            _publishFacts(sessionChanged: true);
+          }),
+    );
+    _publishFacts();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncHostActivity(widget.active && TickerMode.of(context));
+  }
+
+  @override
+  void didUpdateWidget(covariant PocketSystemHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _validateHostConfiguration(widget.systemUI, widget.applications);
+    if (oldWidget.systemUI != widget.systemUI ||
+        !_sameApplications(oldWidget.applications, widget.applications) ||
+        oldWidget.maxInstances != widget.maxInstances) {
+      throw StateError(
+        'PocketSystemHost trust configuration is fixed for its mounted '
+        'lifetime; remount it with a new key to replace it',
+      );
+    }
+    if (!identical(oldWidget.recordings, widget.recordings)) {
+      throw StateError(
+        'Remount PocketSystemHost to change its recording library',
+      );
+    }
+    if (!identical(oldWidget.diagnostics, widget.diagnostics)) {
+      throw StateError(
+        'Remount PocketSystemHost to change its diagnostics collector',
+      );
+    }
+    if (!identical(oldWidget.controller, widget.controller)) {
+      _controller._detach(this);
+      _controller = widget.controller ?? PocketSystemHostController();
+      _controller._attach(this);
+      _publishFacts();
+    }
+    _syncHostActivity(widget.active && TickerMode.of(context));
+  }
+
+  void _syncHostActivity(bool nextActive) {
+    if (_hostActive == nextActive) return;
+    _hostActive = nextActive;
+    final gesture = _backGesture;
+    if (!nextActive && gesture != null) {
+      _updateBackGesture(<String, dynamic>{
+        ...gesture.start,
+        'phase': 'cancel',
+      });
+    }
+    _applyForeground(_systemUIInstance);
+    for (final instance in _applications.values) {
+      _applyForeground(instance);
+    }
+    _publishFacts();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
+    final gesture = _backGesture;
+    if (state != AppLifecycleState.resumed && gesture != null) {
+      _updateBackGesture(<String, dynamic>{
+        'gestureId': gesture.start['gestureId'],
+        'phase': 'cancel',
+      });
+    }
+    _applyForeground(_systemUIInstance);
+    for (final instance in _applications.values) {
+      _applyForeground(instance);
+    }
+    _publishFacts();
+  }
+
+  @override
+  void didHaveMemoryPressure() {
+    final root = _systemUIInstance;
+    if (!_isCurrent(root) ||
+        !root.firstFrameReady ||
+        root.session.failure != null ||
+        !_catalogMatchesMountedGeneration) {
+      return;
+    }
+    root.session.controller.send(
+      method: 'system.runtime.memoryPressure',
+      params: <String, dynamic>{'generation': root.session.generation},
+    );
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    for (final cancellation in _miniAppUpdateCancellations.toList()) {
+      cancellation.cancel();
+    }
+    _miniAppUpdateCancellations.clear();
+    WidgetsBinding.instance.removeObserver(this);
+    _systemUIInstance.session.removeListener(_systemUIChanged);
+    for (final pending in _pendingRequests.values.toList(growable: false)) {
+      _finishPendingError(
+        pending,
+        const PocketCapabilityException('host_closed', 'System host closed'),
+      );
+    }
+    _pendingRequests.clear();
+    for (final instance in _applications.values.toList(growable: false)) {
+      _closeInstance(instance, removeFromTree: false);
+    }
+    unawaited(_systemUIInstance.session.close().catchError((Object _) {}));
+    if (_ownsDiagnostics) {
+      unawaited(
+        _diagnostics?.close().catchError((Object _) {}) ?? Future<void>.value(),
+      );
+    } else {
+      unawaited(
+        _diagnostics?.flush().catchError((Object _) {}) ?? Future<void>.value(),
+      );
+    }
+    final dataFuture = _platformDataFuture;
+    if (dataFuture != null) {
+      unawaited(
+        dataFuture.then<void>((data) => data.close()).catchError((Object _) {}),
+      );
+    }
+    final imageFuture = _imageStoreFuture;
+    if (imageFuture != null) {
+      unawaited(
+        imageFuture
+            .then<void>((store) => store.close())
+            .catchError((Object _) {}),
+      );
+    }
+    _controller._detach(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+    if (!_catalogMatchesMountedGeneration) {
+      final session = _systemUIInstance.session;
+      final error = _systemUIInstance.startupError ?? session.failure;
+      final foreground = widget.backgroundColor.computeLuminance() > 0.179
+          ? Colors.black
+          : Colors.white;
+      if (error != null) {
+        body = ColoredBox(
+          color: widget.backgroundColor,
+          child: Center(
+            child: SelectableText(
+              'Pocket 启动失败：$error',
+              style: TextStyle(color: foreground),
+            ),
+          ),
+        );
+      } else if (!session.remotePackagePreparationInProgress &&
+          session.transferProgress == null) {
+        body = ColoredBox(
+          color: widget.backgroundColor,
+          child: const SizedBox.expand(),
+        );
+      } else {
+        final progress = session.transferProgress;
+        body = ColoredBox(
+          color: widget.backgroundColor,
+          child: PocketStartupIndicator(
+            stage: session.stage,
+            preparationProgress: progress?.preparationProgress,
+            downloadedBytes: progress?.downloadedBytes,
+            totalBytes: progress?.totalBytes,
+            foregroundColor: foreground,
+          ),
+        );
+      }
+    } else {
+      body = PocketGuestSession(
+        config: _systemUIInstance.config,
+        session: _systemUIInstance.session,
+        backgroundColor: widget.backgroundColor,
+        onFirstFrame: () => _onFirstFrame(_systemUIInstance),
+        hostSurfaceBuilder: _buildCompositorSurface,
+        hostSurfaceResidents: <int>{
+          for (final instance in _applications.values)
+            if (_surfaceHandles.containsKey(instance.appId))
+              _surfaceHandles[instance.appId]!,
+        },
+      );
+    }
+    return _PocketBackInputBoundary(
+      controller: _controller,
+      enabled: _hostActive,
+      nativeEdgeExitEnabled: widget.nativeEdgeExitEnabled,
+      nativeExitRoute: widget.nativeExitRoute ?? ModalRoute.of(context),
+      onUnhandled: () {
+        if (widget.onClose != null || widget.onCloseWithResult != null) {
+          _deliverContainerClose(
+            result: widget.initialLaunch == null
+                ? null
+                : PocketSystemLaunchResult(
+                    appId: widget.initialLaunch!.appId,
+                    cancelled: true,
+                    reason: 'back',
+                  ),
+          );
+          return;
+        }
+        final navigator = Navigator.maybeOf(context);
+        if (navigator?.canPop() ?? false) {
+          navigator!.pop();
+        } else {
+          unawaited(SystemNavigator.pop());
+        }
+      },
+      child: body,
+    );
+  }
+
+  Widget? _buildCompositorSurface(PocketCompositorSlot slot) {
+    if (!_catalogMatchesMountedGeneration) return null;
+    final appId = _surfaceAppIds[slot.surfaceHandle];
+    if (appId == null) return null;
+    _RuntimeInstance? instance;
+    for (final candidate in _applications.values) {
+      if (candidate.appId == appId) {
+        instance = candidate;
+        break;
+      }
+    }
+    if (instance == null || !_isCurrent(instance)) return null;
+    _observeCompositorSlot(instance, slot);
+    return PocketGuestSession(
+      key: instance.guestKey,
+      config: instance.config,
+      session: instance.session,
+      inputEnabled: slot.visible && slot.focused,
+      enableSceneCapture: instance.session.hasConfiguredCapability(
+        _platformImagesCaptureCapability,
+      ),
+      geometryRevision: instance.compositorGeometryRevision,
+      compositorBounds: slot.bounds,
+      compositorViewport: slot.logicalViewport,
+      preserveCompositorDisplayGeometry: slot.preserveDisplayGeometry,
+      onFirstFrame: () => _onFirstFrame(instance!),
+    );
+  }
+
+  void _observeCompositorSlot(
+    _RuntimeInstance instance,
+    PocketCompositorSlot slot,
+  ) {
+    final visible = slot.visible && !slot.visibleClip.isEmpty;
+    final focused = visible && slot.focused;
+    final geometryChanged =
+        instance.compositorBounds != slot.bounds ||
+        instance.compositorVisibleClip != slot.visibleClip ||
+        instance.compositorLogicalViewport != slot.logicalViewport;
+    if (!geometryChanged &&
+        instance.compositorVisible == visible &&
+        instance.compositorFocused == focused) {
+      return;
+    }
+    final activityChanged =
+        instance.compositorVisible != visible ||
+        instance.compositorFocused != focused;
+    if (geometryChanged) {
+      // A child PocketView's RenderBox can move without changing constraints.
+      // Carry the physical slot and logical parent viewport so fullscreen
+      // compositor children can keep environmental display facts anchored
+      // while their bounds animate. Smaller embedded surfaces continue using
+      // their physical intersection.
+      instance.compositorGeometryRevision++;
+      instance.compositorBounds = slot.bounds;
+      instance.compositorVisibleClip = slot.visibleClip;
+      instance.compositorLogicalViewport = slot.logicalViewport;
+    }
+    instance.compositorVisible = visible;
+    instance.compositorFocused = focused;
+    if (visible) {
+      _checkFirstVisibleFrame(instance);
+    }
+    final generation = instance.session.generation;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isCurrent(instance) ||
+          instance.session.generation != generation ||
+          instance.compositorVisible != visible ||
+          instance.compositorFocused != focused) {
+        return;
+      }
+      if (activityChanged) _applyForeground(instance);
+      _publishFacts();
+    });
+  }
+
+  _RuntimeInstance? _instanceFor(String instanceId) {
+    if (instanceId == _systemInstanceId) return _systemUIInstance;
+    return _applications[instanceId];
+  }
+
+  void _validateHostConfiguration(
+    PocketAppConfig systemUI,
+    Map<String, PocketAppConfig> applications,
+  ) {
+    if (widget.maxInstances < 1) {
+      throw ArgumentError.value(
+        widget.maxInstances,
+        'maxInstances',
+        'must be at least one for the resident SystemUI instance',
+      );
+    }
+    systemUI.validate();
+    if (applications.containsKey(systemUI.appId)) {
+      throw ArgumentError.value(
+        systemUI.appId,
+        'applications',
+        'must not contain the trusted SystemUI app ID',
+      );
+    }
+    for (final appId in systemUI.compositorSurfaces.keys) {
+      if (!applications.containsKey(appId)) {
+        throw ArgumentError.value(
+          appId,
+          'systemUI.compositorSurfaces',
+          'registry keys must be trusted child app IDs',
+        );
+      }
+    }
+    for (final entry in applications.entries) {
+      entry.value.validate();
+      if (entry.key != entry.value.appId) {
+        throw ArgumentError.value(
+          entry.key,
+          'applications',
+          'map keys must match each PocketAppConfig.appId',
+        );
+      }
+      if (entry.value.compositorSurfaces.isNotEmpty) {
+        throw ArgumentError.value(
+          entry.key,
+          'applications',
+          'only the trusted SystemUI config may supply the compositor registry',
+        );
+      }
+      if (entry.value.additionalCapabilities.contains(
+        _compositorSurfacesCapability,
+      )) {
+        throw ArgumentError.value(
+          entry.key,
+          'applications',
+          'only the trusted SystemUI receives the compositor capability',
+        );
+      }
+    }
+    if (widget.initialLaunch case final launch?) {
+      launch.validate(
+        systemUIAppId: systemUI.appId,
+        applications: widget.catalogLoader == null ? applications : null,
+      );
+    }
+  }
+
+  bool _sameApplications(
+    Map<String, PocketAppConfig> left,
+    Map<String, PocketAppConfig> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (final entry in left.entries) {
+      if (right[entry.key] != entry.value) return false;
+    }
+    return true;
+  }
+
+  Future<Object?> _handleSystemCapability(
+    String trustedSystemAppId,
+    int ownerGeneration,
+    String capability,
+    Map<String, dynamic> params,
+  ) async {
+    if (_systemUIInstance.session.failure != null) {
+      throw const PocketCapabilityException(
+        'system_ui_failed',
+        'SystemUI owner has failed',
+      );
+    }
+    if (_disposed ||
+        trustedSystemAppId != widget.systemUI.appId ||
+        _systemUIInstance.session.appId != trustedSystemAppId ||
+        _systemUIInstance.instanceId != _systemInstanceId ||
+        ownerGeneration != _systemUIGeneration) {
+      throw const PocketCapabilityException(
+        'system_context_denied',
+        'System capability is restricted to the trusted SystemUI instance',
+      );
+    }
+    return await switch (capability) {
+      'system.container.close' => _closeContainer(params, ownerGeneration),
+      'system.runtime.configure' => _configure(params, ownerGeneration),
+      'system.runtime.create' => _create(params, ownerGeneration),
+      'system.runtime.prepareOpen' => _prepareOpen(params, ownerGeneration),
+      'system.runtime.appUpdateStatus' => _appUpdateStatus(
+        params,
+        ownerGeneration,
+      ),
+      'system.runtime.appUpdatePrepare' => _appUpdatePrepare(
+        params,
+        ownerGeneration,
+      ),
+      'system.runtime.awaitFirstFrame' => _awaitFirstFrame(params),
+      'system.runtime.destroy' => _destroy(params),
+      'system.runtime.post' => _post(params),
+      'system.runtime.respond' => _respond(params),
+      'system.storage.get' => _storageGet(params),
+      'system.storage.set' => _storageSet(params),
+      'system.storage.remove' => _storageRemove(params),
+      'system.storage.keys' => _storageKeys(params),
+      'system.storage.batch' => _storageBatch(params),
+      _ => throw const PocketCapabilityException(
+        'capability_unavailable',
+        'System capability is unavailable',
+      ),
+    };
+  }
+
+  void _deliverContainerClose({PocketSystemLaunchResult? result}) {
+    if (_containerCloseDelivered) return;
+    _containerCloseDelivered = true;
+    widget.onCloseWithResult?.call(result);
+    widget.onClose?.call();
+  }
+
+  Future<Map<String, Object?>> _closeContainer(
+    Map<String, dynamic> params,
+    int ownerGeneration,
+  ) async {
+    _ensureOwnerGeneration(ownerGeneration);
+    if (widget.onClose == null && widget.onCloseWithResult == null) {
+      throw const PocketCapabilityException(
+        'capability_unavailable',
+        'Host container close is not configured',
+      );
+    }
+    PocketSystemLaunchResult? parsedResult;
+    if (params['result'] case final Map<Object?, Object?> raw) {
+      parsedResult = PocketSystemLaunchResult(
+        appId: raw['appId'] is String
+            ? raw['appId'] as String
+            : (widget.initialLaunch?.appId ?? ''),
+        cancelled: raw['cancelled'] == true,
+        value: raw['value'],
+        reason: raw['reason'] is String ? raw['reason'] as String : null,
+      );
+    }
+    _deliverContainerClose(result: parsedResult);
+    return const <String, Object?>{'closed': true};
+  }
+
+  bool _requestLaunchApp(PocketSystemLaunchRequest request) {
+    request.validate(
+      systemUIAppId: widget.systemUI.appId,
+      applications: widget.catalogLoader == null ? _trustedApplications : null,
+    );
+    if (_disposed ||
+        !_isCurrent(_systemUIInstance) ||
+        _systemUIInstance.session.failure != null ||
+        !_systemUIInstance.session.controller.isReady) {
+      return false;
+    }
+    return _systemUIInstance.session.controller.send(
+      method: 'system.host.launch',
+      params: request.toEventParams(),
+    );
+  }
+
+  Future<void> _prewarmInitialLaunchPackage(
+    PocketAppConfig targetConfig,
+  ) async {
+    final cancellation = _beginMiniAppUpdateOperation();
+    PocketUpdateCoordinator? ownedCoordinator;
+    try {
+      final facts = await _loadMiniAppBootstrapFacts(targetConfig);
+      if (_disposed || cancellation.isCancelled) return;
+      ownedCoordinator = await createPocketUpdateCoordinator(
+        config: targetConfig,
+        metadata: facts.metadata,
+        manifest: facts.manifest,
+      );
+      if (_disposed || cancellation.isCancelled || ownedCoordinator == null) {
+        return;
+      }
+      final inspection = await ownedCoordinator.inspectLatest(
+        checkLatest: false,
+        cancellation: cancellation,
+      );
+      if (!_disposed &&
+          !cancellation.isCancelled &&
+          (!widget.cacheFirst ||
+              (inspection.lastGood == null && inspection.staged == null))) {
+        await ownedCoordinator.prepare(cancellation: cancellation);
+      }
+    } on Object {
+      // Warmup is best-effort and must never surface an unhandled async error.
+    } finally {
+      ownedCoordinator?.dispose();
+      _finishMiniAppUpdateOperation(cancellation);
+    }
+  }
+
+  Future<Object?> _configure(
+    Map<String, dynamic> params,
+    int ownerGeneration,
+  ) async {
+    _ensureOwnerGeneration(ownerGeneration);
+    final systemAppId = _requiredString(params, 'systemUI');
+    if (systemAppId != widget.systemUI.appId) {
+      throw const PocketCapabilityException(
+        'system_ui_mismatch',
+        'Configured SystemUI does not match the trusted host package',
+      );
+    }
+    await _ensureCatalogForGeneration(ownerGeneration);
+    _ensureOwnerGeneration(ownerGeneration);
+    final grants = _parseGrants(params['grants']);
+    final signature = jsonEncode(<Object?>[
+      for (final grant
+          in grants.entries.toList()..sort((a, b) => a.key.compareTo(b.key)))
+        <Object?>[grant.key, grant.value.toList()..sort()],
+    ]);
+
+    final configured = _configurationSignature;
+    if (configured != null) {
+      if (configured != signature) {
+        throw const PocketCapabilityException(
+          'registration_conflict',
+          'System storage grants are already configured differently',
+        );
+      }
+      if (ownerGeneration == 0 && widget.initialLaunch != null) {
+        _systemUIInstance.session.setInitialEvents(
+          const <Map<String, dynamic>>[],
+        );
+      }
+      return <String, Object?>{
+        'systemInstanceId': _systemInstanceId,
+        'generation': _systemUIInstance.session.generation,
+      };
+    }
+    final inFlight = _configurationFutureGeneration == ownerGeneration
+        ? _configurationFuture
+        : null;
+    if (inFlight != null) {
+      await inFlight;
+      _ensureOwnerGeneration(ownerGeneration);
+      if (_configurationSignature != signature) {
+        throw const PocketCapabilityException(
+          'registration_conflict',
+          'System storage grants are already configured differently',
+        );
+      }
+      if (ownerGeneration == 0 && widget.initialLaunch != null) {
+        _systemUIInstance.session.setInitialEvents(
+          const <Map<String, dynamic>>[],
+        );
+      }
+      return <String, Object?>{
+        'systemInstanceId': _systemInstanceId,
+        'generation': _systemUIInstance.session.generation,
+      };
+    }
+
+    final future = _configureStorage(grants, signature, ownerGeneration);
+    _configurationFuture = future;
+    _configurationFutureGeneration = ownerGeneration;
+    try {
+      await future;
+      _ensureOwnerGeneration(ownerGeneration);
+    } finally {
+      if (identical(_configurationFuture, future)) {
+        _configurationFuture = null;
+        _configurationFutureGeneration = null;
+      }
+    }
+    if (ownerGeneration == 0 && widget.initialLaunch != null) {
+      _systemUIInstance.session.setInitialEvents(
+        const <Map<String, dynamic>>[],
+      );
+    }
+    return <String, Object?>{
+      'systemInstanceId': _systemInstanceId,
+      'generation': _systemUIInstance.session.generation,
+    };
+  }
+
+  Future<void> _prepareSystemUIGeneration(
+    String? rootPayloadSha256,
+    int targetGeneration,
+  ) async {
+    final loader = widget.catalogLoader;
+    if (loader == null) return;
+    if (rootPayloadSha256 == null || rootPayloadSha256.isEmpty) {
+      if (targetGeneration == 0) {
+        // Embedded root startup has no signed payload identity. The document
+        // already supplied the initial approved registry; later generations
+        // must not silently reuse it.
+        _pendingCatalog = null;
+        _catalogReady = true;
+        return;
+      }
+      throw const PocketCapabilityException(
+        'catalog_unavailable',
+        'A signed root payload is required before refreshing the app catalog',
+      );
+    }
+
+    PocketSystemHostCatalog? catalog;
+    try {
+      catalog = await loader(rootPayloadSha256);
+    } catch (error) {
+      if (error is PocketCapabilityException) rethrow;
+      throw PocketCapabilityException(
+        'catalog_unavailable',
+        'Unable to load the signed app catalog: $error',
+      );
+    }
+    if (catalog == null ||
+        catalog.rootPayloadSha256?.toLowerCase() !=
+            rootPayloadSha256.toLowerCase()) {
+      throw const PocketCapabilityException(
+        'catalog_unavailable',
+        'The app catalog does not match the mounted signed root payload',
+      );
+    }
+    _validateCatalog(catalog);
+    _pendingCatalog = _PendingSystemHostCatalog(
+      generation: targetGeneration,
+      catalog: catalog,
+    );
+    // Keep the old root visible while a later generation is being prepared.
+    // Generation 0 has no mounted view yet, so it stays gated until commit.
+    if (targetGeneration == 0) _catalogReady = false;
+  }
+
+  void _validateCatalog(PocketSystemHostCatalog catalog) {
+    if (catalog.systemUI.appId != widget.systemUI.appId) {
+      throw const PocketCapabilityException(
+        'system_ui_mismatch',
+        'The refreshed app catalog selects a different SystemUI package',
+      );
+    }
+    try {
+      _validateHostConfiguration(catalog.systemUI, catalog.applications);
+    } on Object catch (error) {
+      throw PocketCapabilityException(
+        'catalog_unavailable',
+        'The signed app catalog is invalid: $error',
+      );
+    }
+  }
+
+  void _commitPendingCatalog(int generation) {
+    final pending = _pendingCatalog;
+    if (pending == null || pending.generation != generation) return;
+    final catalog = pending.catalog;
+    final mountedHash = _systemUIInstance.session.mountedPayloadSha256;
+    if (catalog.rootPayloadSha256 == null ||
+        mountedHash == null ||
+        catalog.rootPayloadSha256!.toLowerCase() != mountedHash.toLowerCase()) {
+      // The session's active package is the final native fact. If it differs
+      // from the package that was selected before mount publication, do not
+      // expose either registry; the configure gate will remain closed.
+      _pendingCatalog = null;
+      _catalogGeneration = null;
+      _catalogReady = false;
+      _trustedApplications.clear();
+      _surfaceAppIds.clear();
+      _surfaceHandles.clear();
+      return;
+    }
+    final nextApplications = Map<String, PocketAppConfig>.unmodifiable(
+      catalog.applications,
+    );
+    final nextSurfaceAppIds = <int, String>{};
+    final nextSurfaceHandles = <String, int>{};
+    for (final entry in catalog.systemUI.compositorSurfaces.entries) {
+      nextSurfaceAppIds[entry.value] = entry.key;
+      nextSurfaceHandles[entry.key] = entry.value;
+    }
+    // Apply the new map immediately before the generation-keyed
+    // PocketGuestSession rebuild. Its fresh PocketView will therefore call
+    // native configureCompositor with this verified map before JS evaluates.
+    _systemUIInstance.config = _systemUIInstance.config.copyWith(
+      compositorSurfaces: Map<String, int>.unmodifiable(nextSurfaceHandles),
+    );
+    _trustedApplications
+      ..clear()
+      ..addAll(nextApplications);
+    _surfaceAppIds
+      ..clear()
+      ..addAll(nextSurfaceAppIds);
+    _surfaceHandles
+      ..clear()
+      ..addAll(nextSurfaceHandles);
+    _catalogGeneration = generation;
+    _catalogReady = true;
+    _pendingCatalog = null;
+  }
+
+  Future<void> _ensureCatalogForGeneration(int ownerGeneration) async {
+    _ensureOwnerGeneration(ownerGeneration);
+    if (_catalogGeneration == ownerGeneration) return;
+
+    final inFlight = _catalogFutureGeneration == ownerGeneration
+        ? _catalogFuture
+        : null;
+    if (inFlight != null) {
+      await inFlight;
+      _ensureOwnerGeneration(ownerGeneration);
+      return;
+    }
+
+    // Explicit PocketSystemHost consumers own a static native registry. The
+    // dynamic single-host bootstrap supplies a loader and therefore takes the
+    // signed-root/catalog path below. Keeping this branch preserves the old
+    // public constructor without creating a second update state machine.
+    final loader = widget.catalogLoader;
+    if (loader == null) {
+      _catalogGeneration = ownerGeneration;
+      return;
+    }
+
+    final rootPayloadSha256 = _systemUIInstance.session.mountedPayloadSha256;
+    if (rootPayloadSha256 == null || rootPayloadSha256.isEmpty) {
+      if (ownerGeneration == 0) {
+        // A host may intentionally run its embedded root while the first
+        // signed package is still absent. The bootstrap catalog is already
+        // verified in this case; later signed generations must carry a hash
+        // and cannot reuse this fallback.
+        _catalogGeneration = ownerGeneration;
+        return;
+      }
+      throw const PocketCapabilityException(
+        'catalog_unavailable',
+        'A signed root payload is required before refreshing the app catalog',
+      );
+    }
+
+    final future = _refreshCatalog(ownerGeneration, rootPayloadSha256, loader);
+    _catalogFuture = future;
+    _catalogFutureGeneration = ownerGeneration;
+    try {
+      await future;
+      _ensureOwnerGeneration(ownerGeneration);
+    } finally {
+      if (identical(_catalogFuture, future)) {
+        _catalogFuture = null;
+        _catalogFutureGeneration = null;
+      }
+    }
+  }
+
+  Future<void> _refreshCatalog(
+    int ownerGeneration,
+    String rootPayloadSha256,
+    PocketSystemHostCatalogLoader loader,
+  ) async {
+    PocketSystemHostCatalog? catalog;
+    try {
+      catalog = await loader(rootPayloadSha256);
+    } catch (error) {
+      if (error is PocketCapabilityException) rethrow;
+      throw PocketCapabilityException(
+        'catalog_unavailable',
+        'Unable to load the signed app catalog: $error',
+      );
+    }
+    _ensureOwnerGeneration(ownerGeneration);
+    if (catalog == null ||
+        catalog.rootPayloadSha256?.toLowerCase() !=
+            rootPayloadSha256.toLowerCase()) {
+      throw const PocketCapabilityException(
+        'catalog_unavailable',
+        'The app catalog does not match the mounted signed root payload',
+      );
+    }
+    _validateCatalog(catalog);
+    _pendingCatalog = _PendingSystemHostCatalog(
+      generation: ownerGeneration,
+      catalog: catalog,
+    );
+    _commitPendingCatalog(ownerGeneration);
+  }
+
+  Map<String, Set<String>> _parseGrants(Object? rawGrants) {
+    if (rawGrants is! List) {
+      throw const PocketCapabilityException(
+        'invalid_grants',
+        'grants must be an array',
+      );
+    }
+    final result = <String, Set<String>>{};
+    for (final raw in rawGrants) {
+      if (raw is! Map) {
+        throw const PocketCapabilityException(
+          'invalid_grants',
+          'each storage grant must be an object',
+        );
+      }
+      final grant = Map<String, dynamic>.from(raw);
+      final appId = _requiredString(grant, 'appId');
+      if (appId != widget.systemUI.appId &&
+          !_trustedApplications.containsKey(appId)) {
+        throw PocketCapabilityException(
+          'untrusted_app',
+          'Storage grant references an app outside the trusted host map: $appId',
+        );
+      }
+      if (result.containsKey(appId)) {
+        throw PocketCapabilityException(
+          'duplicate_grant',
+          'Storage grant is repeated for $appId',
+        );
+      }
+      final rawNamespaces = grant['sharedNamespaces'] ?? const <Object?>[];
+      if (rawNamespaces is! List ||
+          rawNamespaces.any((value) => value is! String)) {
+        throw const PocketCapabilityException(
+          'invalid_grants',
+          'sharedNamespaces must be an array of strings',
+        );
+      }
+      final namespaces = rawNamespaces.cast<String>();
+      for (final namespace in namespaces) {
+        if (!_storageNamespacePattern.hasMatch(namespace)) {
+          throw PocketCapabilityException(
+            'invalid_namespace',
+            'Invalid shared storage namespace: $namespace',
+          );
+        }
+      }
+      result[appId] = Set<String>.unmodifiable(namespaces);
+    }
+    return result;
+  }
+
+  List<Map<String, dynamic>> _parseInitialEvents(Object? rawEvents) {
+    if (rawEvents == null) return const <Map<String, dynamic>>[];
+    if (rawEvents is! List || rawEvents.length > 16) {
+      throw const PocketCapabilityException(
+        'invalid_event',
+        'initialEvents must be an array of at most 16 host events',
+      );
+    }
+    final result = <Map<String, dynamic>>[];
+    for (final raw in rawEvents) {
+      if (raw is! Map) {
+        throw const PocketCapabilityException(
+          'invalid_event',
+          'each initialEvent must be an object',
+        );
+      }
+      final entry = Map<String, dynamic>.from(raw);
+      final rawMethod = entry['method'] ?? entry['event'] ?? entry['name'];
+      if (rawMethod is! String || rawMethod.trim().isEmpty) {
+        throw const PocketCapabilityException(
+          'invalid_event',
+          'initialEvent method must be a non-empty string',
+        );
+      }
+      final rawParams =
+          entry['params'] ?? entry['payload'] ?? const <String, dynamic>{};
+      if (rawParams is! Map) {
+        throw const PocketCapabilityException(
+          'invalid_event',
+          'initialEvent params must be an object',
+        );
+      }
+      result.add(<String, dynamic>{
+        'method': rawMethod,
+        'params': Map<String, dynamic>.from(rawParams),
+      });
+    }
+    return List<Map<String, dynamic>>.unmodifiable(result);
+  }
+
+  Future<void> _configureStorage(
+    Map<String, Set<String>> grants,
+    String signature,
+    int ownerGeneration,
+  ) async {
+    final data = await _getPlatformData();
+    if (_disposed || ownerGeneration != _systemUIGeneration) {
+      throw const PocketCapabilityException(
+        'host_closed',
+        'System host closed',
+      );
+    }
+    data.registerApp(
+      widget.systemUI.appId,
+      sharedNamespaces: grants[widget.systemUI.appId] ?? const <String>{},
+    );
+    for (final appId in _trustedApplications.keys) {
+      data.registerApp(
+        appId,
+        sharedNamespaces: grants[appId] ?? const <String>{},
+      );
+    }
+    _configurationSignature = signature;
+  }
+
+  Future<Map<String, Object?>> _create(
+    Map<String, dynamic> params,
+    int ownerGeneration,
+  ) async {
+    await _awaitConfigured();
+    _ensureOwnerGeneration(ownerGeneration);
+    final appId = _requiredString(params, 'appId');
+    final prepareForOpen = params['prepareForOpen'] == true;
+    final cacheFirst = params['cacheFirst'] == true;
+    final initialEvents = _parseInitialEvents(params['initialEvents']);
+    final trustedConfig = _trustedApplications[appId];
+    if (trustedConfig == null) {
+      throw PocketCapabilityException(
+        'untrusted_app',
+        'App ID is not present in the trusted host map: $appId',
+      );
+    }
+    var admittedConfig = trustedConfig;
+    if (params.containsKey('memory')) {
+      try {
+        final memory = trustedConfig.memoryLimits.admit(
+          PocketMemoryLimits.fromJson(params['memory']),
+        );
+        admittedConfig = trustedConfig.copyWith(memoryLimits: memory);
+      } on FormatException catch (error) {
+        throw PocketCapabilityException('memory_limit_denied', error.message);
+      }
+    }
+    if (_applications.length + 1 >= widget.maxInstances) {
+      throw const PocketCapabilityException(
+        'instance_limit',
+        'System host reached its configured live instance limit',
+      );
+    }
+    if (_disposed) {
+      throw const PocketCapabilityException(
+        'host_closed',
+        'System host closed',
+      );
+    }
+
+    final instanceId = 'pocket-app-${++_nextInstanceId}';
+    final instance = _RuntimeInstance(
+      instanceId: instanceId,
+      appId: appId,
+      config: admittedConfig,
+      isSystemUI: false,
+      ownerGeneration: ownerGeneration,
+    );
+    final recordedConfig = widget.recordings != null
+        ? widget.recordings!.attach(admittedConfig)
+        : _recordings != null && admittedConfig.recordingFactory == null
+        ? _recordings.attach(admittedConfig)
+        : admittedConfig;
+    final capturedConfig = widget.diagnostics != null
+        ? widget.diagnostics!.attach(recordedConfig)
+        : _diagnostics != null && recordedConfig.diagnostics == null
+        ? _diagnostics.attach(recordedConfig)
+        : recordedConfig;
+    final childConfig = capturedConfig.withPlugins(<PocketPluginFactory>[
+      ...capturedConfig.pluginFactories,
+      (_) => _PlatformProxyPlugin(this, instance, ownerGeneration),
+      (captureController) => _PlatformImagesPlugin(
+        this,
+        instance,
+        ownerGeneration,
+        instance.session.generation,
+        captureController,
+      ),
+    ]);
+    instance.config = childConfig;
+    instance.session = PocketSession(config: childConfig)
+      ..setInitialEvents(initialEvents);
+    _watchBackGestureRegistration(instance);
+    instance.observedGeneration = instance.session.generation;
+    instance.announcedGeneration = instance.session.generation;
+    instance.changeListener = () => _instanceChanged(instance);
+    instance.session.addListener(instance.changeListener);
+    instance.firstFrame = Completer<void>();
+    unawaited(instance.firstFrame!.future.catchError((Object _) {}));
+    instance.firstVisibleFrame = Completer<void>();
+    unawaited(instance.firstVisibleFrame!.future.catchError((Object _) {}));
+    _applications[instanceId] = instance;
+    _publishFacts();
+
+    try {
+      await instance.session.setForeground(false);
+      await instance.session.initialize(
+        prepareForOpen: prepareForOpen,
+        cacheFirst: cacheFirst,
+      );
+      if (!_isCurrent(instance) ||
+          ownerGeneration != _systemUIGeneration ||
+          instance.ownerGeneration != _systemUIGeneration) {
+        throw const PocketCapabilityException(
+          'stale_instance',
+          'Runtime instance was removed during startup',
+        );
+      }
+      if (instance.session.failure case final error?) {
+        throw PocketCapabilityException(
+          _runtimeFailureCode(error, fallback: 'startup_failed'),
+          '$error',
+        );
+      }
+      if (mounted) setState(() {});
+      if (!_isCurrent(instance) ||
+          instance.session.generation != instance.observedGeneration) {
+        throw const PocketCapabilityException(
+          'stale_instance',
+          'Runtime instance changed generation during startup',
+        );
+      }
+      return <String, Object?>{
+        'instanceId': instanceId,
+        'appId': appId,
+        'generation': instance.session.generation,
+        if (prepareForOpen) 'preparedForOpen': true,
+        if (!instance.session.memoryLimits.isEmpty)
+          'memory': instance.session.memoryLimits.toJson(),
+      };
+    } on Object catch (error) {
+      await _closeInstance(
+        instance,
+        removeFromTree: identical(_applications[instance.instanceId], instance),
+      );
+      if (error is PocketCapabilityException) rethrow;
+      throw PocketCapabilityException(
+        _runtimeFailureCode(error, fallback: 'startup_failed'),
+        '$error',
+      );
+    }
+  }
+
+  Future<Map<String, Object?>> _appUpdateStatus(
+    Map<String, dynamic> params,
+    int ownerGeneration,
+  ) async {
+    _ensureOwnerGeneration(ownerGeneration);
+    final appId = _requiredString(params, 'appId');
+    final config = _trustedApplications[appId];
+    if (config == null) {
+      throw const PocketCapabilityException(
+        'app_not_installed',
+        'target app is not installed',
+      );
+    }
+    final checkLatest = params['checkLatest'] == true;
+    final runtime = _applications.values
+        .where((candidate) => candidate.appId == appId && !candidate.closing)
+        .firstOrNull;
+    final facts = await _loadMiniAppBootstrapFacts(config);
+    _ensureOwnerGeneration(ownerGeneration);
+    final configured = config.updates?.configured == true;
+    if (!configured) {
+      return _miniAppUpdateStatus(
+        config: config,
+        facts: facts,
+        runtime: runtime,
+      );
+    }
+    final cancellation = _cancellationForPlatformRequest(
+      params,
+      capability: 'platform.apps.update.status',
+      appId: appId,
+      ownerGeneration: ownerGeneration,
+    );
+    PocketUpdateCoordinator? ownedCoordinator;
+    Object? error;
+    PocketUpdateInspection? inspection;
+    try {
+      if (runtime != null) {
+        inspection = await runtime.session.inspectUpdate(
+          checkLatest: checkLatest,
+          cancellation: cancellation,
+        );
+      } else {
+        ownedCoordinator = await createPocketUpdateCoordinator(
+          config: config,
+          metadata: facts.metadata,
+          manifest: facts.manifest,
+        );
+        inspection = await ownedCoordinator?.inspectLatest(
+          checkLatest: checkLatest,
+          cancellation: cancellation,
+        );
+      }
+    } on Object catch (cause) {
+      error = cause;
+    } finally {
+      ownedCoordinator?.dispose();
+      _finishMiniAppUpdateOperation(cancellation);
+    }
+    _ensureOwnerGeneration(ownerGeneration);
+    return _miniAppUpdateStatus(
+      config: config,
+      facts: facts,
+      runtime: runtime,
+      inspection: inspection,
+      error: error,
+    );
+  }
+
+  Future<Map<String, Object?>> _appUpdatePrepare(
+    Map<String, dynamic> params,
+    int ownerGeneration,
+  ) async {
+    _ensureOwnerGeneration(ownerGeneration);
+    final appId = _requiredString(params, 'appId');
+    final config = _trustedApplications[appId];
+    if (config == null) {
+      throw const PocketCapabilityException(
+        'app_not_installed',
+        'target app is not installed',
+      );
+    }
+    final runtime = _applications.values
+        .where((candidate) => candidate.appId == appId && !candidate.closing)
+        .firstOrNull;
+    final facts = await _loadMiniAppBootstrapFacts(config);
+    _ensureOwnerGeneration(ownerGeneration);
+    if (config.updates?.configured != true) {
+      return _miniAppUpdateStatus(
+        config: config,
+        facts: facts,
+        runtime: runtime,
+      );
+    }
+    final cancellation = _cancellationForPlatformRequest(
+      params,
+      capability: 'platform.apps.update.prepare',
+      appId: appId,
+      ownerGeneration: ownerGeneration,
+    );
+    PocketUpdateCoordinator? ownedCoordinator;
+    Object? error;
+    PocketUpdateInspection? inspection;
+    try {
+      if (runtime != null) {
+        await runtime.session.prepareUpdate(cancellation: cancellation);
+        inspection = await runtime.session.inspectUpdate(
+          cancellation: cancellation,
+        );
+      } else {
+        ownedCoordinator = await createPocketUpdateCoordinator(
+          config: config,
+          metadata: facts.metadata,
+          manifest: facts.manifest,
+        );
+        if (ownedCoordinator == null) {
+          throw StateError(
+            'configured app updates did not create a coordinator',
+          );
+        }
+        await ownedCoordinator.prepare(cancellation: cancellation);
+        inspection = await ownedCoordinator.inspectLatest(
+          checkLatest: false,
+          cancellation: cancellation,
+        );
+      }
+    } on Object catch (cause) {
+      error = cause;
+    } finally {
+      ownedCoordinator?.dispose();
+      _finishMiniAppUpdateOperation(cancellation);
+    }
+    _ensureOwnerGeneration(ownerGeneration);
+    return _miniAppUpdateStatus(
+      config: config,
+      facts: facts,
+      runtime: runtime,
+      inspection: inspection,
+      error: error,
+    );
+  }
+
+  PocketCancellationToken _beginMiniAppUpdateOperation() {
+    final cancellation = PocketCancellationToken();
+    _miniAppUpdateCancellations.add(cancellation);
+    return cancellation;
+  }
+
+  PocketCancellationToken _cancellationForPlatformRequest(
+    Map<String, dynamic> params, {
+    required String capability,
+    required String appId,
+    required int ownerGeneration,
+  }) {
+    final rawRequestId = params['platformRequestId'];
+    if (rawRequestId == null) {
+      // Older SystemUI bytecode does not forward the platform request id.
+      // Keep its existing operation lifetime, while new bytecode can bind the
+      // native transfer to the exact pending RPC that owns it.
+      return _beginMiniAppUpdateOperation();
+    }
+    if (rawRequestId is! String || rawRequestId.isEmpty) {
+      throw const PocketCapabilityException(
+        'invalid_params',
+        'platformRequestId must be a non-empty string',
+      );
+    }
+    final pending = _pendingRequests[rawRequestId];
+    if (pending == null ||
+        pending.capability != capability ||
+        pending.targetAppId != appId ||
+        pending.systemGeneration != ownerGeneration ||
+        pending.sourceGeneration != pending.source.session.generation ||
+        !_isCurrent(pending.source)) {
+      throw const PocketCapabilityException(
+        'stale_request',
+        'The platform request is no longer pending',
+      );
+    }
+    final cancellation = pending.cancellation ??=
+        _beginMiniAppUpdateOperation();
+    return cancellation;
+  }
+
+  void _finishMiniAppUpdateOperation(PocketCancellationToken cancellation) {
+    _miniAppUpdateCancellations.remove(cancellation);
+    cancellation.cancel();
+  }
+
+  Future<_MiniAppBootstrapFacts> _loadMiniAppBootstrapFacts(
+    PocketAppConfig config,
+  ) async {
+    final metadataSource =
+        config.bootstrapMetadataJson ??
+        await rootBundle.loadString(config.metadataAsset);
+    final manifestSource =
+        config.bootstrapManifestJson ??
+        await rootBundle.loadString(config.manifestAsset);
+    final metadata = Map<String, dynamic>.from(
+      jsonDecode(metadataSource) as Map,
+    );
+    final manifest = jsonDecode(manifestSource);
+    int? build;
+    try {
+      build = resolvePocketEmbeddedBuild(
+        metadata,
+        manifest,
+        requireBuild: config.updates?.configured == true,
+      );
+    } on Object {
+      // Unconfigured legacy bundles may not have declared a build number.
+    }
+    if (build == 0) build = null;
+    final manifestVersion = manifest is Map ? manifest['version'] : null;
+    final metadataVersion = metadata['version'];
+    return _MiniAppBootstrapFacts(
+      metadata: metadata,
+      manifest: manifest,
+      version: metadataVersion is String
+          ? metadataVersion
+          : manifestVersion is String
+          ? manifestVersion
+          : null,
+      build: build,
+    );
+  }
+
+  Map<String, Object?> _miniAppUpdateStatus({
+    required PocketAppConfig config,
+    required _MiniAppBootstrapFacts facts,
+    _RuntimeInstance? runtime,
+    PocketUpdateInspection? inspection,
+    Object? error,
+  }) {
+    final configured = config.updates?.configured == true;
+    final installed = inspection?.lastGood ?? inspection?.active;
+    final runtimeInfo = runtime?.session.runtimeInfo();
+    final storedActive = inspection?.active;
+    final staged = inspection?.staged;
+    final latestVersion = inspection?.latestVersion ?? staged?.version;
+    final latestBuild = inspection?.latestBuild ?? staged?.build;
+    final hasSignedLatest = inspection?.latestVersionId != null;
+    final installedVersion =
+        installed?.version ?? (config.downloadOnOpen ? null : facts.version);
+    final installedBuild =
+        installed?.build ?? (config.downloadOnOpen ? null : facts.build);
+    final stagedDiffersFromInstalled =
+        staged != null &&
+        (staged.version != installedVersion || staged.build != installedBuild);
+    final updateAvailable = hasSignedLatest
+        ? inspection!.updateAvailable
+        : stagedDiffersFromInstalled;
+    final stage = !configured
+        ? 'not_configured'
+        : error != null
+        ? 'error'
+        : staged != null
+        ? 'ready'
+        : 'idle';
+    return <String, Object?>{
+      'appId': config.appId,
+      'configured': configured,
+      'running': runtime != null,
+      'installedVersion': installedVersion,
+      'installedBuild': installedBuild,
+      'activeVersion': runtimeInfo?['version'] is String
+          ? runtimeInfo!['version']
+          : storedActive?.version,
+      'activeBuild': runtimeInfo?['build'] is int
+          ? runtimeInfo!['build']
+          : storedActive?.build,
+      'latestVersion': latestVersion,
+      'latestBuild': latestBuild,
+      'stagedVersion': staged?.version,
+      'stagedBuild': staged?.build,
+      'updateAvailable': updateAvailable,
+      'stage': stage,
+      'lastError': error?.toString() ?? runtime?.session.lastError,
+    };
+  }
+
+  Future<Map<String, Object?>> _prepareOpen(
+    Map<String, dynamic> params,
+    int ownerGeneration,
+  ) async {
+    await _awaitConfigured();
+    _ensureOwnerGeneration(ownerGeneration);
+    final instanceId = _requiredString(params, 'instanceId');
+    final cacheFirst = params['cacheFirst'] == true;
+    final hasInitialEvents = params.containsKey('initialEvents');
+    final initialEvents = hasInitialEvents
+        ? _parseInitialEvents(params['initialEvents'])
+        : const <Map<String, dynamic>>[];
+    final rawGeneration = params['generation'];
+    if (rawGeneration is! num ||
+        !rawGeneration.isFinite ||
+        rawGeneration != rawGeneration.toInt()) {
+      throw const PocketCapabilityException(
+        'invalid_generation',
+        'generation must be an integer',
+      );
+    }
+    final instance = _applications[instanceId];
+    final generation = rawGeneration.toInt();
+    if (instance == null || instance.closing) {
+      throw const PocketCapabilityException(
+        'instance_not_found',
+        'Runtime instance does not exist',
+      );
+    }
+    if (!_isCurrent(instance) || instance.ownerGeneration != ownerGeneration) {
+      throw const PocketCapabilityException(
+        'stale_instance',
+        'Runtime instance belongs to a stale SystemUI generation',
+      );
+    }
+    if (instance.session.generation != generation) {
+      throw const PocketCapabilityException(
+        'stale_instance',
+        'Requested preparation belongs to a stale runtime generation',
+      );
+    }
+    if (instance.compositorVisible ||
+        instance.compositorFocused ||
+        instance.session.foreground) {
+      throw const PocketCapabilityException(
+        'runtime_busy',
+        'Only a hidden runtime can be prepared before presentation',
+      );
+    }
+    if (hasInitialEvents) {
+      instance.session.setInitialEvents(initialEvents);
+    }
+
+    late final Map<String, Object?> result;
+    try {
+      result = await instance.session.prepareForOpen(
+        cacheFirst: cacheFirst,
+        canMount: () =>
+            _isCurrent(instance) &&
+            _systemUIGeneration == ownerGeneration &&
+            instance.ownerGeneration == ownerGeneration &&
+            instance.session.generation == generation &&
+            !instance.compositorVisible &&
+            !instance.compositorFocused &&
+            !instance.session.foreground,
+      );
+    } catch (_) {
+      // A hidden prewarm may not have produced a frame yet, so the normal
+      // generation listener intentionally suppresses its event. If a failed
+      // mount still advanced the generation and restored the old package,
+      // force the fact through the same protocol so JS can retry with the
+      // current generation instead of being stranded on a stale one.
+      final nextGeneration = instance.session.generation;
+      if (nextGeneration != generation && !instance.hasEverProducedFrame) {
+        instance.announcedGeneration = generation;
+        _announceChildGeneration(instance, nextGeneration);
+      }
+      rethrow;
+    }
+    _ensureOwnerGeneration(ownerGeneration);
+    if (!_isCurrent(instance) || instance.closing) {
+      throw const PocketCapabilityException(
+        'stale_instance',
+        'Runtime instance was removed during preparation',
+      );
+    }
+    final nextGeneration = instance.session.generation;
+    return <String, Object?>{
+      'instanceId': instanceId,
+      'appId': instance.appId,
+      'previousGeneration': generation,
+      'generation': nextGeneration,
+      'updated': result['updated'] == true,
+      'configured': result['configured'] == true,
+    };
+  }
+
+  Future<Object?> _awaitFirstFrame(Map<String, dynamic> params) async {
+    final instanceId = _requiredString(params, 'instanceId');
+    final rawGeneration = params['generation'];
+    if (rawGeneration is! num ||
+        !rawGeneration.isFinite ||
+        rawGeneration != rawGeneration.toInt()) {
+      throw const PocketCapabilityException(
+        'invalid_generation',
+        'generation must be an integer',
+      );
+    }
+    final instance = _applications[instanceId];
+    final generation = rawGeneration.toInt();
+    if (instance == null || instance.closing) {
+      throw const PocketCapabilityException(
+        'instance_not_found',
+        'Runtime instance does not exist',
+      );
+    }
+    if (instance.session.generation != generation) {
+      throw const PocketCapabilityException(
+        'stale_instance',
+        'Requested first frame belongs to a stale runtime generation',
+      );
+    }
+    if (instance.session.failure case final Object error) {
+      Error.throwWithStackTrace(error, StackTrace.current);
+    }
+    if (!instance.isFirstVisibleFrameReady) {
+      final waiter = instance.firstVisibleFrame ??= Completer<void>();
+      unawaited(waiter.future.catchError((Object _) {}));
+      try {
+        await waiter.future.timeout(_platformRequestTimeout);
+      } on TimeoutException {
+        throw const PocketCapabilityException(
+          'first_frame_timeout',
+          'Visible child did not produce its first Pocket frame in time',
+        );
+      }
+    }
+    if (instance.session.failure case final Object error) {
+      Error.throwWithStackTrace(error, StackTrace.current);
+    }
+    if (!_isCurrent(instance) ||
+        instance.session.generation != generation ||
+        !instance.isFirstVisibleFrameReady) {
+      throw const PocketCapabilityException(
+        'stale_instance',
+        'Runtime changed before its first frame was ready',
+      );
+    }
+    return <String, Object?>{'ready': true, 'generation': generation};
+  }
+
+  Future<Object?> _destroy(Map<String, dynamic> params) async {
+    final instanceId = _requiredString(params, 'instanceId');
+    if (instanceId == _systemInstanceId) {
+      throw const PocketCapabilityException(
+        'system_instance_protected',
+        'The resident SystemUI instance cannot be destroyed',
+      );
+    }
+    final instance = _applications[instanceId];
+    if (instance == null) {
+      throw const PocketCapabilityException(
+        'instance_not_found',
+        'Runtime instance does not exist',
+      );
+    }
+    await _closeInstance(instance, removeFromTree: true);
+    return <String, Object?>{'destroyed': true};
+  }
+
+  Future<void> _closeInstance(
+    _RuntimeInstance instance, {
+    required bool removeFromTree,
+    bool waitForUnmount = false,
+  }) {
+    final closing = instance.closeFuture;
+    if (closing != null) return closing;
+    final future = _closeInstanceImpl(
+      instance,
+      removeFromTree: removeFromTree,
+      waitForUnmount: waitForUnmount,
+    );
+    instance.closeFuture = future;
+    return future;
+  }
+
+  Future<void> _closeInstanceImpl(
+    _RuntimeInstance instance, {
+    required bool removeFromTree,
+    required bool waitForUnmount,
+  }) async {
+    if (instance.closing) return;
+    instance.closing = true;
+    final firstFrame = instance.firstFrame;
+    if (firstFrame != null && !firstFrame.isCompleted) {
+      firstFrame.completeError(
+        const PocketCapabilityException(
+          'instance_destroyed',
+          'Runtime destroyed',
+        ),
+      );
+    }
+    final firstVisibleFrame = instance.firstVisibleFrame;
+    if (firstVisibleFrame != null && !firstVisibleFrame.isCompleted) {
+      firstVisibleFrame.completeError(
+        const PocketCapabilityException(
+          'instance_destroyed',
+          'Runtime destroyed',
+        ),
+      );
+    }
+    _invalidatePendingFor(
+      instance.instanceId,
+      instance.session.generation,
+      const PocketCapabilityException(
+        'stale_instance',
+        'Runtime was destroyed',
+      ),
+    );
+    await instance.session.setForeground(false).catchError((Object _) {});
+    if (removeFromTree && _applications.containsKey(instance.instanceId)) {
+      _applications.remove(instance.instanceId);
+      instance.compositorVisible = false;
+      instance.compositorFocused = false;
+      instance.session.removeListener(instance.changeListener);
+      _publishFacts();
+      if (mounted) setState(() {});
+    }
+    if ((removeFromTree || waitForUnmount) && mounted) {
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    await instance.session.close();
+  }
+
+  /// Releases the runtime instances owned by the current SystemUI realm.
+  ///
+  /// Generation changes and terminal owner failure both invalidate this set.
+  /// The JS owner retires its policy state; this clears the matching native
+  /// sessions and their resident compositor slots.
+  void _retireOwnedChildren() {
+    if (_applications.isEmpty) {
+      return;
+    }
+    final children = _applications.values.toList(growable: false);
+    _applications.clear();
+    for (final instance in children) {
+      instance.compositorVisible = false;
+      instance.compositorFocused = false;
+      instance.session.removeListener(instance.changeListener);
+      unawaited(
+        _closeInstance(
+          instance,
+          removeFromTree: false,
+          waitForUnmount: true,
+        ).catchError((Object _) {}),
+      );
+    }
+    _publishFacts();
+    if (mounted) setState(() {});
+  }
+
+  Future<Object?> _post(Map<String, dynamic> params) async {
+    final instanceId = _requiredString(params, 'instanceId');
+    final event = _requiredString(params, 'event');
+    final target = _instanceFor(instanceId);
+    if (target == null || target.closing) {
+      throw const PocketCapabilityException(
+        'instance_not_found',
+        'Runtime instance does not exist',
+      );
+    }
+    final rawParams = params['params'] ?? const <String, dynamic>{};
+    if (rawParams is! Map) {
+      throw const PocketCapabilityException(
+        'invalid_event',
+        'Event params must be an object',
+      );
+    }
+    // A session generation advances before Flutter replaces the keyed
+    // PocketView. Until the new view has loaded and called onReady, the
+    // controller may still be attached to the retired runtime (or be between
+    // detach and attach). Returning accepted:false keeps lifecycle/launch
+    // messages in the JS-owned queue instead of accepting them into a stale
+    // controller queue that will be cleared by the remount. The resident
+    // SystemUI bootstrap retains its original ordering contract.
+    if (!target.isSystemUI &&
+        (target.observedGeneration != target.session.generation ||
+            !target.firstFrameReady)) {
+      return <String, Object?>{'accepted': false};
+    }
+    final accepted = target.session.controller.send(
+      method: event,
+      params: Map<String, dynamic>.from(rawParams),
+    );
+    return <String, Object?>{'accepted': accepted};
+  }
+
+  Future<Object?> _respond(Map<String, dynamic> params) async {
+    final requestId = _requiredString(params, 'requestId');
+    final ok = params['ok'];
+    if (ok is! bool) {
+      throw const PocketCapabilityException(
+        'invalid_response',
+        'ok must be a boolean',
+      );
+    }
+    final pending = _pendingRequests[requestId];
+    if (pending == null) {
+      throw const PocketCapabilityException(
+        'stale_request',
+        'The platform request is no longer pending',
+      );
+    }
+    if (!_isCurrent(pending.source) ||
+        pending.source.session.generation != pending.sourceGeneration ||
+        pending.systemGeneration != _systemUIInstance.session.generation) {
+      _finishPendingError(
+        pending,
+        const PocketCapabilityException(
+          'stale_request',
+          'The platform request belongs to an expired runtime generation',
+        ),
+      );
+      throw const PocketCapabilityException(
+        'stale_request',
+        'The platform request belongs to an expired runtime generation',
+      );
+    }
+    if (ok) {
+      _pendingRequests.remove(requestId);
+      pending.timer.cancel();
+      final cancellation = pending.cancellation;
+      if (cancellation != null) {
+        _finishMiniAppUpdateOperation(cancellation);
+      }
+      pending.completer.complete(params['value']);
+    } else {
+      final error = _readRemoteError(params['error']);
+      _finishPendingError(pending, error);
+    }
+    return <String, Object?>{'accepted': true};
+  }
+
+  Future<Object?> _forwardPlatformRequest(
+    _RuntimeInstance source,
+    int ownerGeneration,
+    String capability,
+    Map<String, dynamic> params,
+  ) {
+    if (!_isCurrent(source) ||
+        source.closing ||
+        ownerGeneration != _systemUIGeneration ||
+        (!source.isSystemUI && source.ownerGeneration != _systemUIGeneration) ||
+        (source.isSystemUI && source.session.generation != ownerGeneration)) {
+      return Future<Object?>.error(
+        const PocketCapabilityException(
+          'stale_instance',
+          'Platform request source is no longer active',
+        ),
+      );
+    }
+    if (_pendingRequests.length >= _maxPendingPlatformRequests) {
+      return Future<Object?>.error(
+        const PocketCapabilityException(
+          'request_limit',
+          'System host has too many pending platform requests',
+        ),
+      );
+    }
+    if (!source.isSystemUI &&
+        source.announcedGeneration != source.session.generation &&
+        !_announceChildGeneration(source, source.session.generation)) {
+      return Future<Object?>.error(
+        const PocketCapabilityException(
+          'system_ui_unavailable',
+          'SystemUI did not accept the runtime generation update',
+        ),
+      );
+    }
+    if (_systemUIInstance.startupError != null ||
+        _systemUIInstance.session.failure != null ||
+        !_systemUIInstance.session.controller.isReady) {
+      return Future<Object?>.error(
+        const PocketCapabilityException(
+          'system_ui_unavailable',
+          'SystemUI is not ready to handle platform requests',
+        ),
+      );
+    }
+
+    final requestId = 'system-rpc-${++_nextRequestId}';
+    final completer = Completer<Object?>();
+    unawaited(completer.future.catchError((Object _) => null));
+    late final _PendingPlatformRequest pending;
+    // Cold opens can download a signed package before awaiting the first frame.
+    // Other platform requests retain their existing short deadline.
+    final timeout = switch (capability) {
+      'platform.apps.open' => const Duration(seconds: 210),
+      'platform.apps.prewarm' => const Duration(seconds: 75),
+      'platform.apps.update.prepare' =>
+        widget.platformUpdateRequestTimeoutForTesting ??
+            const Duration(seconds: 180),
+      'platform.apps.update.status' =>
+        widget.platformUpdateRequestTimeoutForTesting ??
+            const Duration(seconds: 60),
+      _ => _platformRequestTimeout,
+    };
+    final timer = Timer(timeout, () {
+      final current = _pendingRequests[requestId];
+      if (identical(current, pending)) {
+        _finishPendingError(
+          pending,
+          const PocketCapabilityException(
+            'request_timeout',
+            'SystemUI did not answer the platform request in time',
+          ),
+        );
+      }
+    });
+    pending = _PendingPlatformRequest(
+      requestId: requestId,
+      capability: capability,
+      targetAppId: params['appId'] is String ? params['appId'] as String : null,
+      source: source,
+      sourceGeneration: source.session.generation,
+      systemGeneration: _systemUIInstance.session.generation,
+      completer: completer,
+      timer: timer,
+    );
+    _pendingRequests[requestId] = pending;
+    final accepted = _systemUIInstance.session.controller.send(
+      method: 'system.request',
+      params: <String, dynamic>{
+        'requestId': requestId,
+        'sourceAppId': source.session.appId,
+        'sourceInstanceId': source.instanceId,
+        'sourceGeneration': source.session.generation,
+        'capability': capability,
+        'params': Map<String, dynamic>.from(params),
+      },
+    );
+    if (!accepted) {
+      _finishPendingError(
+        pending,
+        const PocketCapabilityException(
+          'system_ui_unavailable',
+          'SystemUI did not accept the platform request',
+        ),
+      );
+    }
+    return completer.future;
+  }
+
+  void _ensureImageGeneration(
+    _RuntimeInstance source, {
+    required int ownerGeneration,
+    required int sessionGeneration,
+    required String appId,
+  }) {
+    if (!_isCurrent(source) ||
+        source.closing ||
+        source.isSystemUI ||
+        source.appId != appId ||
+        source.session.appId != appId ||
+        source.ownerGeneration != ownerGeneration ||
+        ownerGeneration != _systemUIGeneration ||
+        source.session.generation != sessionGeneration) {
+      throw const PocketCapabilityException(
+        'stale_instance',
+        'Image request belongs to an expired child runtime generation',
+      );
+    }
+  }
+
+  Future<Map<String, Object?>> _captureGuestImage(
+    _RuntimeInstance source, {
+    required int ownerGeneration,
+    required int sessionGeneration,
+    required PocketViewController captureController,
+    required String appId,
+    required Map<String, dynamic> params,
+  }) async {
+    _ensureOnlyImageFields(params, const <String>{
+      'maxWidth',
+      'maxHeight',
+      'maxPixels',
+    });
+    final maxWidth = _imageLimit(
+      params,
+      'maxWidth',
+      maximum: _maxPlatformImageWidth,
+    );
+    final maxHeight = _imageLimit(
+      params,
+      'maxHeight',
+      maximum: _maxPlatformImageHeight,
+    );
+    final maxPixels = _imageLimit(
+      params,
+      'maxPixels',
+      maximum: _maxPlatformImagePixels,
+    );
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+
+    late final PocketViewCapture? capture;
+    try {
+      capture = await captureController.captureScene(
+        maxWidth: maxWidth,
+        maxHeight: maxHeight,
+        maxPixels: maxPixels,
+      );
+    } on UnsupportedError catch (error) {
+      throw PocketCapabilityException(
+        'unsupported_scene',
+        'Guest surface contains unsupported capture content: ${error.message}',
+      );
+    } on StateError catch (error) {
+      final busy = error.message.toString().contains('already in progress');
+      throw PocketCapabilityException(
+        busy ? 'capture_busy' : 'capture_unavailable',
+        busy
+            ? 'A guest scene capture is already in progress'
+            : 'Guest scene capture is not available: ${error.message}',
+      );
+    }
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    if (capture == null) {
+      throw const PocketCapabilityException(
+        'capture_unavailable',
+        'Guest surface is not currently available for capture',
+      );
+    }
+
+    final store = await _getImageStore();
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    final stored = await store.put(appId, capture.pngBytes);
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    if (stored.width != capture.width || stored.height != capture.height) {
+      throw const PocketCapabilityException(
+        'image_store_corrupt',
+        'Captured PNG dimensions did not match the PocketView readback',
+      );
+    }
+    return <String, Object?>{
+      'id': stored.id,
+      'width': stored.width,
+      'height': stored.height,
+    };
+  }
+
+  Future<Map<String, Object?>> _readGuestImage(
+    _RuntimeInstance source, {
+    required int ownerGeneration,
+    required int sessionGeneration,
+    required String appId,
+    required Map<String, dynamic> params,
+  }) async {
+    _ensureOnlyImageFields(params, const <String>{'id'});
+    final id = _requiredString(params, 'id');
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    final store = await _getImageStore();
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    final stored = await store.read(appId, id);
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    if (stored == null) {
+      throw const PocketCapabilityException(
+        'image_not_found',
+        'Image ID is not present in this app image store',
+      );
+    }
+    final imageEntry = await _decodePocketImageEntry(stored);
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    return <String, Object?>{
+      'id': stored.id,
+      'width': stored.width,
+      'height': stored.height,
+      'textureWidth': imageEntry.width,
+      'textureHeight': imageEntry.height,
+      'img': imageEntry.bytes,
+    };
+  }
+
+  Future<List<Map<String, Object?>>> _listGuestImages(
+    _RuntimeInstance source, {
+    required int ownerGeneration,
+    required int sessionGeneration,
+    required String appId,
+    required Map<String, dynamic> params,
+  }) async {
+    _ensureOnlyImageFields(params, const <String>{});
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    final store = await _getImageStore();
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    final images = await store.list(appId);
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    return images;
+  }
+
+  Future<Map<String, Object?>> _removeGuestImage(
+    _RuntimeInstance source, {
+    required int ownerGeneration,
+    required int sessionGeneration,
+    required String appId,
+    required Map<String, dynamic> params,
+  }) async {
+    _ensureOnlyImageFields(params, const <String>{'id'});
+    final id = _requiredString(params, 'id');
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    final store = await _getImageStore();
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    final removed = await store.remove(appId, id);
+    _ensureImageGeneration(
+      source,
+      ownerGeneration: ownerGeneration,
+      sessionGeneration: sessionGeneration,
+      appId: appId,
+    );
+    return <String, Object?>{'removed': removed};
+  }
+
+  Future<_PocketImageEntryData> _decodePocketImageEntry(
+    PocketStoredImage stored,
+  ) async {
+    ui.Codec? codec;
+    ui.Image? image;
+    try {
+      codec = await ui.instantiateImageCodec(stored.pngBytes);
+      image = (await codec.getNextFrame()).image;
+      if (image.width != stored.width || image.height != stored.height) {
+        throw const PocketCapabilityException(
+          'image_store_corrupt',
+          'Stored PNG dimensions changed during decode',
+        );
+      }
+      final data = await image.toByteData(
+        format: ui.ImageByteFormat.rawStraightRgba,
+      );
+      if (data == null ||
+          data.lengthInBytes != stored.width * stored.height * 4) {
+        throw const PocketCapabilityException(
+          'image_decode_failed',
+          'Flutter did not return a complete RGBA image',
+        );
+      }
+      final textureWidth = _nextPowerOfTwo(stored.width);
+      final textureHeight = _nextPowerOfTwo(stored.height);
+      if (textureWidth > _maxPlatformImageWidth ||
+          textureHeight > _maxPlatformImageHeight) {
+        throw const PocketCapabilityException(
+          'image_dimensions_unsupported',
+          'Captured image exceeds the dynamic texture dimensions',
+        );
+      }
+      final rgba = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+      final entry = Uint8List(8 + textureWidth * textureHeight * 4);
+      final header = ByteData.sublistView(entry);
+      header.setUint16(0, textureWidth, Endian.little);
+      header.setUint16(2, textureHeight, Endian.little);
+      entry[4] = 3; // PSM_8888
+      entry[5] = 2; // IMG_FLAG_LINEAR
+      for (var row = 0; row < stored.height; row++) {
+        final sourceStart = row * stored.width * 4;
+        final targetStart = 8 + row * textureWidth * 4;
+        entry.setRange(
+          targetStart,
+          targetStart + stored.width * 4,
+          rgba,
+          sourceStart,
+        );
+      }
+      return _PocketImageEntryData(
+        bytes: entry,
+        width: textureWidth,
+        height: textureHeight,
+      );
+    } on PocketCapabilityException {
+      rethrow;
+    } on Object catch (error) {
+      throw PocketCapabilityException(
+        'image_decode_failed',
+        'Unable to decode stored PNG: $error',
+      );
+    } finally {
+      image?.dispose();
+      codec?.dispose();
+    }
+  }
+
+  void _finishPendingError(_PendingPlatformRequest pending, Object error) {
+    if (!identical(_pendingRequests[pending.requestId], pending)) return;
+    _pendingRequests.remove(pending.requestId);
+    pending.timer.cancel();
+    final cancellation = pending.cancellation;
+    if (cancellation != null) {
+      _finishMiniAppUpdateOperation(cancellation);
+    }
+    if (!pending.completer.isCompleted) pending.completer.completeError(error);
+  }
+
+  void _invalidatePendingFor(String instanceId, int generation, Object error) {
+    for (final pending in _pendingRequests.values.toList(growable: false)) {
+      if (pending.source.instanceId == instanceId &&
+          pending.sourceGeneration == generation) {
+        _finishPendingError(pending, error);
+      }
+    }
+  }
+
+  Future<Object?> _storageGet(Map<String, dynamic> params) async {
+    final appId = _trustedStorageAppId(params);
+    final key = _requiredString(params, 'key');
+    final namespace = _optionalString(params, 'namespace');
+    return (await _configuredPlatformData()).read(
+      appId,
+      key,
+      namespace: namespace,
+    );
+  }
+
+  Future<Object?> _storageSet(Map<String, dynamic> params) async {
+    final appId = _trustedStorageAppId(params);
+    final key = _requiredString(params, 'key');
+    final namespace = _optionalString(params, 'namespace');
+    await (await _configuredPlatformData()).write(
+      appId,
+      key,
+      params['value'],
+      namespace: namespace,
+    );
+    return null;
+  }
+
+  Future<Object?> _storageRemove(Map<String, dynamic> params) async {
+    final appId = _trustedStorageAppId(params);
+    final key = _requiredString(params, 'key');
+    final namespace = _optionalString(params, 'namespace');
+    await (await _configuredPlatformData()).remove(
+      appId,
+      key,
+      namespace: namespace,
+    );
+    return null;
+  }
+
+  Future<Object?> _storageKeys(Map<String, dynamic> params) async {
+    final appId = _trustedStorageAppId(params);
+    final namespace = _optionalString(params, 'namespace');
+    return (await _configuredPlatformData()).keys(appId, namespace: namespace);
+  }
+
+  Future<Object?> _storageBatch(Map<String, dynamic> params) async {
+    final appId = _trustedStorageAppId(params);
+    final operations = params['operations'];
+    if (operations is! List) {
+      throw const PocketCapabilityException(
+        'invalid_storage_batch',
+        'Storage batch operations must be an array',
+      );
+    }
+    final namespace = _optionalString(params, 'namespace');
+    await (await _configuredPlatformData()).batch(
+      appId,
+      List<Object?>.from(operations),
+      namespace: namespace,
+    );
+    return null;
+  }
+
+  String _trustedStorageAppId(Map<String, dynamic> params) {
+    final appId = _requiredString(params, 'appId');
+    if (appId != widget.systemUI.appId &&
+        !_trustedApplications.containsKey(appId)) {
+      throw const PocketCapabilityException(
+        'untrusted_app',
+        'Storage target is outside the trusted host app map',
+      );
+    }
+    return appId;
+  }
+
+  Future<PocketPlatformData> _configuredPlatformData() async {
+    await _awaitConfigured();
+    final data = await _getPlatformData();
+    if (_configurationSignature == null) {
+      throw const PocketCapabilityException(
+        'not_configured',
+        'System storage scopes are not configured',
+      );
+    }
+    return data;
+  }
+
+  Future<PocketPlatformData> _getPlatformData() {
+    final ready = _platformData;
+    if (ready != null) return Future<PocketPlatformData>.value(ready);
+    final pending = _platformDataFuture;
+    if (pending != null) return pending;
+    final future = _openPlatformData();
+    _platformDataFuture = future;
+    return future;
+  }
+
+  Future<PocketImageStore> _getImageStore() {
+    final ready = _imageStore;
+    if (ready != null) return Future<PocketImageStore>.value(ready);
+    final pending = _imageStoreFuture;
+    if (pending != null) return pending;
+    final future = _openImageStore();
+    _imageStoreFuture = future;
+    return future;
+  }
+
+  Future<PocketImageStore> _openImageStore() async {
+    late final Directory supportDirectory;
+    try {
+      supportDirectory = await getApplicationSupportDirectory();
+    } on Exception catch (error) {
+      if (_disposed) {
+        throw const PocketCapabilityException(
+          'host_closed',
+          'System host closed',
+        );
+      }
+      throw PocketCapabilityException(
+        'image_store_unavailable',
+        'Unable to locate app-private image storage: $error',
+      );
+    }
+    if (_disposed) {
+      throw const PocketCapabilityException(
+        'host_closed',
+        'System host closed',
+      );
+    }
+    final store = PocketImageStore(
+      directory: Directory('${supportDirectory.path}/pocket-images'),
+    );
+    if (_disposed) {
+      await store.close();
+      throw const PocketCapabilityException(
+        'host_closed',
+        'System host closed',
+      );
+    }
+    _imageStore = store;
+    return store;
+  }
+
+  Future<PocketPlatformData> _openPlatformData() async {
+    final supportDirectory = await getApplicationSupportDirectory();
+    if (_disposed) {
+      throw const PocketCapabilityException(
+        'host_closed',
+        'System host closed',
+      );
+    }
+    final data = await PocketPlatformData.openShared(
+      directory: Directory('${supportDirectory.path}/pocket-platform-data'),
+    );
+    try {
+      if (_disposed) {
+        await data.close();
+        throw const PocketCapabilityException(
+          'host_closed',
+          'System host closed',
+        );
+      }
+      _platformData = data;
+      return data;
+    } catch (_) {
+      await data.close();
+      rethrow;
+    }
+  }
+
+  Future<void> _awaitConfigured() async {
+    if (_configurationSignature != null) return;
+    final configuring = _configurationFuture;
+    if (configuring != null &&
+        _configurationFutureGeneration == _systemUIGeneration) {
+      await configuring;
+    }
+    if (_configurationSignature == null) {
+      throw const PocketCapabilityException(
+        'not_configured',
+        'SystemUI must configure trusted app storage before using runtimes',
+      );
+    }
+  }
+
+  void _ensureOwnerGeneration(int ownerGeneration) {
+    if (_disposed || ownerGeneration != _systemUIGeneration) {
+      throw const PocketCapabilityException(
+        'stale_system_ui',
+        'SystemUI request belongs to an expired owner generation',
+      );
+    }
+  }
+
+  void _onFirstFrame(_RuntimeInstance instance) {
+    if (!_isCurrent(instance) || instance.closing) return;
+    instance.firstFrameReady = true;
+    instance.hasEverProducedFrame = true;
+    instance.startupError = null;
+    if (instance.firstFrame case final ready? when !ready.isCompleted) {
+      ready.complete();
+    }
+    _checkFirstVisibleFrame(instance);
+    _publishFacts();
+  }
+
+  void _checkFirstVisibleFrame(_RuntimeInstance instance) {
+    if (instance.isFirstVisibleFrameReady) {
+      final waiter = instance.firstVisibleFrame;
+      if (waiter != null && !waiter.isCompleted) {
+        waiter.complete();
+      }
+    }
+  }
+
+  void _instanceChanged(_RuntimeInstance instance) {
+    if (instance.isSystemUI) {
+      _systemUIChanged();
+      return;
+    }
+    if (!_isCurrent(instance)) return;
+    final oldGeneration = instance.observedGeneration;
+    final nextGeneration = instance.session.generation;
+    if (oldGeneration != nextGeneration) {
+      _invalidatePendingFor(
+        instance.instanceId,
+        oldGeneration,
+        const PocketCapabilityException(
+          'stale_request',
+          'Platform request source changed runtime generation',
+        ),
+      );
+      instance.observedGeneration = nextGeneration;
+      instance.firstFrameReady = false;
+      final oldFrame = instance.firstFrame;
+      if (oldFrame != null && !oldFrame.isCompleted) {
+        oldFrame.completeError(
+          const PocketCapabilityException(
+            'stale_instance',
+            'Runtime generation changed before its first frame',
+          ),
+        );
+      }
+      instance.firstFrame = Completer<void>();
+      unawaited(instance.firstFrame!.future.catchError((Object _) {}));
+      final oldVisibleFrame = instance.firstVisibleFrame;
+      if (oldVisibleFrame != null && !oldVisibleFrame.isCompleted) {
+        oldVisibleFrame.completeError(
+          const PocketCapabilityException(
+            'stale_instance',
+            'Runtime generation changed before its first visible frame',
+          ),
+        );
+      }
+      instance.firstVisibleFrame = Completer<void>();
+      unawaited(instance.firstVisibleFrame!.future.catchError((Object _) {}));
+      if (instance.hasEverProducedFrame) {
+        _announceChildGeneration(instance, nextGeneration);
+      } else {
+        instance.announcedGeneration = nextGeneration;
+      }
+    }
+    final failure = instance.session.failure;
+    if (failure != null) {
+      // A runtime can produce an Offstage first frame before its compositor
+      // slot becomes visible, or reload into a new generation after an earlier
+      // frame. Completing both waiters on failure must not depend on
+      // hasEverProducedFrame. The attached error handlers keep these
+      // diagnostic completions from becoming unhandled Future errors.
+      final visible = instance.firstVisibleFrame;
+      if (visible != null && !visible.isCompleted) {
+        visible.completeError(failure);
+      }
+      final ready = instance.firstFrame;
+      if (ready != null && !ready.isCompleted) {
+        ready.completeError(failure);
+      }
+      if (!instance.hasEverProducedFrame) {
+        // Initial startup failure before any frame is surfaced through
+        // awaitFirstFrame rather than system.runtime.failed.
+      } else if (instance.reportedFailureGeneration != nextGeneration) {
+        instance.reportedFailureGeneration = nextGeneration;
+        _systemUIInstance.session.controller.send(
+          method: 'system.runtime.failed',
+          params: <String, dynamic>{
+            'instanceId': instance.instanceId,
+            'appId': instance.appId,
+            'error': <String, Object?>{
+              'code': _runtimeFailureCode(failure),
+              'message': '$failure',
+            },
+          },
+        );
+      }
+    }
+    _publishFacts(sessionChanged: true);
+    if (mounted) setState(() {});
+  }
+
+  void _systemUIChanged() {
+    if (_disposed) return;
+    final generation = _systemUIInstance.session.generation;
+    if (generation != _systemUIGeneration) {
+      _systemUIGeneration = generation;
+      _configurationSignature = null;
+      final prepared = _pendingCatalog?.generation == generation;
+      if (prepared) {
+        // The mount hook verified the descriptor before the new generation
+        // was published. Commit its child registry only at this official
+        // generation notification, after the old root has stopped producing
+        // requests.
+        _commitPendingCatalog(generation);
+      } else if (widget.catalogLoader != null) {
+        _catalogGeneration = null;
+        _catalogReady = false;
+        // Do not let a previous root generation's child IDs or compositor
+        // handles survive while the signed catalog for the new root is being
+        // selected at the next `runtime.configure` boundary.
+        _trustedApplications.clear();
+        _surfaceAppIds.clear();
+        _surfaceHandles.clear();
+      }
+      _systemUIInstance.observedGeneration = generation;
+      _systemUIInstance.firstFrameReady = false;
+      final oldFrame = _systemUIInstance.firstFrame;
+      if (oldFrame != null && !oldFrame.isCompleted) {
+        oldFrame.completeError(
+          const PocketCapabilityException(
+            'stale_instance',
+            'SystemUI generation changed before its first frame',
+          ),
+        );
+      }
+      _systemUIInstance.firstFrame = Completer<void>();
+      unawaited(_systemUIInstance.firstFrame!.future.catchError((Object _) {}));
+      for (final pending in _pendingRequests.values.toList(growable: false)) {
+        _finishPendingError(
+          pending,
+          const PocketCapabilityException(
+            'stale_request',
+            'SystemUI changed runtime generation',
+          ),
+        );
+      }
+      _retireOwnedChildren();
+    }
+    if (_pendingCatalog?.generation == generation) {
+      _commitPendingCatalog(generation);
+    } else if (generation == _systemUIGeneration &&
+        widget.catalogLoader != null &&
+        _catalogReady &&
+        _catalogGeneration == null) {
+      // Generation 0 with an embedded root has no pending signed catalog, but
+      // its initial host document is already the approved registry.
+      _catalogGeneration = generation;
+    }
+    final failure = _systemUIInstance.session.failure;
+    final firstFrame = _systemUIInstance.firstFrame;
+    if (failure != null &&
+        !_systemUIInstance.firstFrameReady &&
+        firstFrame != null &&
+        !firstFrame.isCompleted) {
+      firstFrame.completeError(failure);
+    }
+    if (failure != null) {
+      for (final pending in _pendingRequests.values.toList(growable: false)) {
+        _finishPendingError(
+          pending,
+          const PocketCapabilityException(
+            'system_ui_failed',
+            'SystemUI failed while handling platform requests',
+          ),
+        );
+      }
+      _retireOwnedChildren();
+    }
+    _publishFacts(sessionChanged: true);
+    if (mounted) setState(() {});
+  }
+
+  bool _announceChildGeneration(_RuntimeInstance instance, int generation) {
+    if (!_isCurrent(instance) || instance.isSystemUI) return false;
+    final previousGeneration = instance.announcedGeneration;
+    if (previousGeneration == generation) return true;
+    final accepted = _systemUIInstance.session.controller.send(
+      method: 'system.runtime.generation',
+      params: <String, dynamic>{
+        'instanceId': instance.instanceId,
+        'appId': instance.appId,
+        'previousGeneration': previousGeneration,
+        'generation': generation,
+      },
+    );
+    if (accepted) instance.announcedGeneration = generation;
+    return accepted;
+  }
+
+  void _applyForeground(_RuntimeInstance instance) {
+    final shouldBeForeground =
+        _lifecycleResumed &&
+        _hostActive &&
+        (instance.isSystemUI ||
+            (instance.compositorVisible && instance.compositorFocused));
+    if (instance.closing || instance.session.foreground == shouldBeForeground) {
+      return;
+    }
+    unawaited(
+      instance.session.setForeground(shouldBeForeground).catchError((Object _) {
+        // Session state remains the source of truth; a JS present command can
+        // retry the foreground transition without native stack recovery.
+      }),
+    );
+  }
+
+  bool _isCurrent(_RuntimeInstance instance) =>
+      !_disposed &&
+      (instance.isSystemUI
+          ? identical(_systemUIInstance, instance)
+          : identical(_applications[instance.instanceId], instance)) &&
+      !instance.closing;
+
+  void _publishFacts({bool sessionChanged = false}) {
+    if (_disposed) return;
+    final all = <_RuntimeInstance>[_systemUIInstance, ..._applications.values];
+    _controller._publish(<PocketSystemInstanceSnapshot>[
+      for (final instance in all)
+        PocketSystemInstanceSnapshot(
+          instanceId: instance.instanceId,
+          appId: instance.appId,
+          session: instance.session,
+          firstFrame: instance.firstFrame?.future,
+          generation: instance.session.generation,
+          isSystemUI: instance.isSystemUI,
+          ready: instance.session.ready,
+          firstFrameReady: instance.firstFrameReady,
+          foreground: instance.session.foreground,
+          // SystemUI owns the compositor root for the lifetime of the host;
+          // its presentation remains true while child surfaces are layered
+          // above it. A child is presented only when its visible slot is
+          // non-empty. Foreground/focus carry the separate interaction state.
+          isPresented: instance.isSystemUI || instance.compositorVisible,
+          compositorFocused: instance.compositorFocused,
+        ),
+    ], sessionChanged: sessionChanged);
+  }
+}
+
+final class _RuntimeInstance {
+  _RuntimeInstance({
+    required this.instanceId,
+    required this.appId,
+    required this.config,
+    required this.isSystemUI,
+    required this.ownerGeneration,
+  });
+
+  final String instanceId;
+  final String appId;
+  PocketAppConfig config;
+  final bool isSystemUI;
+  final int ownerGeneration;
+  late PocketSession session;
+  Completer<void>? firstFrame;
+  Completer<void>? firstVisibleFrame;
+  int observedGeneration = 0;
+  int? backGestureGeneration;
+  int announcedGeneration = 0;
+  int? reportedFailureGeneration;
+  bool firstFrameReady = false;
+  bool hasEverProducedFrame = false;
+  bool compositorVisible = false;
+  bool compositorFocused = false;
+  int compositorGeometryRevision = 0;
+  Rect? compositorBounds;
+  Rect? compositorVisibleClip;
+  Size? compositorLogicalViewport;
+  bool get isFirstVisibleFrameReady =>
+      firstFrameReady &&
+      session.failure == null &&
+      (isSystemUI || compositorVisible);
+  bool closing = false;
+  Future<void>? closeFuture;
+  Object? startupError;
+  late VoidCallback changeListener;
+  final GlobalKey<PocketGuestSessionState> guestKey =
+      GlobalKey<PocketGuestSessionState>();
+}
+
+final class _MiniAppBootstrapFacts {
+  const _MiniAppBootstrapFacts({
+    required this.metadata,
+    required this.manifest,
+    required this.version,
+    required this.build,
+  });
+
+  final Map<String, dynamic> metadata;
+  final Object? manifest;
+  final String? version;
+  final int? build;
+}
+
+final class _PocketBackInputBoundary extends StatefulWidget {
+  const _PocketBackInputBoundary({
+    required this.controller,
+    this.enabled = true,
+    required this.nativeEdgeExitEnabled,
+    required this.nativeExitRoute,
+    required this.onUnhandled,
+    required this.child,
+  });
+
+  final PocketSystemHostController controller;
+  final bool enabled;
+  final bool nativeEdgeExitEnabled;
+  final TransitionRoute<dynamic>? nativeExitRoute;
+  final VoidCallback onUnhandled;
+  final Widget child;
+
+  @override
+  State<_PocketBackInputBoundary> createState() =>
+      _PocketBackInputBoundaryState();
+}
+
+final class _PocketBackInputBoundaryState
+    extends State<_PocketBackInputBoundary> {
+  bool _backPending = false;
+  String? _gestureId;
+  Future<bool>? _gestureAcceptance;
+  bool? _gestureHandled;
+  Map<String, dynamic>? _latestGesture;
+  TransitionRoute<dynamic>? _gestureExitRoute;
+  TransitionRoute<dynamic>? _nativePreviewRoute;
+
+  @override
+  void didUpdateWidget(covariant _PocketBackInputBoundary oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enabled && !widget.enabled) {
+      final id = _gestureId;
+      if (id != null) {
+        widget.controller._updateBackGesture(<String, dynamic>{
+          'gestureId': id,
+          'phase': 'cancel',
+        });
+      }
+      _gestureId = null;
+      _gestureAcceptance = null;
+      _gestureHandled = null;
+      _latestGesture = null;
+      _gestureExitRoute = null;
+      _cancelNativePreview();
+    } else if ((oldWidget.nativeEdgeExitEnabled &&
+            !widget.nativeEdgeExitEnabled) ||
+        oldWidget.nativeExitRoute != widget.nativeExitRoute) {
+      _cancelNativePreview();
+    }
+  }
+
+  void _onGesture(Map<String, dynamic> input) {
+    final id = input['gestureId'] as String;
+    final phase = input['phase'];
+    if (phase == 'start') {
+      if (_backPending) return;
+      _gestureId = id;
+      _gestureHandled = null;
+      _gestureExitRoute = widget.nativeExitRoute;
+      _latestGesture = Map<String, dynamic>.of(input);
+      final acceptance = widget.controller._beginBackGesture(input);
+      _gestureAcceptance = acceptance;
+      unawaited(_startNativePreviewAfterDecline(id, acceptance));
+      return;
+    }
+    if (_gestureId != id) return;
+    _latestGesture = Map<String, dynamic>.of(input);
+    widget.controller._updateBackGesture(input);
+    if (_gestureHandled == false && (phase == 'update' || phase == 'end')) {
+      _updateNativePreview(input);
+    }
+    if (phase != 'end' && phase != 'cancel') return;
+    final acceptance = _gestureAcceptance;
+    unawaited(() async {
+      final handled = await _resolvedAcceptance(
+        acceptance ?? Future<bool>.value(false),
+      );
+      if (!mounted || _gestureId != id) return;
+      _gestureHandled = handled;
+      _gestureId = null;
+      _gestureAcceptance = null;
+      _latestGesture = null;
+      if (handled || phase == 'cancel') {
+        _cancelNativePreview();
+        _gestureExitRoute = null;
+        return;
+      }
+      if (phase == 'end') _updateNativePreview(input);
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      if (!handled &&
+          phase == 'end' &&
+          input['fallbackCompleted'] == true &&
+          (lifecycle == null || lifecycle == AppLifecycleState.resumed)) {
+        await _requestBack(source: 'edgeGesture');
+      } else {
+        _cancelNativePreview();
+        _gestureExitRoute = null;
+      }
+    }());
+  }
+
+  Future<void> _startNativePreviewAfterDecline(
+    String gestureId,
+    Future<bool> acceptance,
+  ) async {
+    final handled = await _resolvedAcceptance(acceptance);
+    if (!mounted || _gestureId != gestureId) return;
+    _gestureHandled = handled;
+    if (handled) return;
+    final latest = _latestGesture;
+    if (latest != null && latest['phase'] != 'cancel') {
+      _updateNativePreview(latest);
+    }
+  }
+
+  Future<bool> _resolvedAcceptance(Future<bool> acceptance) async {
+    try {
+      return await acceptance;
+    } on Object {
+      return false;
+    }
+  }
+
+  void _updateNativePreview(Map<String, dynamic> input) {
+    if (!widget.nativeEdgeExitEnabled || input['phase'] == 'cancel') return;
+    final rawProgress = input['progress'];
+    final progress = rawProgress is num
+        ? rawProgress.toDouble().clamp(0.0, 1.0)
+        : 0.0;
+    var route = _nativePreviewRoute;
+    if (route == null) {
+      route = _gestureExitRoute ?? widget.nativeExitRoute;
+      if (route == null ||
+          !route.isCurrent ||
+          route.navigator?.canPop() != true ||
+          route.animation?.isCompleted != true) {
+        return;
+      }
+      route.handleStartBackGesture(progress: 1.0 - progress);
+      _nativePreviewRoute = route;
+      return;
+    }
+    if (!route.isCurrent) {
+      _cancelNativePreview();
+      return;
+    }
+    route.handleUpdateBackGestureProgress(progress: 1.0 - progress);
+  }
+
+  void _cancelNativePreview() {
+    final route = _nativePreviewRoute;
+    _nativePreviewRoute = null;
+    // TransitionRoute's cancel path both restores an unpopped route and
+    // balances didStartUserGesture after a pop already began.
+    route?.handleCancelBackGesture();
+  }
+
+  @override
+  void dispose() {
+    final id = _gestureId;
+    if (id != null)
+      widget.controller._updateBackGesture(<String, dynamic>{
+        'gestureId': id,
+        'phase': 'cancel',
+      });
+    _gestureId = null;
+    _gestureAcceptance = null;
+    _gestureHandled = null;
+    _latestGesture = null;
+    _gestureExitRoute = null;
+    _cancelNativePreview();
+    super.dispose();
+  }
+
+  Future<void> _requestBack({required String source}) async {
+    if (_backPending) return;
+    _backPending = true;
+    try {
+      var handled = false;
+      try {
+        handled = await widget.controller.requestBack();
+      } catch (_) {
+        handled = false;
+      }
+      debugPrint('[PocketBack] boundary($source): handled=$handled');
+      if (source == 'edgeGesture') {
+        try {
+          final exitRoute = _gestureExitRoute;
+          if (mounted &&
+              !handled &&
+              widget.nativeEdgeExitEnabled &&
+              (exitRoute == null || exitRoute.isCurrent)) {
+            widget.onUnhandled();
+          }
+        } finally {
+          _cancelNativePreview();
+          _gestureExitRoute = null;
+        }
+      } else if (mounted && !handled) {
+        widget.onUnhandled();
+      }
+    } finally {
+      _backPending = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope<Object?>(
+    canPop: !widget.enabled,
+    onPopInvokedWithResult: (didPop, _) {
+      if (widget.enabled && !didPop) unawaited(_requestBack(source: 'popScope'));
+    },
+    child: _PocketEdgeBackListener(
+      onGesture: widget.enabled ? _onGesture : null,
+      child: widget.child,
+    ),
+  );
+}
+
+final class _PocketEdgeBackListener extends StatefulWidget {
+  const _PocketEdgeBackListener({required this.onGesture, required this.child});
+
+  final ValueChanged<Map<String, dynamic>>? onGesture;
+  final Widget child;
+
+  @override
+  State<_PocketEdgeBackListener> createState() =>
+      _PocketEdgeBackListenerState();
+}
+
+final class _PocketEdgeBackListenerState
+    extends State<_PocketEdgeBackListener> {
+  static int _sequence = 0;
+  int? _pointer;
+  Offset? _origin;
+  Offset? _position;
+  VelocityTracker? _velocity;
+  String? _gestureId;
+  double _width = 1;
+
+  void _emit(String phase, {double velocity = 0, bool completed = false}) {
+    final origin = _origin;
+    final position = _position;
+    final id = _gestureId;
+    if (origin == null || position == null || id == null) return;
+    final dx = position.dx - origin.dx;
+    widget.onGesture?.call(<String, dynamic>{
+      'gestureId': id,
+      'phase': phase,
+      'dx': dx,
+      'width': _width,
+      'velocity': velocity,
+      'progress': (dx / _width).clamp(0.0, 1.0),
+      'fallbackCompleted': completed,
+    });
+  }
+
+  void _onDown(PointerDownEvent event) {
+    if (_pointer != null ||
+        event.localPosition.dx < 0 ||
+        event.localPosition.dx > 36)
+      return;
+    _pointer = event.pointer;
+    _origin = _position = event.position;
+    _gestureId = 'native-edge-${++_sequence}';
+    _width = (context.size?.width ?? MediaQuery.sizeOf(context).width).clamp(
+      1.0,
+      double.infinity,
+    );
+    _velocity = VelocityTracker.withKind(event.kind)
+      ..addPosition(event.timeStamp, event.position);
+    debugPrint(
+      '[PocketBack] edge start x=${event.localPosition.dx.toStringAsFixed(1)}',
+    );
+    _emit('start');
+  }
+
+  void _onMove(PointerMoveEvent event) {
+    if (_pointer != event.pointer) return;
+    _position = event.position;
+    _velocity?.addPosition(event.timeStamp, event.position);
+    final delta = event.position - _origin!;
+    // A vertical gesture belongs to the page and must not later turn into Back.
+    if (delta.dy.abs() > kTouchSlop && delta.dy.abs() > delta.dx.abs()) {
+      _emit('cancel');
+      _clear();
+      return;
+    }
+    _emit('update');
+  }
+
+  void _onUp(PointerUpEvent event) {
+    if (_pointer != event.pointer) return;
+    _position = event.position;
+    // Match Flutter's drag recognizer: velocity uses down/move samples only.
+    final velocity = _velocity?.getVelocity().pixelsPerSecond.dx ?? 0;
+    final delta = event.position - _origin!;
+    final horizontal = delta.dx > delta.dy.abs();
+    final completed =
+        horizontal &&
+        (delta.dx >= 88 || (delta.dx >= kTouchSlop && velocity > 260));
+    debugPrint(
+      '[PocketBack] edge release dx=${delta.dx.toStringAsFixed(1)} vx=${velocity.toStringAsFixed(1)} accepted=$completed',
+    );
+    _emit(
+      horizontal ? 'end' : 'cancel',
+      velocity: velocity,
+      completed: completed,
+    );
+    _clear();
+  }
+
+  void _onCancel(PointerCancelEvent event) {
+    if (_pointer != event.pointer) return;
+    _emit('cancel');
+    _clear();
+  }
+
+  void _clear() {
+    _pointer = null;
+    _origin = _position = null;
+    _velocity = null;
+    _gestureId = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (defaultTargetPlatform != TargetPlatform.iOS || widget.onGesture == null)
+      return widget.child;
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: _onDown,
+      onPointerMove: _onMove,
+      onPointerUp: _onUp,
+      onPointerCancel: _onCancel,
+      child: widget.child,
+    );
+  }
+}
+
+final class _NativeBackGesture {
+  _NativeBackGesture(this.start, this.focused)
+    : focusedGeneration = focused?.session.generation;
+  final Map<String, dynamic> start;
+  final _RuntimeInstance? focused;
+  final int? focusedGeneration;
+  Map<String, dynamic>? latest;
+  _RuntimeInstance? target;
+  int? generation;
+}
+
+final class _PendingPlatformRequest {
+  _PendingPlatformRequest({
+    required this.requestId,
+    required this.capability,
+    required this.targetAppId,
+    required this.source,
+    required this.sourceGeneration,
+    required this.systemGeneration,
+    required this.completer,
+    required this.timer,
+  });
+
+  final String requestId;
+  final String capability;
+  final String? targetAppId;
+  final _RuntimeInstance source;
+  final int sourceGeneration;
+  final int systemGeneration;
+  final Completer<Object?> completer;
+  final Timer timer;
+  PocketCancellationToken? cancellation;
+}
+
+PocketAppConfig _ensureSystemCaps(PocketAppConfig config) {
+  if (config.additionalCapabilities.contains(_compositorSurfacesCapability)) {
+    return config;
+  }
+  return config.copyWith(
+    additionalCapabilities: <String>{
+      ...config.additionalCapabilities,
+      _compositorSurfacesCapability,
+    },
+  );
+}
+
+final class _SystemRuntimePlugin extends PocketPlugin {
+  _SystemRuntimePlugin(
+    this.host,
+    this.trustedSystemAppId,
+    this.ownerGeneration,
+  );
+
+  final _PocketSystemHostState host;
+  final String trustedSystemAppId;
+  final int ownerGeneration;
+
+  @override
+  bool get backgroundSafe => true;
+
+  @override
+  PocketPluginDescriptor get descriptor => PocketPluginDescriptor(
+    id: 'pocket.system.runtime',
+    version: '1.0.0',
+    capabilities: <String, PocketPluginCapability>{
+      for (final capability in _systemRequestCapabilities)
+        capability: PocketPluginCapability(
+          name: capability,
+          kind: PocketCapabilityKind.request,
+        ),
+    },
+  );
+
+  @override
+  void register(PocketPluginContext context) {
+    if (context.appId != trustedSystemAppId) {
+      throw const PocketCapabilityException(
+        'system_context_denied',
+        'System runtime provider was attached to a non-SystemUI session',
+      );
+    }
+    for (final capability in _systemRequestCapabilities) {
+      context.registerRequest(
+        capability,
+        (params) => host._handleSystemCapability(
+          trustedSystemAppId,
+          ownerGeneration,
+          capability,
+          Map<String, dynamic>.from(params),
+        ),
+      );
+    }
+  }
+}
+
+final class _PlatformProxyPlugin extends PocketPlugin {
+  _PlatformProxyPlugin(this.host, this.source, this.ownerGeneration);
+
+  final _PocketSystemHostState host;
+  final _RuntimeInstance source;
+  final int ownerGeneration;
+
+  @override
+  bool get backgroundSafe => true;
+
+  @override
+  PocketPluginDescriptor get descriptor => PocketPluginDescriptor(
+    id: 'pocket.system.platform-proxy',
+    version: '1.0.0',
+    capabilities: <String, PocketPluginCapability>{
+      for (final capability in _platformRequestCapabilities)
+        capability: PocketPluginCapability(
+          name: capability,
+          kind: PocketCapabilityKind.request,
+        ),
+    },
+  );
+
+  @override
+  void register(PocketPluginContext context) {
+    if (context.appId != source.appId) {
+      throw const PocketCapabilityException(
+        'platform_context_denied',
+        'Platform proxy identity does not match its host runtime',
+      );
+    }
+    for (final capability in _platformRequestCapabilities) {
+      context.registerRequest(
+        capability,
+        (params) => host._forwardPlatformRequest(
+          source,
+          ownerGeneration,
+          capability,
+          Map<String, dynamic>.from(params),
+        ),
+      );
+    }
+  }
+}
+
+/// Filesystem and current-scene IO stays bound to one child runtime. These
+/// requests intentionally bypass SystemUI's `system.request` router: the
+/// caller's controller and generation are the authority for capture.
+final class _PlatformImagesPlugin extends PocketPlugin {
+  _PlatformImagesPlugin(
+    this.host,
+    this.source,
+    this.ownerGeneration,
+    this.sessionGeneration,
+    this.captureController,
+  );
+
+  final _PocketSystemHostState host;
+  final _RuntimeInstance source;
+  final int ownerGeneration;
+  final int sessionGeneration;
+  final PocketViewController captureController;
+  late String _appId;
+
+  @override
+  bool get backgroundSafe => true;
+
+  @override
+  PocketPluginDescriptor get descriptor => PocketPluginDescriptor(
+    id: 'pocket.platform.images',
+    version: '1.0.0',
+    description: 'App-private scene capture and image IO',
+    limits: const PocketPluginLimits(maxResponseBytes: 512 * 1024),
+    capabilities: <String, PocketPluginCapability>{
+      for (final capability in _platformImageCapabilities)
+        capability: PocketPluginCapability(
+          name: capability,
+          kind: PocketCapabilityKind.request,
+        ),
+    },
+  );
+
+  @override
+  void register(PocketPluginContext context) {
+    if (source.isSystemUI ||
+        context.appId != source.appId ||
+        source.session.appId != source.appId ||
+        source.session.generation != sessionGeneration) {
+      throw const PocketCapabilityException(
+        'platform_context_denied',
+        'Image provider must be attached to its current child runtime',
+      );
+    }
+    _appId = context.appId;
+    context.registerRequest(
+      _platformImagesCaptureCapability,
+      (params) => host._captureGuestImage(
+        source,
+        ownerGeneration: ownerGeneration,
+        sessionGeneration: sessionGeneration,
+        captureController: captureController,
+        appId: _appId,
+        params: Map<String, dynamic>.from(params),
+      ),
+    );
+    context.registerRequest(
+      _platformImagesReadCapability,
+      (params) => host._readGuestImage(
+        source,
+        ownerGeneration: ownerGeneration,
+        sessionGeneration: sessionGeneration,
+        appId: _appId,
+        params: Map<String, dynamic>.from(params),
+      ),
+    );
+    context.registerRequest(
+      _platformImagesListCapability,
+      (params) => host._listGuestImages(
+        source,
+        ownerGeneration: ownerGeneration,
+        sessionGeneration: sessionGeneration,
+        appId: _appId,
+        params: Map<String, dynamic>.from(params),
+      ),
+    );
+    context.registerRequest(
+      _platformImagesRemoveCapability,
+      (params) => host._removeGuestImage(
+        source,
+        ownerGeneration: ownerGeneration,
+        sessionGeneration: sessionGeneration,
+        appId: _appId,
+        params: Map<String, dynamic>.from(params),
+      ),
+    );
+  }
+}
+
+final class _PocketImageEntryData {
+  const _PocketImageEntryData({
+    required this.bytes,
+    required this.width,
+    required this.height,
+  });
+
+  final Uint8List bytes;
+  final int width;
+  final int height;
+}
+
+int _imageLimit(
+  Map<String, dynamic> params,
+  String name, {
+  required int maximum,
+}) {
+  if (!params.containsKey(name)) return maximum;
+  final value = params[name];
+  if (value is! int || value <= 0 || value > maximum) {
+    throw PocketCapabilityException(
+      'invalid_request',
+      '$name must be an integer in 1..$maximum',
+    );
+  }
+  return value;
+}
+
+void _ensureOnlyImageFields(Map<String, dynamic> params, Set<String> allowed) {
+  final unexpected = params.keys.where((key) => !allowed.contains(key));
+  if (unexpected.isNotEmpty) {
+    throw PocketCapabilityException(
+      'invalid_request',
+      'Unsupported image request fields: ${unexpected.join(', ')}',
+    );
+  }
+}
+
+int _nextPowerOfTwo(int value) {
+  var next = 1;
+  while (next < value) {
+    next <<= 1;
+  }
+  return next;
+}
+
+String _requiredString(Map<String, dynamic> params, String name) {
+  final value = params[name];
+  if (value is! String || value.trim().isEmpty) {
+    throw PocketCapabilityException(
+      'invalid_request',
+      '$name must be a non-empty string',
+    );
+  }
+  return value;
+}
+
+String? _optionalString(Map<String, dynamic> params, String name) {
+  final value = params[name];
+  if (value == null) return null;
+  if (value is! String || value.trim().isEmpty) {
+    throw PocketCapabilityException(
+      'invalid_request',
+      '$name must be a non-empty string when provided',
+    );
+  }
+  return value;
+}
+
+PocketCapabilityException _readRemoteError(Object? rawError) {
+  if (rawError is String && rawError.isNotEmpty) {
+    return PocketCapabilityException('system_request_failed', rawError);
+  }
+  if (rawError is Map) {
+    final error = Map<String, dynamic>.from(rawError);
+    final code = error['code'];
+    final message = error['message'];
+    return PocketCapabilityException(
+      code is String && code.isNotEmpty ? code : 'system_request_failed',
+      message is String && message.isNotEmpty
+          ? message
+          : 'SystemUI rejected the platform request',
+    );
+  }
+  return const PocketCapabilityException(
+    'system_request_failed',
+    'SystemUI rejected the platform request',
+  );
+}

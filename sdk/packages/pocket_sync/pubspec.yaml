@@ -1,0 +1,15 @@
+name: pocket_sync
+description: Optional embedded HTTP/WebSocket sync server and multi-endpoint cross-subnet client capability provider for PocketJS hosts.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  pocket_services:
+    path: ../pocket_services
+
+dev_dependencies:
+  lints: ^5.1.1
+  test: ^1.25.8

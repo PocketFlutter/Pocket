@@ -1,0 +1,42 @@
+**/.cache/
+**/.dart_tool/
+**/.build/
+**/.swiftpm/
+**/.pocket-build/
+**/node_modules/
+sdk/prebuilt/
+**/__pycache__/
+**/*.pyc
+**/artifacts/
+**/build/
+**/.flutter-plugins*
+**/ephemeral/
+**/Pods/
+**/.symlinks/
+**/target/
+**/Frameworks/*.a
+**/Frameworks/*.xcframework/
+**/Frameworks/*.dylib
+**/jniLibs/**/*.so
+.DS_Store
+**/*.iml
+**/.idea/
+.fvm/
+
+.pocket-updates/
+
+# Temporary Pocket UI build inputs; successful builds remove these.
+**/.pocket-ui-backup-*/
+**/pocket-ui-entry-*
+
+**/.kotlin/
+
+# Generated Lantern guest bundle; canonical authoring sources live in demo/js/apps/lantern.
+/demo/assets/apps/lantern/
+
+# Native compiler intermediates and local QuickJS diagnostic executables.
+**/.cxx/
+/ng/
+
+# Local agent handoff records.
+/.primeflow/

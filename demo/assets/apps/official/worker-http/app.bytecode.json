@@ -1,0 +1,59 @@
+{
+  "bindingGeneration": 12,
+  "bytecodeBytes": 123048,
+  "engineAbi": "5ab2246bcbd64b9d66e396043be05c2f77e7a6ab78e3125c56f8a1f62019a021",
+  "entryFormat": "quickjs-bytecode",
+  "formatVersion": 1,
+  "headerBytes": 124,
+  "kind": "script",
+  "payloadSha256": "35b680fef536c7d10cffac3f8e03bdbc2568bd170f862ce0bf54d72d767eaac4",
+  "runtimeAbi": "quickjs-bytecode-v1:5ab2246bcbd64b9d66e396043be05c2f77e7a6ab78e3125c56f8a1f62019a021",
+  "sourceSha256": "bf74b12f1ffeb99affc125c9de299c97319213f885a367beaf280472066c3f93",
+  "tickHz": 60,
+  "fonts": "host",
+  "worker": {
+    "kind": "quickjs-bytecode",
+    "protocolVersion": 1,
+    "bytecode": {
+      "path": "app.worker.qjbc",
+      "bytes": 15064,
+      "sha256": "e04e8c4cc43e7e08f5125ae7287e6213c97406dfa9b4095d9d49a388cf0ea764"
+    },
+    "declaration": {
+      "entry": "apps/worker-http/worker.ts",
+      "nodes": [
+        {
+          "name": "http",
+          "kind": "http"
+        }
+      ],
+      "channels": [
+        {
+          "name": "request",
+          "kind": "ring",
+          "direction": "ui-to-worker",
+          "recordBytes": 1,
+          "capacity": 2
+        },
+        {
+          "name": "progress",
+          "kind": "snapshot",
+          "direction": "worker-to-ui",
+          "recordBytes": 12,
+          "capacity": 1
+        }
+      ]
+    },
+    "requiredCaps": [
+      "net.http",
+      "runtime.worker"
+    ],
+    "formatVersion": 1,
+    "sourceSha256": "caf76248072513ea33478db7c33e795df738e0b388c489ceefff2bcef826ea0e",
+    "payloadSha256": "f2fef1efbacf4c9cbcdda5ba3cd9b404c11541ab138a70fe9e19442d66c7fc6f",
+    "runtimeAbi": "quickjs-bytecode-v1:5ab2246bcbd64b9d66e396043be05c2f77e7a6ab78e3125c56f8a1f62019a021",
+    "engineAbi": "5ab2246bcbd64b9d66e396043be05c2f77e7a6ab78e3125c56f8a1f62019a021",
+    "bindingGeneration": 12,
+    "tickHz": 60
+  }
+}

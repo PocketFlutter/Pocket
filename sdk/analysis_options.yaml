@@ -1,0 +1,8 @@
+# Bun installs JS workspaces (and copies of Dart packages they depend on)
+# under node_modules; those are not SDK sources and must not be analyzed.
+analyzer:
+  exclude:
+    - "**/node_modules/**"
+    - build/**
+    - .cache/**
+    - native/target/**

@@ -1,0 +1,82 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Pocket Demo (iPhone Duo)",
+            "type": "dart",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/demo",
+            "program": "${workspaceFolder}/demo/lib/main.dart",
+            "deviceId": "iPhone Duo",
+            "flutterMode": "debug",
+            "preLaunchTask": "Pocket: prepare iOS"
+        },
+        {
+            "name": "Pocket Demo (iOS device)",
+            "type": "dart",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/demo",
+            "program": "${workspaceFolder}/demo/lib/main.dart",
+            "flutterMode": "debug",
+            "preLaunchTask": "Pocket: prepare iOS"
+        },
+        {
+            "name": "Pocket Demo (iOS device, profile)",
+            "type": "dart",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/demo",
+            "program": "${workspaceFolder}/demo/lib/main.dart",
+            "flutterMode": "profile",
+            "preLaunchTask": "Pocket: prepare iOS"
+        },
+        {
+            "name": "Pocket Demo (iOS device, release)",
+            "type": "dart",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/demo",
+            "program": "${workspaceFolder}/demo/lib/main.dart",
+            "flutterMode": "release",
+            "preLaunchTask": "Pocket: prepare iOS"
+        },
+        {
+            "name": "Pocket Demo (macOS)",
+            "type": "dart",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/demo",
+            "program": "${workspaceFolder}/demo/lib/main.dart",
+            "deviceId": "macos",
+            "flutterMode": "debug",
+            "preLaunchTask": "Pocket: prepare macOS"
+        },
+        {
+            "name": "Pocket Demo (macOS, profile)",
+            "type": "dart",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/demo",
+            "program": "${workspaceFolder}/demo/lib/main.dart",
+            "deviceId": "macos",
+            "flutterMode": "profile",
+            "preLaunchTask": "Pocket: prepare macOS"
+        },
+        {
+            "name": "Pocket Demo (macOS, release)",
+            "type": "dart",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/demo",
+            "program": "${workspaceFolder}/demo/lib/main.dart",
+            "deviceId": "macos",
+            "flutterMode": "release",
+            "preLaunchTask": "Pocket: prepare macOS"
+        },
+        {
+            "name": "Pocket Demo (Android arm64)",
+            "type": "dart",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/demo",
+            "program": "${workspaceFolder}/demo/lib/main.dart",
+            "flutterMode": "debug",
+            "flutterPlatform": "android-arm64",
+            "preLaunchTask": "Pocket: prepare Android"
+        }
+    ]
+}

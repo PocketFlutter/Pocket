@@ -1,0 +1,69 @@
+{
+  "name": "pocketjs-sdk",
+  "version": "0.1.22",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/pocket_ui",
+    "packages/pocket_looseleaf",
+    "packages/pocket_tftc",
+    "packages/pocket_vn",
+    "packages/pocket_spine",
+    "packages/pocket_live2d",
+    "packages/pocket_diagnostics",
+    "packages/pocket_arc",
+    "packages/pocket_cos",
+    "packages/pocket_sync"
+  ],
+  "dependencies": {
+    "@pocket/ui": "0.1.0",
+    "find-process": "2.1.1",
+    "tree-kill": "1.2.2",
+    "bun": "1.3.9"
+  },
+  "devDependencies": {
+    "@pocket/spine": "0.1.0",
+    "@open-wxa/wxa-runner-core": "0.12.3",
+    "node-gyp": "12.3.0",
+    "playwright": "1.64.1",
+    "solid-js": "1.9.14"
+  },
+  "description": "Embeddable PocketJS bytecode host SDK for Flutter applications.",
+  "scripts": {
+    "check:architecture": "python3 scripts/check_architecture.py",
+    "test": "bun test --timeout 60000",
+    "test:demand": "bun test tests/demand_scheduler.test.ts && bun tests/demand_scheduler_native_probe.ts",
+    "test:packages": "bun test scripts/tests/package_update.test.ts",
+    "test:editor": "npm exec --yes --package=bun@1.4.4 -- bun test --max-concurrency=1 editor/test/*.test.ts",
+    "test:editor:live": "bun editor/test/editor_live_probe.ts",
+    "editor": "node scripts/editor_service.mjs start",
+    "init": "node scripts/toolchain.mjs run pocket.ts init",
+    "build": "node scripts/toolchain.mjs run pocket.ts build",
+    "build:web": "node scripts/toolchain.mjs run scripts/build_web.ts",
+    "export:web-sdk": "node scripts/toolchain.mjs run scripts/export_web_sdk.ts",
+    "cos": "node scripts/toolchain.mjs run packages/pocket_cos/src/cli.ts",
+    "preview:wechat": "node scripts/toolchain.mjs run scripts/preview_wechat.ts",
+    "editor:start": "node scripts/editor_service.mjs start",
+    "editor:restart": "node scripts/editor_service.mjs restart",
+    "editor:stop": "node scripts/editor_service.mjs stop",
+    "editor:status": "node scripts/editor_service.mjs status",
+    "setup": "node scripts/toolchain.mjs setup",
+    "bootstrap": "node scripts/toolchain.mjs bootstrap",
+    "build:guest": "node scripts/toolchain.mjs build:guest",
+    "build:probe": "node scripts/toolchain.mjs build:probe",
+    "doctor": "node scripts/toolchain.mjs doctor",
+    "setup:source": "node scripts/toolchain.mjs setup:source",
+    "bootstrap:source": "node scripts/toolchain.mjs bootstrap:source",
+    "build:probe:source": "node scripts/toolchain.mjs build:probe:source",
+    "package:tools": "bun scripts/package_toolchain.ts",
+    "build:engine:source": "bun scripts/build_web_engine.ts",
+    "official-demos": "node -e \"import('./scripts/prebuilt_tools.mjs').then(({resolveManagedBun}) => { const {spawnSync} = require('node:child_process'); const result = spawnSync(resolveManagedBun(process.cwd()), ['scripts/official_demos.ts', ...process.argv.slice(1)], {stdio: 'inherit'}); process.exit(result.status ?? 1); }).catch(error => { console.error(error); process.exit(1); })\""
+  },
+  "optionalDependencies": {
+    "@abandonware/noble": "1.9.2-26"
+  },
+  "trustedDependencies": [
+    "@abandonware/noble"
+  ]
+}

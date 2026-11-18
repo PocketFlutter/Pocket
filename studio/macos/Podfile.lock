@@ -1,0 +1,28 @@
+PODS:
+  - FlutterMacOS (1.0.0)
+  - pocket_archive (0.1.0):
+    - Flutter
+    - FlutterMacOS
+  - pocket_flutter (0.1.0)
+
+DEPENDENCIES:
+  - FlutterMacOS (from `Flutter/ephemeral`)
+  - pocket_archive (from `Flutter/ephemeral/.symlinks/plugins/pocket_archive/macos`)
+  - pocket_flutter (from `Flutter/ephemeral/.symlinks/plugins/pocket_flutter/macos`)
+
+EXTERNAL SOURCES:
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+  pocket_archive:
+    :path: Flutter/ephemeral/.symlinks/plugins/pocket_archive/macos
+  pocket_flutter:
+    :path: Flutter/ephemeral/.symlinks/plugins/pocket_flutter/macos
+
+SPEC CHECKSUMS:
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
+  pocket_archive: fff57bcc75adf365cb8c666b20eef39368eac9b2
+  pocket_flutter: c90b4522cb99c2488690ccad1226ddd0b787835d
+
+PODFILE CHECKSUM: 1e95c36afbfd1cb6423ceca4de7a8e1b256fb6ac
+
+COCOAPODS: 1.16.2

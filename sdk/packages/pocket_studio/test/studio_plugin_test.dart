@@ -1,0 +1,696 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:pocket_services/pocket_services.dart';
+import 'package:pocket_studio/pocket_studio.dart';
+
+import 'fake_service.dart';
+
+void main() {
+  late FakeService service;
+  late PocketStudioPlugin plugin;
+
+  setUp(() async {
+    service = await FakeService.start();
+    plugin = PocketStudioPlugin(
+      config: PocketStudioConfig(port: service.port, sdkRoot: '/opt/pocket/sdk'),
+      flushInterval: const Duration(milliseconds: 5),
+    );
+  });
+  tearDown(() async {
+    await plugin.dispose();
+    await service.close();
+  });
+
+  Future<Object?> call(String name, [Map<String, dynamic> params = const {}]) => plugin.invoke(name, params);
+  Future<PocketCapabilityException> failure(String name, Map<String, dynamic> params) async {
+    try {
+      await call(name, params);
+    } on PocketCapabilityException catch (error) {
+      return error;
+    }
+    fail('$name should have failed');
+  }
+
+  group('routing', () {
+    test('project.list slims status and wraps the array', () async {
+      service.handler = (r) async => FakeReply(200, [
+        {
+          'id': 'demo', 'name': 'Demo',
+          'status': {'revision': 3, 'logs': List.filled(50, 'x' * 100), 'busy': false},
+        },
+      ]);
+      final result = await call('studio.project.list') as Map;
+      final project = (result['projects'] as List).single as Map;
+      expect(project['id'], 'demo');
+      expect((project['status'] as Map)['logs'], isEmpty);
+      expect(service.requests.last.method, 'GET');
+      expect(service.requests.last.uri.path, '/api/projects');
+    });
+
+    test('fs.read url-encodes each segment and maps the method', () async {
+      service.handler = (r) async => FakeReply(200, {'path': 'src/a b.tsx', 'content': 'hi', 'bytes': 2, 'revision': 1});
+      await call('studio.fs.read', {'project': 'demo', 'path': 'src/a b.tsx'});
+      expect(service.requests.last.uri.toString(), '/api/projects/demo/files/src/a%20b.tsx');
+      await call('studio.fs.stat', {'project': 'demo', 'path': 'src/中.ts'});
+      expect(service.requests.last.uri.path, startsWith('/api/projects/demo/stat/src/%E4%B8%AD'));
+    });
+
+    test('every mapped call hits its fixed route', () async {
+      service.handler = (r) async => const FakeReply(200, {'ok': true});
+      final cases = <String, (Map<String, dynamic>, String, String)>{
+        'studio.project.open': ({'project': 'demo'}, 'GET', '/api/projects/demo'),
+        'studio.project.settings.get': ({'project': 'demo'}, 'GET', '/api/projects/demo/config'),
+        'studio.project.settings.set': ({'project': 'demo', 'settings': {'title': 'T'}}, 'PUT', '/api/projects/demo/config'),
+        'studio.ecosystem.catalog': (const {}, 'GET', '/api/ecosystem/modules'),
+        'studio.ecosystem.get': ({'project': 'demo'}, 'GET', '/api/projects/demo/ecosystem'),
+        'studio.ecosystem.set': ({'project': 'demo', 'modules': ['ui-kit']}, 'POST', '/api/projects/demo/ecosystem'),
+        'studio.cos.get': ({'project': 'demo'}, 'GET', '/api/projects/demo/cos'),
+        'studio.cos.set': ({'project': 'demo', 'enabled': false}, 'PUT', '/api/projects/demo/cos'),
+        'studio.cos.check': ({'project': 'demo'}, 'POST', '/api/projects/demo/cos/check'),
+        'studio.cos.publish': ({'project': 'demo', 'channel': 'test'}, 'POST', '/api/projects/demo/cos/publish'),
+        'studio.fs.tree': ({'project': 'demo'}, 'GET', '/api/projects/demo/files'),
+        'studio.fs.write': ({'project': 'demo', 'path': 'a.ts', 'content': 'x'}, 'PUT', '/api/projects/demo/files/a.ts'),
+        'studio.fs.rename': ({'project': 'demo', 'from': 'a.ts', 'to': 'b.ts'}, 'POST', '/api/projects/demo/files-move'),
+        'studio.fs.delete': ({'project': 'demo', 'path': 'a.ts'}, 'DELETE', '/api/projects/demo/files/a.ts'),
+        'studio.fs.mkdir': ({'project': 'demo', 'path': 'd'}, 'POST', '/api/projects/demo/folders'),
+        'studio.fs.rmdir': ({'project': 'demo', 'path': 'd'}, 'DELETE', '/api/projects/demo/folders/d'),
+        'studio.fs.readChunk': ({'project': 'demo', 'path': 'a.ts', 'offset': 0}, 'GET', '/api/projects/demo/chunks/a.ts'),
+        'studio.fs.upload.begin': ({'project': 'demo', 'path': 'a.ts', 'totalBytes': 1, 'sha256': 'a' * 64}, 'POST', '/api/projects/demo/uploads'),
+        'studio.fs.upload.chunk': ({'project': 'demo', 'uploadId': 'u-1', 'offset': 0, 'data': 'QQ=='}, 'PUT', '/api/projects/demo/uploads/u-1'),
+        'studio.fs.upload.commit': ({'project': 'demo', 'uploadId': 'u-1'}, 'POST', '/api/projects/demo/uploads/u-1/commit'),
+        'studio.fs.upload.abort': ({'project': 'demo', 'uploadId': 'u-1'}, 'DELETE', '/api/projects/demo/uploads/u-1'),
+        'studio.build.start': ({'project': 'demo'}, 'POST', '/api/projects/demo/build'),
+        'studio.build.cancel': ({'project': 'demo'}, 'POST', '/api/projects/demo/build/cancel'),
+        'studio.build.status': ({'project': 'demo'}, 'GET', '/api/projects/demo/status'),
+        'studio.logs.tail': ({'project': 'demo'}, 'GET', '/api/projects/demo/logs'),
+        'studio.preview.publish': ({'project': 'demo'}, 'POST', '/api/projects/demo/preview-publish'),
+        'studio.preview.devices': (const {}, 'GET', '/api/devices'),
+        'studio.preview.deploy': ({'project': 'demo', 'deviceId': 'sim'}, 'POST', '/api/projects/demo/deploy'),
+        'studio.preview.deployStatus': ({'project': 'demo', 'job': 'deployment-1'}, 'GET', '/api/projects/demo/deploy/deployment-1'),
+        'studio.preview.deployCancel': ({'project': 'demo', 'job': 'deployment-1'}, 'DELETE', '/api/projects/demo/deploy/deployment-1'),
+        'studio.publish.plan': ({'project': 'demo'}, 'GET', '/api/projects/demo/publish-targets'),
+        'studio.publish.publish': ({'project': 'demo', 'channel': 'release'}, 'POST', '/api/projects/demo/publish'),
+        'studio.publish.history': ({'project': 'demo'}, 'GET', '/api/projects/demo/versions'),
+        'studio.publish.offline': ({'project': 'demo'}, 'POST', '/api/projects/demo/package-offline'),
+        'studio.artifacts.list': ({'project': 'demo'}, 'GET', '/api/projects/demo/status'),
+        'studio.service.health': (const {}, 'GET', '/health'),
+        'studio.service.upgrade.status': (const {}, 'GET', '/api/studio/upgrade'),
+        'studio.service.upgrade.check': (const {}, 'POST', '/api/studio/upgrade/check'),
+        'studio.service.upgrade.apply': (const {}, 'POST', '/api/studio/upgrade/apply'),
+        'studio.logs.diagnostics': ({'project': 'demo'}, 'GET', '/api/projects/demo/diagnostics'),
+      };
+      for (final entry in cases.entries) {
+        service.requests.clear();
+        await call(entry.key, entry.value.$1);
+        final r = service.requests.where((q) => q.uri.path != '/health' || entry.key == 'studio.service.health').last;
+        expect('${r.method} ${r.uri.path}', '${entry.value.$2} ${entry.value.$3}', reason: entry.key);
+      }
+    });
+
+    test('fs.read and readChunk return file payloads byte-identical; other fields and errors stay scrubbed', () async {
+      const content = "#!/usr/bin/env bun\nconst p='/tmp/x'; const t={a:/x/};\n-----BEGIN PRIVATE KEY-----";
+      service.handler = (r) async => const FakeReply(200, {
+        'path': '/Users/dev/ws/a.ts', 'content': content, 'bytes': 10, 'revision': 1,
+      });
+      final read = await call('studio.fs.read', {'project': 'demo', 'path': 'a.ts'}) as Map;
+      expect(read['content'], content);
+      expect(read['path'], '<workspace>/a.ts');
+      const data = 'AAAA+/tmp/AAAA+/Users/x/yyyy==';
+      service.handler = (r) async => const FakeReply(200, {'data': data, 'sha256': 'ab', 'totalBytes': 3});
+      final chunk = await call('studio.fs.readChunk', {'project': 'demo', 'path': 'a.ts', 'offset': 0}) as Map;
+      expect(chunk['data'], data);
+      service.handler = (r) async => const FakeReply(404, {'error': 'no /Users/x/y here'});
+      final error = await failure('studio.fs.read', {'project': 'demo', 'path': 'a.ts'});
+      expect(error.message, isNot(contains('/Users/x/y')));
+    });
+
+    test('upgrade.check never auto-applies; apply is a bare POST and a 409 keeps its structured code', () async {
+      service.handler = (r) async => const FakeReply(200, {'currentVersion': '0.1.12', 'mode': 'source', 'upgradeAvailable': true});
+      final checked = await call('studio.service.upgrade.check') as Map;
+      expect(checked['mode'], 'source');
+      final check = service.requests.lastWhere((q) => q.uri.path.endsWith('/check'));
+      expect(check.json, {'autoApply': false}, reason: 'a check from the Studio must never trigger the service-side auto apply');
+      service.handler = (r) async => const FakeReply(409, {'error': '当前为源码检出模式，仅支持检查新版本'});
+      final error = await failure('studio.service.upgrade.apply', const {});
+      expect(error.code, 'conflict');
+      expect(error.message, contains('源码检出模式'));
+      expect(error.message, contains('HTTP 409'));
+      service.handler = (r) async => const FakeReply(200, {'mode': 'source'});
+      await call('studio.service.upgrade.check', {'autoApply': true, 'forceApply': true});
+      expect(service.requests.lastWhere((q) => q.uri.path.endsWith('/check')).json, {'autoApply': false},
+          reason: 'the guest cannot opt into the service-side auto apply');
+    });
+
+    test('diagnostics export is scrubbed, newest first, bounded, and carries a derived id and the download URL', () async {
+      const pem = '-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2Vw\n-----END PRIVATE KEY-----';
+      final records = <Map<String, Object?>>[
+        {'id': 'r-0', 'kind': 'crash', 'message': 'boom at /Users/dev/ws/projects/demo/app.tsx:3', 'error': {'stack': 'at f (/Users/dev/app/x.js:1)\n$pem'}, 'data': {'privateKey': 'k', 'csrfToken': 'csrf-token-0123456789', 'note': 'ok'}},
+        for (var i = 1; i < 800; i++) {'id': 'r-$i', 'kind': 'log', 'message': 'line $i ' + 'x' * 400},
+      ];
+      service.handler = (r) async => FakeReply(200, {
+        'format': 'pocket-diagnostics-export', 'schemaVersion': 1, 'exportedAt': '2026-11-16T10:20:30.123Z',
+        'totalRecords': records.length, 'logCount': 799, 'crashCount': 1, 'context': {'source': 'studio'}, 'records': records,
+      });
+      final result = await call('studio.logs.diagnostics', {'project': 'demo', 'kind': 'crash'}) as Map;
+      expect(service.requests.last.uri.queryParameters, {'kind': 'crash'});
+      expect(result['exportId'], 'diag-demo-20261116102030123');
+      expect(result['totalRecords'], 800);
+      expect(result['truncated'], isTrue);
+      expect(result['omitted'], greaterThan(0));
+      expect((result['records'] as List).first['id'], 'r-0', reason: 'service order (newest first) is kept; the oldest are the ones omitted');
+      expect(result['keptRecords'], (result['records'] as List).length);
+      expect(result['downloadUrl'], '${Uri(scheme: 'http', host: '127.0.0.1', port: service.port)}/api/projects/demo/diagnostics?download=1&kind=crash');
+      final text = jsonEncode(result);
+      expect(text, isNot(contains('/Users/dev')));
+      expect(text, isNot(contains('PRIVATE KEY')));
+      expect(text, isNot(contains('csrf-token')));
+      expect(text, isNot(contains('"privateKey"')));
+      expect(text, contains('<redacted-key>'));
+      expect(utf8.encode(text).length, lessThan(pocketStudioMaxResultBytes));
+      final small = await (() async {
+        service.handler = (r) async => const FakeReply(200, {'exportedAt': '2026-11-16T10:20:30.123Z', 'totalRecords': 0, 'logCount': 0, 'crashCount': 0, 'records': []});
+        return await call('studio.logs.diagnostics', {'project': 'demo'}) as Map;
+      })();
+      expect(small['truncated'], isFalse);
+      expect(small.containsKey('kind'), isFalse);
+      expect((await failure('studio.logs.diagnostics', {'project': 'demo', 'kind': 'x'})).code, 'invalid_params');
+      expect((await failure('studio.logs.diagnostics', {'project': '../x'})).code, 'invalid_params');
+    });
+
+    test('build.start unwraps the service status to the flat contract', () async {
+      service.handler = (r) async => const FakeReply(200, {'status': {'busy': true, 'logs': []}});
+      final result = await call('studio.build.start', {'project': 'demo'}) as Map;
+      expect(result['busy'], isTrue);
+      expect(result.containsKey('status'), isFalse);
+    });
+
+    test('extra project roots are scrubbed as <project>', () async {
+      final extra = PocketStudioPlugin(
+        config: PocketStudioConfig(port: service.port, extraProjectRoots: const ['/data/co/studio/js']),
+      );
+      addTearDown(extra.dispose);
+      service.handler = (r) async => const FakeReply(200, {'logs': ['error at /data/co/studio/js/app.tsx:3']});
+      final result = await extra.invoke('studio.logs.tail', {'project': 'demo'}) as Map;
+      expect(result['logs'], ['error at <project>/app.tsx:3']);
+    });
+
+    test('fs.tree can merge assets; readChunk clamps length', () async {
+      service.handler = (r) async => r.uri.path.endsWith('/assets')
+          ? const FakeReply(200, {'assets': ['a.png']})
+          : const FakeReply(200, {'files': [], 'revision': 2});
+      final tree = await call('studio.fs.tree', {'project': 'demo', 'assets': true}) as Map;
+      expect(tree['assets'], ['a.png']);
+      await call('studio.fs.readChunk', {'project': 'demo', 'path': 'a.ts', 'offset': 5, 'length': 9999999});
+      expect(service.requests.last.uri.queryParameters, {'offset': '5', 'length': '131072'});
+    });
+
+    test('oversized results fail with too_large instead of the framework quota', () async {
+      service.handler = (r) async => FakeReply(200, {'path': 'a.ts', 'content': 'x' * 300000, 'bytes': 300000, 'revision': 1});
+      final error = await failure('studio.fs.read', {'project': 'demo', 'path': 'a.ts'});
+      expect(error.code, 'too_large');
+      expect(error.message, contains('readChunk'));
+    });
+
+    test('artifact inspect returns scrubbed text and no binary data', () async {
+      service.handler = (r) async => r.uri.path.endsWith('build.json')
+          ? FakeReply(200, null, raw: utf8.encode('{"source":"/Users/dev/ws/projects/demo/app.tsx"}'), contentType: 'application/json')
+          : FakeReply(200, null, raw: [1, 2, 3], contentType: 'application/octet-stream');
+      final text = await call('studio.artifacts.inspect', {'project': 'demo', 'name': 'build.json'}) as Map;
+      expect(text['data'], contains('<project>/app.tsx'));
+      expect(text['data'], isNot(contains('/Users')));
+      final binary = await call('studio.artifacts.inspect', {'project': 'demo', 'name': 'app.qjbc'}) as Map;
+      expect(binary.containsKey('data'), isFalse);
+      expect((await failure('studio.artifacts.inspect', {'project': 'demo', 'name': '../x'})).code, 'invalid_params');
+    });
+
+    test('artifact inspect re-encodes an oversized pretty JSON snapshot so the guest can parse it', () async {
+      final resources = <Map<String, Object?>>[
+        for (var i = 0; i < 900; i++) {'key': 'asset:assets/img-$i.png', 'kind': 'asset', 'bytes': i, 'placement': 'pak'},
+      ];
+      final pretty = const JsonEncoder.withIndent('      ').convert({'version': 1, 'packages': [{'id': 'pocket.demo', 'resources': resources}]});
+      expect(pretty.length, greaterThan(128 * 1024));
+      service.handler = (r) async => FakeReply(200, null, raw: utf8.encode(pretty), contentType: 'application/json');
+      final result = await call('studio.artifacts.inspect', {'project': 'demo', 'name': 'resources.json'}) as Map;
+      expect(result['bytes'], pretty.length, reason: 'bytes is the real artifact size');
+      expect(result['truncated'], isFalse);
+      final parsed = jsonDecode(result['data'] as String) as Map;
+      expect(((parsed['packages'] as List).single as Map)['resources'], hasLength(900));
+    });
+
+    test('publish result drops the signed payload body but keeps the public identity', () async {
+      service.handler = (r) async => FakeReply(200, {
+        'status': {'publish': {'keyId': 'k1', 'runtimeAbi': 'abi'}},
+        'manifest': {'keyId': 'k1', 'payload': 'A' * 400000, 'signature': 'sig'},
+        'manifestUrl': 'http://127.0.0.1:1/test/pocket/h/app/latest.json',
+        'cosPublish': {'channel': 'test', 'bucket': 'b-1', 'region': 'ap-guangzhou'},
+        'cosError': 'cos warning at /Users/dev/ws/projects/demo/x',
+      });
+      final result = await call('studio.publish.publish', {'project': 'demo', 'channel': 'test'}) as Map;
+      expect(result['manifestUrl'], contains('latest.json'));
+      final manifest = result['manifest'] as Map;
+      expect(manifest, {'keyId': 'k1', 'signature': 'sig', 'payloadBase64Bytes': 400000});
+      expect(result['cosPublish'], {'channel': 'test', 'bucket': 'b-1', 'region': 'ap-guangzhou'});
+      expect(result['cosError'], 'cos warning at <project>/x');
+    });
+
+    test('openLocal and create with pickParentDirectory never expose raw paths to the guest', () async {
+      service.handler = (r) async {
+        if (r.uri.path == '/api/projects/pick-directory') {
+          return const FakeReply(200, {'path': null});
+        }
+        return const FakeReply(500, {'error': 'unexpected'});
+      };
+      expect(await call('studio.project.openLocal'), {'cancelled': true});
+      expect(await call('studio.project.create', {'id': 'picked-app', 'pickParentDirectory': true}), {'cancelled': true});
+
+      service.handler = (r) async {
+        if (r.uri.path == '/api/projects/pick-directory') {
+          return const FakeReply(200, {'path': '/Users/alice/External/my-game/'});
+        }
+        if (r.uri.path == '/api/projects/open') {
+          expect(r.json, {'path': '/Users/alice/External/my-game/'});
+          return const FakeReply(200, {
+            'id': 'my-game',
+            'appId': 'pocket.my.game',
+            'status': {'revision': 1, 'logs': ['opened /Users/alice/External/my-game/app.tsx']},
+          });
+        }
+        if (r.uri.path == '/api/projects' && r.method == 'POST') {
+          return FakeReply(201, {
+            'id': (r.json as Map)['id'],
+            'appId': 'pocket.picked.app',
+            'ecosystemModules': (r.json as Map)['ecosystemModules'],
+            'status': {'revision': 1, 'logs': ['created at /Users/alice/External/picked-app/app.tsx']},
+          });
+        }
+        return const FakeReply(404, {'error': 'not found'});
+      };
+      final opened = await call('studio.project.openLocal') as Map;
+      expect(opened['cancelled'], isFalse);
+      expect((opened['project'] as Map)['id'], 'my-game');
+      expect(jsonEncode(opened), isNot(contains('/Users/alice')));
+
+      service.handler = (r) async {
+        if (r.uri.path == '/api/projects/pick-directory') {
+          return const FakeReply(200, {'path': '/Users/alice/Projects/'});
+        }
+        if (r.uri.path == '/api/projects' && r.method == 'POST') {
+          expect((r.json as Map)['directory'], '/Users/alice/Projects/picked-app');
+          expect((r.json as Map)['ecosystemModules'], ['ui-kit', 'canvas-2d']);
+          return const FakeReply(201, {
+            'id': 'picked-app',
+            'appId': 'pocket.picked.app',
+            'ecosystemModules': ['ui-kit', 'canvas-2d'],
+            'status': {'revision': 1, 'logs': ['created /Users/alice/Projects/picked-app/app.tsx']},
+          });
+        }
+        return const FakeReply(404, {'error': 'not found'});
+      };
+      final created = await call('studio.project.create', {
+        'id': 'picked-app',
+        'template': 'app',
+        'pickParentDirectory': true,
+        'ecosystemModules': ['ui-kit', 'canvas-2d'],
+      }) as Map;
+      expect(created['id'], 'picked-app');
+      expect(created['ecosystemModules'], ['ui-kit', 'canvas-2d']);
+      expect(jsonEncode(created), isNot(contains('/Users/alice')));
+    });
+
+    test('ecosystem and cos routes forward payloads and scrub secrets', () async {
+      service.handler = (r) async => FakeReply(200, {
+        'config': {'id': 'demo', 'ecosystemModules': ['ui-kit']},
+        'modules': ['ui-kit'],
+        'status': {'revision': 2, 'logs': ['ok']},
+      });
+      final ecoSet = await call('studio.ecosystem.set', {'project': 'demo', 'add': ['ui-kit']}) as Map;
+      expect(service.requests.last.json, {'add': ['ui-kit']});
+      expect(ecoSet['modules'], ['ui-kit']);
+
+      service.handler = (r) async => const FakeReply(200, {
+        'config': {'enabled': true, 'bucket': 'demo-1250000000', 'region': 'ap-guangzhou'},
+        'credentials': {
+          'available': true,
+          'maskedSecretId': 'AKID****1234',
+          'secretKey': 'SHOULD_BE_DROPPED',
+          'secret_key': 'SHOULD_BE_DROPPED_2',
+          'securityToken': 'SHOULD_BE_DROPPED_3',
+          'sessionToken': 'SHOULD_BE_DROPPED_4',
+        },
+      });
+      final cosSet = await call('studio.cos.set', {
+        'project': 'demo',
+        'enabled': true,
+        'bucket': 'demo-1250000000',
+        'region': 'ap-guangzhou',
+        'credentials': {'secretId': 'AKID123456', 'secretKey': 'SK123456', 'securityToken': 'TOK'},
+      }) as Map;
+      expect(service.requests.last.json, {
+        'enabled': true,
+        'bucket': 'demo-1250000000',
+        'region': 'ap-guangzhou',
+        'credentials': {'secretId': 'AKID123456', 'secretKey': 'SK123456', 'securityToken': 'TOK'},
+      });
+      final cosText = jsonEncode(cosSet);
+      expect(cosText, contains('AKID****1234'));
+      expect(cosText, isNot(contains('SHOULD_BE_DROPPED')));
+
+      await call('studio.cos.set', {'project': 'demo', 'credentials': null});
+      expect(service.requests.last.json, {'credentials': null});
+    });
+
+    test('signing key material never reaches the guest, whichever route carries it', () async {
+      const pem = '-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIDsecretsecretsecretsecretsecretsecretsecret\n-----END PRIVATE KEY-----';
+      service.handler = (r) async => FakeReply(200, {
+        'status': {'publish': {'keyId': 'k1'}},
+        'privateKey': 'MC4CAQAwBQYDK2VwBCIEIDsecret',
+        'nested': {'seed': 'abcd', 'secretKey': 'x', 'ok': 'visible', 'note': 'key was $pem done'},
+        'logs': ['signing with $pem'],
+        'publicKey': 'PUBLICKEYBASE64',
+      });
+      for (final capability in ['studio.publish.publish', 'studio.publish.history', 'studio.publish.plan', 'studio.build.status']) {
+        final text = jsonEncode(await call(capability, {'project': 'demo'}));
+        expect(text, isNot(contains('PRIVATE KEY')), reason: capability);
+        expect(text, isNot(contains('secretsecret')), reason: capability);
+        expect(text, isNot(contains('MC4CAQAw')), reason: capability);
+        expect(text, isNot(contains('"seed"')), reason: capability);
+        expect(text, contains('visible'), reason: capability);
+        expect(text, contains('PUBLICKEYBASE64'), reason: 'public keys stay: $capability');
+      }
+      // Error bodies and inspected text artifacts are scrubbed too.
+      service.handler = (r) async => FakeReply(500, {'error': 'sign failed: $pem'});
+      final error = await failure('studio.publish.publish', {'project': 'demo'});
+      expect(error.message, isNot(contains('secretsecret')));
+      service.handler = (r) async => FakeReply(200, null, raw: utf8.encode('{"k":"$pem"}'), contentType: 'application/json');
+      final inspected = await call('studio.artifacts.inspect', {'project': 'demo', 'name': 'build.json'}) as Map;
+      expect(inspected['data'], isNot(contains('secretsecret')));
+    });
+  });
+
+  group('validation (no request may reach the service)', () {
+    for (final path in ['/etc/passwd', '../x', 'a/../b', 'a//b', 'a/./b', 'a\\b', 'a\u0000b', 'C:/x', '', 'a/%2e%2e/b', 'a/%2F', 'a/']) {
+      test('rejects path ${jsonEncode(path)}', () async {
+        service.requests.clear();
+        final error = await failure('studio.fs.read', {'project': 'demo', 'path': path});
+        expect(error.code, 'invalid_params');
+        expect(service.requests.where((r) => r.uri.path != '/health'), isEmpty);
+      });
+    }
+    for (final id in ['../demo', 'Demo', 'a/b', '', '1x', 'a' * 49]) {
+      test('rejects project id ${jsonEncode(id)}', () async {
+        expect((await failure('studio.build.status', {'project': id})).code, 'invalid_params');
+      });
+    }
+    test('rejects bad parameters and unknown settings', () async {
+      expect((await failure('studio.fs.upload.chunk', {'project': 'demo', 'uploadId': 'u', 'offset': 0, 'data': base64Encode(List.filled(131073, 1))})).code, 'too_large');
+      expect((await failure('studio.fs.upload.begin', {'project': 'demo', 'path': 'a.ts', 'totalBytes': 1, 'sha256': 'zz'})).code, 'invalid_params');
+      expect((await failure('studio.fs.readChunk', {'project': 'demo', 'path': 'a.ts', 'offset': -1})).code, 'invalid_params');
+      expect((await failure('studio.project.settings.set', {'project': 'demo', 'settings': {'entry': '../x'}})).code, 'invalid_params');
+      expect((await failure('studio.project.settings.set', {'project': 'demo', 'settings': {'build': 7}})).code, 'invalid_params');
+      expect((await failure('studio.project.create', {'id': 'x', 'template': 'evil'})).code, 'invalid_params');
+      expect((await failure('studio.project.create', {'id': 'x', 'ecosystemModules': ['BAD_ID']})).code, 'invalid_params');
+      expect((await failure('studio.ecosystem.set', {'project': 'demo'})).code, 'invalid_params');
+      expect((await failure('studio.ecosystem.set', {'project': 'demo', 'modules': ['ui-kit'], 'add': ['ui-kit']})).code, 'invalid_params');
+      expect((await failure('studio.ecosystem.set', {'project': 'demo', 'modules': ['bad/module']})).code, 'invalid_params');
+      expect((await failure('studio.cos.set', {'project': 'demo', 'credentials': {'secretId': '', 'secretKey': 'x'}})).code, 'invalid_params');
+      expect((await failure('studio.cos.publish', {'project': 'demo', 'channel': 'beta'})).code, 'invalid_params');
+      expect((await failure('studio.publish.plan', {'project': 'demo', 'channel': 'beta'})).code, 'invalid_params');
+      expect((await failure('studio.fs.write', {'project': 'demo', 'path': 'a.ts', 'content': 'x' * (200 * 1024)})).code, 'too_large');
+      expect((await failure('studio.fs.read', {'path': 'a.ts'})).code, 'invalid_params');
+      expect((await failure('studio.nope', {})).code, 'capability_not_found');
+      expect(service.requests, isEmpty);
+    });
+  });
+
+  group('csrf', () {
+    test('writes carry x-pocket-csrf from /health, never x-pocket-editor, and the token is not returned', () async {
+      service.handler = (r) async => const FakeReply(200, {'path': 'a.ts', 'bytes': 1, 'revision': 2});
+      final result = await call('studio.fs.write', {'project': 'demo', 'path': 'a.ts', 'content': 'x'});
+      final write = service.requests.last;
+      expect(write.headers.value('x-pocket-csrf'), service.csrf);
+      expect(write.headers.value('x-pocket-editor'), isNull);
+      expect(write.headers.contentType?.mimeType, 'application/json');
+      expect(jsonEncode(result), isNot(contains(service.csrf)));
+      expect(jsonEncode(await call('studio.service.health')), isNot(contains(service.csrf)));
+    });
+
+    test('reads send no write credential', () async {
+      service.handler = (r) async => const FakeReply(200, {'files': [], 'revision': 1});
+      await call('studio.fs.tree', {'project': 'demo'});
+      expect(service.requests.last.headers.value('x-pocket-csrf'), isNull);
+    });
+
+    test('403 triggers exactly one refresh', () async {
+      var token = service.csrf;
+      service.handler = (r) async => r.headers.value('x-pocket-csrf') == token ? const FakeReply(202, {'busy': true}) : const FakeReply(403, {'error': 'bad token'});
+      await call('studio.build.start', {'project': 'demo'});
+      token = service.csrf = 'rotated-token-000000';
+      await call('studio.build.start', {'project': 'demo'});
+      expect(service.requests.last.headers.value('x-pocket-csrf'), 'rotated-token-000000');
+      service.handler = (r) async => const FakeReply(403, {'error': 'nope'});
+      expect((await failure('studio.build.start', {'project': 'demo'})).code, 'forbidden');
+    });
+  });
+
+  group('scrubbing', () {
+    test('health drops roots and token', () async {
+      final health = await call('studio.service.health') as Map;
+      expect(health.keys, containsAll(['ok', 'service', 'version']));
+      final text = jsonEncode(health);
+      for (final leak in ['/Users', 'workspace', 'projectRoot', 'flutterRoot', 'csrf']) {
+        expect(text, isNot(contains(leak)));
+      }
+    });
+
+    test('status.error, logs and diagnostics are scrubbed', () async {
+      service.handler = (r) async => const FakeReply(200, {
+        'id': 'demo', 'revision': 2, 'builtRevision': 1, 'busy': false,
+        'error': 'Build failed: /Users/dev/ws/projects/demo/app.tsx:3:4 not found',
+        'logs': [
+          'build_guest: source=/tmp/pocket-abc/app.tsx',
+          'cache /private/var/folders/xx/T/pocket-1/out ok',
+          'toolchain /opt/pocket/sdk/.cache/bun',
+          'flutter at /Users/dev/flutter/bin/flutter',
+          'win C:\\Users\\dev\\x.ts here',
+          'url http://127.0.0.1:8795/api/projects/demo/status fine',
+          'relative src/tmp/x.ts stays',
+        ],
+      });
+      final status = await call('studio.build.status', {'project': 'demo'}) as Map;
+      expect(status['error'], 'Build failed: <project>/app.tsx:3:4 not found');
+      final logs = (status['logs'] as List).cast<String>();
+      expect(logs[0], 'build_guest: source=<path>/app.tsx');
+      expect(logs[1], contains('<path>'));
+      expect(logs[2], 'toolchain <sdk>/.cache/bun');
+      expect(logs[3], 'flutter at <flutter>/bin/flutter');
+      expect(logs[4], contains('<path>'));
+      expect(logs[5], 'url http://127.0.0.1:8795/api/projects/demo/status fine');
+      expect(logs[6], 'relative src/tmp/x.ts stays');
+      expect(jsonEncode(status), isNot(contains('/Users')));
+    });
+
+    test('service error messages are scrubbed', () async {
+      service.handler = (r) async => const FakeReply(400, {'error': 'cannot open /Users/dev/ws/projects/demo/x'});
+      final error = await failure('studio.fs.stat', {'project': 'demo', 'path': 'x.ts'});
+      expect(error.code, 'invalid_request');
+      expect(error.message, 'cannot open <project>/x (HTTP 400)');
+    });
+
+    test('scrubber unit rules', () {
+      final s = StudioPathScrubber()..addRoot('/var/folders/ab/T', '<tmp>')..addSecret('supersecrettoken');
+      expect(s.scrubString('x /private/var/folders/ab/T/a/b y'), 'x <tmp>/a/b y');
+      expect(s.scrubString('tok supersecrettoken'), 'tok <redacted>');
+      expect(s.scrubString('file:///Users/me/a.ts'), 'file://<path>');
+      expect(s.scrubJson({'workspace': '/x', 'a': {'projectRoot': '/y', 'b': 1}, 'l': ['/home/u/z.txt']}),
+          {'a': {'b': 1}, 'l': ['<path>/z.txt']});
+    });
+  });
+
+  group('error mapping', () {
+    final statuses = {400: 'invalid_request', 403: 'forbidden', 404: 'not_found', 409: 'conflict', 413: 'too_large', 422: 'checksum_mismatch', 429: 'too_many_requests', 501: 'unsupported', 500: 'service_error', 502: 'service_error'};
+    statuses.forEach((status, code) {
+      test('HTTP $status -> $code', () async {
+        service.handler = (r) async => FakeReply(status, {'error': 'boom'});
+        final error = await failure('studio.build.status', {'project': 'demo'});
+        expect(error.code, code);
+        expect(error.message, 'boom (HTTP $status)');
+      });
+    });
+    test('unreachable service', () async {
+      await service.close();
+      expect((await failure('studio.build.status', {'project': 'demo'})).code, 'service_unreachable');
+      service = await FakeService.start();
+    });
+    test('non-JSON error body', () async {
+      service.handler = (r) async => FakeReply(500, null, raw: utf8.encode('Internal /Users/x/y'), contentType: 'text/plain');
+      final error = await failure('studio.build.status', {'project': 'demo'});
+      expect(error.message, isNot(contains('/Users')));
+    });
+  });
+
+  group('streams', () {
+    Future<List<Map>> collect(String name, {int events = 1, Duration wait = const Duration(seconds: 2)}) async {
+      final batches = <Map>[];
+      final done = Completer<void>();
+      final sub = plugin.openStream(name, {'project': 'demo'}).listen((v) {
+        batches.add(v as Map);
+        if (batches.expand((b) => b['events'] as List).length >= events && !done.isCompleted) done.complete();
+      }, onError: (Object e) => done.completeError(e), onDone: () { if (!done.isCompleted) done.complete(); });
+      await done.future.timeout(wait);
+      await sub.cancel();
+      return batches;
+    }
+
+    test('watch maps SSE events, scrubs them and batches', () async {
+      service.handler = (r) async => const FakeReply(200, null, sseClose: true, sse: [
+        {'type': 'ready', 'revision': 1},
+        {'type': 'change', 'path': 'a.ts', 'kind': 'file', 'event': 'change'},
+        {'type': 'status', 'status': {'error': 'x /Users/dev/ws/projects/demo/a.ts'}},
+      ]);
+      final batches = await collect('studio.fs.watch', events: 3);
+      final events = batches.expand((b) => b['events'] as List).cast<Map>().toList();
+      expect(events.map((e) => e['type']), ['ready', 'change', 'status']);
+      expect(jsonEncode(events), isNot(contains('/Users')));
+      expect(service.requests.last.uri.path, '/api/projects/demo/watch');
+    });
+
+    test('overflow drops oldest log events and surfaces a gap marker', () async {
+      final lines = [
+        {'type': 'status', 'status': {'busy': true}},
+        for (var i = 0; i < 3000; i++) {'type': 'log', 'line': 'line $i'},
+        {'type': 'done', 'ok': true},
+      ];
+      service.handler = (r) async => FakeReply(200, null, sse: lines);
+      final batches = await collect('studio.build.events', events: 5000);
+      final events = batches.expand((b) => b['events'] as List).cast<Map>().toList();
+      expect(events.any((e) => e['type'] == 'gap' && (e['dropped'] as int) > 0), isTrue);
+      expect(events.last['type'], 'done');
+      expect(events.first['type'], anyOf('gap', 'status'));
+      for (final b in batches) {
+        expect((b['events'] as List).length, lessThanOrEqualTo(201));
+        expect(utf8.encode(jsonEncode(b)).length, lessThan(256 * 1024));
+      }
+    });
+
+    test('an SSE event over 256 KiB becomes a gap marker instead of vanishing', () async {
+      service.handler = (r) async => FakeReply(200, null, sse: [
+        {'type': 'log', 'line': 'x' * (300 * 1024)},
+        {'type': 'done', 'ok': true},
+      ]);
+      final batches = await collect('studio.build.events', events: 2);
+      final events = batches.expand((b) => b['events'] as List).cast<Map>().toList();
+      expect(events.first, {'type': 'gap', 'dropped': 1});
+      expect(events.last['type'], 'done');
+    });
+
+    test('service error becomes a stream error; cancel releases the connection', () async {
+      service.handler = (r) async => const FakeReply(429, {'error': 'too many watchers'});
+      final stream = plugin.openStream('studio.fs.watch', {'project': 'demo'});
+      await expectLater(stream, emitsError(isA<PocketCapabilityException>().having((e) => e.code, 'code', 'too_many_requests')));
+
+      service.handler = (r) async => const FakeReply(200, null, sseClose: false, sse: [{'type': 'ready', 'revision': 1}]);
+      final sub = plugin.openStream('studio.fs.watch', {'project': 'demo'}).listen((_) {});
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(service.sseOpen, isNotEmpty);
+      await sub.cancel();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(service.sseClosed, greaterThan(0));
+    });
+  });
+
+  group('plugin admission', () {
+    Future<PocketPluginManager> admit({required Set<String> host, String appId = 'dev.pocket.studio'}) async {
+      final registry = PocketHostRegistry();
+      final h = PocketHost(
+        registry: registry,
+        streams: PocketStreamBridge(send: (_, __) => true),
+        allowedCapabilities: pocketStudioCapabilityNames,
+        send: (_, __) => true,
+      );
+      final manager = PocketPluginManager(host: h, appId: appId, sessionId: '1', allowedPermissions: host);
+      manager.register(plugin);
+      final availability = manager.negotiate(
+        required: const [],
+        optional: pocketStudioCapabilityNames.toList(),
+        requestedPermissions: PocketStudioPermissions.all.toList(),
+      );
+      await manager.activate(availability);
+      addTearDown(manager.dispose);
+      return manager;
+    }
+
+    test('descriptor serializes with schemas', () {
+      final json = plugin.descriptor.toJson();
+      expect((json['capabilities'] as List).length, pocketStudioCapabilityNames.length);
+    });
+
+    test('granted host scope works; ungranted permission is denied before any request', () async {
+      service.handler = (r) async => const FakeReply(200, {'files': [], 'revision': 1});
+      final manager = await admit(host: {'studio.read'});
+      expect(await manager.invoke('studio.fs.tree', {'project': 'demo'}), isA<Map>());
+      service.requests.clear();
+      await expectLater(manager.invoke('studio.fs.write', {'project': 'demo', 'path': 'a.ts', 'content': 'x'}),
+          throwsA(isA<PocketCapabilityException>()));
+      expect(service.requests, isEmpty);
+    });
+
+    test('upgrade check needs studio.write and apply needs studio.deploy', () async {
+      service.handler = (r) async => const FakeReply(200, {'mode': 'source'});
+      final manager = await admit(host: {'studio.read'});
+      await expectLater(manager.invoke('studio.service.upgrade.check', {}), throwsA(isA<PocketCapabilityException>()));
+      await expectLater(manager.invoke('studio.service.upgrade.apply', {}), throwsA(isA<PocketCapabilityException>()));
+      await expectLater(manager.invoke('studio.project.openLocal', {}), throwsA(isA<PocketCapabilityException>()));
+      await expectLater(manager.invoke('studio.ecosystem.set', {'project': 'demo', 'modules': ['ui-kit']}), throwsA(isA<PocketCapabilityException>()));
+      await expectLater(manager.invoke('studio.cos.set', {'project': 'demo', 'enabled': false}), throwsA(isA<PocketCapabilityException>()));
+      await expectLater(manager.invoke('studio.cos.check', {'project': 'demo'}), throwsA(isA<PocketCapabilityException>()));
+      await expectLater(manager.invoke('studio.cos.publish', {'project': 'demo'}), throwsA(isA<PocketCapabilityException>()));
+      expect(service.requests, isEmpty);
+      expect(await manager.invoke('studio.ecosystem.catalog', {}), isA<Map>());
+      expect(await manager.invoke('studio.ecosystem.get', {'project': 'demo'}), isA<Map>());
+      expect(await manager.invoke('studio.cos.get', {'project': 'demo'}), isA<Map>());
+      final write = await admit(host: {'studio.write', 'studio.read'});
+      expect(await write.invoke('studio.service.upgrade.check', {}), isA<Map>());
+      expect(await write.invoke('studio.ecosystem.set', {'project': 'demo', 'modules': ['ui-kit']}), isA<Map>());
+      expect(await write.invoke('studio.cos.set', {'project': 'demo', 'enabled': false}), isA<Map>());
+      expect(await write.invoke('studio.cos.check', {'project': 'demo'}), isA<Map>());
+      await expectLater(write.invoke('studio.service.upgrade.apply', {}), throwsA(isA<PocketCapabilityException>()));
+      await expectLater(write.invoke('studio.cos.publish', {'project': 'demo'}), throwsA(isA<PocketCapabilityException>()));
+      final publish = await admit(host: {'studio.publish', 'studio.read'});
+      expect(await publish.invoke('studio.cos.publish', {'project': 'demo'}), isA<Map>());
+      expect(await manager.invoke('studio.logs.diagnostics', {'project': 'demo'}), isA<Map>());
+    });
+
+    test('a host scope without any studio permission (preview child) is denied', () async {
+      final manager = await admit(host: const <String>{}, appId: 'dev.pocket.studio.preview');
+      await expectLater(manager.invoke('studio.project.list', {}), throwsA(isA<PocketCapabilityException>()));
+      expect(service.requests, isEmpty);
+    });
+  });
+
+  group('lifecycle', () {
+    test('attaches to an already healthy service without spawning', () async {
+      final lifecycle = PocketStudioService(PocketStudioConfig(port: service.port));
+      await lifecycle.start();
+      expect(lifecycle.ownsProcess, isFalse);
+      await lifecycle.stop();
+    });
+
+    test('fails clearly when nothing runs and autoStart is off or unconfigured', () async {
+      final port = service.port;
+      await service.close();
+      expect(() => PocketStudioService(PocketStudioConfig(port: port, autoStart: false)).start(),
+          throwsA(isA<PocketStudioServiceException>().having((e) => e.code, 'code', 'service_unavailable')));
+      expect(() => PocketStudioService(PocketStudioConfig(port: port)).start(),
+          throwsA(isA<PocketStudioServiceException>().having((e) => e.code, 'code', 'config_missing')));
+      service = await FakeService.start();
+    });
+
+    test('a non-editor listener on the port is not attached to', () async {
+      service.health = {'ok': true, 'service': 'something-else'};
+      expect(() => PocketStudioService(PocketStudioConfig(port: service.port)).start(),
+          throwsA(isA<PocketStudioServiceException>()));
+    });
+  });
+}

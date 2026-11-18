@@ -1,0 +1,1707 @@
+import { strict as assert } from "node:assert";
+import { mock, test } from "bun:test";
+import { join } from "node:path";
+import type { HostBridge, HostRequestOptions, JsonObject, JsonValue } from "../src/host.ts";
+import type { PocketSystemV1 } from "../src/system.ts";
+import type { AppLaunch } from "../src/platform.ts";
+mock.module("@pocketjs/framework/clock", () => ({
+  after: (_seconds: number, _callback: () => void) => () => {},
+  simulationHz: () => 60,
+}));
+const { installPocketSystem } = await import("../src/system.ts");
+
+const SYSTEM_UI = "pocket.host.demo";
+const PROFILE = "pocket.demo.profile";
+const LOBBY = "pocket.demo.lobby";
+const NOTES = "pocket.demo.notes";
+const EXTRA = "pocket.demo.extra";
+
+const manifest: PocketSystemV1 = {
+  pocketSystem: 1,
+  id: "pocket.demo.system",
+  roles: { systemUI: SYSTEM_UI },
+  applications: {
+    backgroundExecution: "suspend",
+    catalog: [
+      { package: SYSTEM_UI, manifest: "pocket.json", required: true },
+      {
+        package: PROFILE,
+        manifest: "apps/profile/pocket.json",
+        required: true,
+        memory: { heapLimitBytes: 64 * 1024, maxPakBytes: 1 },
+      },
+      {
+        package: LOBBY,
+        manifest: "apps/lobby/pocket.json",
+        required: true,
+        memoryPolicy: "UI_MINI",
+      },
+      { package: NOTES, manifest: "apps/notes/pocket.json", required: false },
+      { package: EXTRA, manifest: "apps/extra/pocket.json", required: false },
+    ],
+  },
+  installation: { installedPackages: [SYSTEM_UI, PROFILE, LOBBY, NOTES, EXTRA] },
+};
+
+const policies = {
+  [SYSTEM_UI]: {
+    allowedOpenApps: [PROFILE, LOBBY, NOTES, EXTRA],
+    messageTargets: [PROFILE, LOBBY, NOTES, EXTRA],
+    sharedNamespaces: ["identity"],
+  },
+  [PROFILE]: {
+    allowedOpenApps: [SYSTEM_UI, LOBBY, NOTES],
+    messageTargets: [SYSTEM_UI],
+    sharedNamespaces: ["identity"],
+  },
+  [LOBBY]: {
+    allowedOpenApps: [],
+    messageTargets: [SYSTEM_UI],
+    sharedNamespaces: ["identity"],
+  },
+  [NOTES]: {
+    allowedOpenApps: [],
+    messageTargets: [],
+    sharedNamespaces: [],
+  },
+  [EXTRA]: {
+    allowedOpenApps: [],
+    messageTargets: [],
+    sharedNamespaces: [],
+  },
+} as const;
+
+class TestHost implements HostBridge {
+  readonly calls: Array<{ capability: string; params: JsonObject; options?: HostRequestOptions }> = [];
+  readonly posted: Array<{ instanceId: string; event: string; params: JsonObject }> = [];
+  readonly destroyed: string[] = [];
+  readonly generations = new Map<string, string>();
+  readonly appIds = new Map<string, string>();
+  private readonly tickListeners = new Set<() => void>();
+  get activeTickListenerCount(): number { return this.tickListeners.size; }
+  disposed = false;
+  private nextInstance = 1;
+
+  request<T extends JsonValue = JsonValue>(capability: string, params: JsonObject = {}, options?: HostRequestOptions): Promise<T> {
+    const call = { capability, params, options };
+    this.calls.push(call);
+    if (capability === "system.runtime.configure") {
+      return Promise.resolve({ systemInstanceId: "system-ui", generation: "gen-system-ui" } as T);
+    }
+    if (capability === "system.runtime.create") {
+      const appId = String(params.appId);
+      const instanceId = `inst-${this.nextInstance++}`;
+      const generation = `gen-${instanceId}`;
+      this.generations.set(instanceId, generation);
+      this.appIds.set(instanceId, appId);
+      return Promise.resolve({ appId, instanceId, generation } as T);
+    }
+    if (capability === "system.runtime.prepareOpen") {
+      const instanceId = String(params.instanceId);
+      return Promise.resolve({
+        instanceId, appId: this.appIds.get(instanceId),
+        previousGeneration: params.generation, generation: params.generation,
+        configured: false, updated: false,
+      } as unknown as T);
+    }
+    if (capability === "system.runtime.awaitFirstFrame") {
+      return Promise.resolve({ ready: true, generation: params.generation } as T);
+    }
+    if (capability === "system.runtime.destroy") {
+      this.destroyed.push(String(params.instanceId));
+      return Promise.resolve(null as T);
+    }
+    if (capability === "system.runtime.post") {
+      this.posted.push({
+        instanceId: String(params.instanceId),
+        event: String(params.event),
+        params: (params.params as JsonObject) ?? {},
+      });
+      return Promise.resolve({ accepted: true } as T);
+    }
+    if (capability === "system.runtime.emit") {
+      this.posted.push({
+        instanceId: String(params.instanceId),
+        event: String(params.name),
+        params: (params.payload as JsonObject) ?? {},
+      });
+      return Promise.resolve(null as T);
+    }
+    if (capability === "system.runtime.respond") {
+      return Promise.resolve(null as T);
+    }
+    return Promise.resolve(null as T);
+  }
+
+  handle(): boolean { return false; }
+  onTick(listener: () => void): () => void {
+    this.tickListeners.add(listener);
+    return () => this.tickListeners.delete(listener);
+  }
+  advanceTicks(count: number): void {
+    for (let tick = 0; tick < count; tick += 1) {
+      for (const listener of [...this.tickListeners]) listener();
+    }
+  }
+  tick(): void { this.advanceTicks(1); }
+  dispose(): void {
+    this.disposed = true;
+    this.tickListeners.clear();
+  }
+}
+
+const globalObject = globalThis as typeof globalThis & {
+  __pocketEvent?: (packet: Record<string, unknown>) => void;
+  ui?: { __surfaces?: Record<string, number> };
+};
+globalObject.ui = {
+  __surfaces: {
+    [PROFILE]: 2,
+    [LOBBY]: 3,
+    [NOTES]: 4,
+    [EXTRA]: 5,
+  },
+};
+
+function createEnv(
+  maxResidentApps = 5,
+  options: Pick<Parameters<typeof installPocketSystem>[1], "openMode" | "externalOpen"> = {},
+) {
+  const host = new TestHost();
+  const kernel = installPocketSystem(manifest, {
+    bridge: host,
+    maxResidentApps,
+    policies,
+    ...options,
+  });
+  const invoke = async (req: JsonObject): Promise<JsonObject> => {
+    const start = host.calls.length;
+    globalObject.__pocketEvent!({ type: "event", name: "system.request", payload: req });
+    for (let i = 0; i < 50; i++) {
+      const resp = host.calls.slice(start).find((c) =>
+        c.capability === "system.runtime.respond" && c.params.requestId === req.requestId,
+      );
+      if (resp) return resp.params;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    throw new Error("timeout waiting for system.runtime.respond");
+  };
+  return { host, kernel, invoke };
+}
+
+test("Pocket System kernel protocol runs in an isolated Bun process", () => {
+  const fixture = join(import.meta.dir, "system_kernel.fixture.ts");
+  const bun = Bun.which("bun") ?? process.execPath;
+  const result = Bun.spawnSync({
+    cmd: [bun, fixture],
+    cwd: process.cwd(),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const stdout = new TextDecoder().decode(result.stdout);
+  const stderr = new TextDecoder().decode(result.stderr);
+  assert.equal(
+    result.exitCode,
+    0,
+    `system kernel fixture failed\nstdout:\n${stdout}\nstderr:\n${stderr}`,
+  );
+  assert.match(stdout, /SYSTEM_KERNEL_FIXTURE_OK/);
+});
+
+test("memory budget requests reject invalid fields and policy mismatches", () => {
+  const invalid = {
+    ...manifest,
+    applications: {
+      ...manifest.applications,
+      catalog: manifest.applications.catalog.map((entry) =>
+        entry.package === PROFILE
+          ? { ...entry, memory: { heapLimitBytes: 0 } }
+          : entry,
+      ),
+    },
+  } as PocketSystemV1;
+  assert.throws(
+    () => installPocketSystem(invalid, { bridge: new TestHost(), policies }),
+    /safe integer/,
+  );
+
+  const mismatchedPolicy = {
+    ...manifest,
+    applications: {
+      ...manifest.applications,
+      catalog: manifest.applications.catalog.map((entry) =>
+        entry.package === PROFILE
+          ? {
+              ...entry,
+              memory: { heapLimitBytes: 64 * 1024, maxPakBytes: 1 },
+              memoryPolicy: "UI_MINI",
+            }
+          : entry,
+      ),
+    },
+  } as PocketSystemV1;
+  assert.throws(
+    () => installPocketSystem(mismatchedPolicy, { bridge: new TestHost(), policies }),
+    /does not match/,
+  );
+});
+
+test("caller cancelling its own foreground child call via system.app.cancel", async () => {
+  const { host, kernel, invoke } = createEnv(5);
+  await kernel.ready;
+
+  const openProfile = await invoke({
+    requestId: "req-open-profile",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.open",
+    params: { appId: PROFILE },
+  });
+  assert.equal(openProfile.ok, true);
+  assert.equal(host.calls.find((call) => call.capability === "system.runtime.create")?.options?.timeoutFrames, 10800);
+  assert.equal(host.calls.find((call) => call.capability === "system.runtime.awaitFirstFrame")?.options?.timeoutFrames, 2700);
+  assert.deepEqual(
+    host.calls.find((call) => call.capability === "system.runtime.create")?.params,
+    {
+      appId: PROFILE,
+      memory: { heapLimitBytes: 64 * 1024, maxPakBytes: 1 },
+      initialEvents: [{
+        method: "platform.presets",
+        params: {
+          darkMode: false,
+          colorScheme: "light",
+          accentColor: "blue",
+          density: "auto",
+          presentationStyle: "sheet",
+        },
+      }],
+    },
+    "runtime.create forwards the catalog budget request and initial presets event",
+  );
+  const profileInstance = kernel.snapshot().residents.find((r) => r.appId === PROFILE)!.instanceId;
+  const profileGen = host.generations.get(profileInstance)!;
+
+  const openLobby = await invoke({
+    requestId: "req-open-lobby",
+    sourceAppId: PROFILE,
+    sourceInstanceId: profileInstance,
+    sourceGeneration: profileGen,
+    capability: "platform.apps.open",
+    params: { appId: LOBBY },
+  });
+  assert.equal(openLobby.ok, true);
+  assert.deepEqual(
+    host.calls.find((call) => call.capability === "system.runtime.create" && call.params.appId === LOBBY)?.params,
+    {
+      appId: LOBBY,
+      memory: { heapLimitBytes: 128 * 1024 * 1024 },
+      initialEvents: [{
+        method: "platform.presets",
+        params: {
+          darkMode: false,
+          colorScheme: "light",
+          accentColor: "blue",
+          density: "auto",
+          presentationStyle: "sheet",
+        },
+      }],
+    },
+    "compatibility memory policy maps to a heap-only request with initial presets event",
+  );
+  const lobbyLaunchId = ((openLobby.value as JsonObject).requestId) as string;
+  const lobbyInstance = kernel.snapshot().residents.find((r) => r.appId === LOBBY)!.instanceId;
+  assert.deepEqual(kernel.snapshot().stack.map((f) => f.appId), [SYSTEM_UI, PROFILE, LOBBY]);
+
+  const cancelResp = await invoke({
+    requestId: "req-cancel-lobby",
+    sourceAppId: PROFILE,
+    sourceInstanceId: profileInstance,
+    sourceGeneration: profileGen,
+    capability: "platform.apps.cancel",
+    params: { requestId: lobbyLaunchId },
+  });
+  assert.equal(cancelResp.ok, true);
+  assert.equal((cancelResp.value as JsonObject).cancelled, true);
+
+  assert.deepEqual(kernel.snapshot().stack.map((f) => f.appId), [SYSTEM_UI, PROFILE]);
+  assert.ok(host.destroyed.includes(lobbyInstance));
+
+  const resultEvent = host.posted.find(
+    (p) => p.instanceId === profileInstance && (p.event === "system.app.result" || p.event === "platform.result"),
+  );
+  assert.ok(resultEvent, "caller should receive result event upon cancel");
+  assert.equal(resultEvent.params.cancelled, true);
+  assert.equal(resultEvent.params.reason, "cancelled");
+});
+
+test("fullscreen SystemUI opens delegate the accepted route and deliver its result asynchronously", async () => {
+  let resolveResult!: (result: {
+    requestId: string;
+    appId: string;
+    cancelled: boolean;
+    value: JsonValue;
+  }) => void;
+  const result = new Promise<{
+    requestId: string;
+    appId: string;
+    cancelled: boolean;
+    value: JsonValue;
+  }>((resolve) => { resolveResult = resolve; });
+  const externalRequests: Array<{ requestId: string; appId: string; arguments: JsonValue; presentationStyle?: string }> = [];
+  const launch: AppLaunch = {
+    requestId: "pocket.demo.system:launch-1",
+    targetAppId: PROFILE,
+    result,
+    cancel: async () => ({ accepted: true }),
+  };
+  const { host, kernel, invoke } = createEnv(5, {
+    openMode: () => "fullscreen",
+    externalOpen: (request) => {
+      externalRequests.push(request);
+      return launch;
+    },
+  });
+  await kernel.ready;
+
+  const opened = await invoke({
+    requestId: "req-external-open",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.open",
+    params: { appId: PROFILE, arguments: { source: "plaza" }, presentationStyle: "sheet" },
+  });
+  assert.equal(opened.ok, true);
+  assert.deepEqual(opened.value, {
+    requestId: "pocket.demo.system:launch-1",
+    targetAppId: PROFILE,
+    targetInstanceId: "external",
+  });
+  assert.deepEqual(externalRequests, [{
+    requestId: "pocket.demo.system:launch-1",
+    appId: PROFILE,
+    arguments: { source: "plaza" },
+    presentationStyle: "sheet",
+  }]);
+  assert.equal(kernel.snapshot().stack.length, 1, "external route does not create a second JS child frame");
+  assert.equal(host.calls.some((call) => call.capability === "system.runtime.create"), false);
+
+  resolveResult({
+    requestId: launch.requestId,
+    appId: PROFILE,
+    cancelled: false,
+    value: { visits: 4 },
+  });
+  for (let i = 0; i < 20 && !host.posted.some((packet) => packet.event === "platform.result"); i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.deepEqual(
+    host.posted.find((packet) => packet.event === "platform.result")?.params,
+    { requestId: launch.requestId, appId: PROFILE, cancelled: false, value: { visits: 4 } },
+  );
+  kernel.dispose();
+});
+
+test("fullscreen external result serialization failures resolve as invalid_external_result", async () => {
+  let resolveResult!: (result: unknown) => void;
+  const result = new Promise((resolve) => { resolveResult = resolve; });
+  const launch: AppLaunch = {
+    requestId: "pocket.demo.system:launch-1",
+    targetAppId: PROFILE,
+    result: result as AppLaunch["result"],
+    cancel: async () => null,
+  };
+  const { host, kernel, invoke } = createEnv(5, {
+    openMode: () => "fullscreen",
+    externalOpen: () => launch,
+  });
+  await kernel.ready;
+  await invoke({
+    requestId: "req-invalid-external-result",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.open",
+    params: { appId: PROFILE },
+  });
+  const cyclic: Record<string, unknown> = {};
+  cyclic.self = cyclic;
+  resolveResult({
+    requestId: launch.requestId,
+    appId: PROFILE,
+    cancelled: false,
+    value: cyclic,
+  });
+  for (let i = 0; i < 20 && !host.posted.some((packet) => packet.event === "platform.result"); i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.deepEqual(
+    host.posted.find((packet) => packet.event === "platform.result")?.params,
+    {
+      requestId: launch.requestId,
+      appId: PROFILE,
+      cancelled: true,
+      value: null,
+      reason: "invalid_external_result",
+    },
+  );
+  kernel.dispose();
+});
+
+test("fullscreen policy applies only to root SystemUI and preserves JS child authorization", async () => {
+  let mode: "embedded" | "fullscreen" = "embedded";
+  let externalOpenCount = 0;
+  const { kernel, invoke } = createEnv(5, {
+    openMode: () => mode,
+    externalOpen: () => {
+      externalOpenCount += 1;
+      throw new Error("Only the root plaza can request a fullscreen route");
+    },
+  });
+  await kernel.ready;
+  const openedProfile = await invoke({
+    requestId: "req-root-profile-embedded",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.open",
+    params: { appId: PROFILE },
+  });
+  assert.equal(openedProfile.ok, true);
+  const profile = kernel.snapshot().residents.find((resident) => resident.appId === PROFILE)!;
+  mode = "fullscreen";
+
+  const denied = await invoke({
+    requestId: "req-profile-extra-denied",
+    sourceAppId: PROFILE,
+    sourceInstanceId: profile.instanceId,
+    sourceGeneration: profile.generation!,
+    capability: "platform.apps.open",
+    params: { appId: EXTRA },
+  });
+  assert.equal(denied.ok, false);
+  assert.equal((denied.error as JsonObject).code, "open_denied");
+
+  const openedLobby = await invoke({
+    requestId: "req-profile-lobby-embedded",
+    sourceAppId: PROFILE,
+    sourceInstanceId: profile.instanceId,
+    sourceGeneration: profile.generation!,
+    capability: "platform.apps.open",
+    params: { appId: LOBBY },
+  });
+  assert.equal(openedLobby.ok, true);
+  assert.equal(externalOpenCount, 0);
+  assert.equal(kernel.snapshot().stack.at(-1)?.appId, LOBBY);
+  kernel.dispose();
+});
+
+test("external route accepted after the open deadline is cancelled", async () => {
+  let allowOpen!: (launch: AppLaunch) => void;
+  let started!: () => void;
+  const openStarted = new Promise<void>((resolve) => { started = resolve; });
+  const externalOpen = new Promise<AppLaunch>((resolve) => { allowOpen = resolve; });
+  let cancelCount = 0;
+  const { host, kernel, invoke } = createEnv(5, {
+    openMode: () => "fullscreen",
+    externalOpen: () => {
+      started();
+      return externalOpen;
+    },
+  });
+  await kernel.ready;
+  const response = invoke({
+    requestId: "req-stale-external-open",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.open",
+    params: { appId: PROFILE },
+  });
+  await openStarted;
+  host.advanceTicks(10801);
+  const rejected = await response;
+  assert.equal(rejected.ok, false);
+  assert.equal((rejected.error as JsonObject).code, "request_timeout");
+  allowOpen({
+    requestId: "pocket.demo.system:launch-1",
+    targetAppId: PROFILE,
+    result: new Promise(() => {}),
+    cancel: async () => { cancelCount += 1; return null; },
+  });
+  await until(() => cancelCount === 1);
+  assert.equal(cancelCount, 1);
+  kernel.dispose();
+});
+
+test("an external open handler that never resolves times out and releases the request queue", async () => {
+  let started!: () => void;
+  const openStarted = new Promise<void>((resolve) => { started = resolve; });
+  const { host, kernel, invoke } = createEnv(5, {
+    openMode: () => "fullscreen",
+    externalOpen: () => {
+      started();
+      return new Promise<AppLaunch>(() => {});
+    },
+  });
+  await kernel.ready;
+  try {
+    const opening = invoke(systemRequest("req-never-resolving-external-open", "platform.apps.open", { appId: PROFILE }));
+    await openStarted;
+    assert.equal(host.activeTickListenerCount, 1, "the open budget listens to the guest clock while the handler is pending");
+
+    const queuedList = invoke(systemRequest("req-after-external-open-timeout", "platform.apps.list", {}));
+    host.advanceTicks(180 * 60);
+
+    const rejected = await opening;
+    assert.equal(rejected.ok, false);
+    assert.equal((rejected.error as JsonObject).code, "request_timeout");
+    assert.equal((await queuedList).ok, true, "a request queued behind the external open is handled after timeout");
+    assert.equal(host.activeTickListenerCount, 0, "the completed open releases its deadline listener");
+  } finally {
+    kernel.dispose();
+  }
+});
+
+test("includeStack retains lower app bindings while the foreground child is open", async () => {
+  const { host, kernel, invoke } = createEnv(5);
+  await kernel.ready;
+
+  const profileOpened = await invoke({
+    requestId: "req-stack-profile",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.open",
+    params: { appId: PROFILE },
+  });
+  assert.equal(profileOpened.ok, true);
+  const profileInstance = kernel.snapshot().residents.find((record) => record.appId === PROFILE)!.instanceId;
+  const profileGeneration = host.generations.get(profileInstance)!;
+
+  const lobbyOpened = await invoke({
+    requestId: "req-stack-lobby",
+    sourceAppId: PROFILE,
+    sourceInstanceId: profileInstance,
+    sourceGeneration: profileGeneration,
+    capability: "platform.apps.open",
+    params: { appId: LOBBY },
+  });
+  assert.equal(lobbyOpened.ok, true);
+  const lobbyInstance = kernel.snapshot().residents.find((record) => record.appId === LOBBY)!.instanceId;
+
+  // The legacy/default contract remains visible-only for plain consumers.
+  assert.deepEqual(kernel.surfaceBindings().map((binding) => binding.appId), [LOBBY]);
+  // Mini-app presentation consumers opt into the retained stack so Profile's
+  // instance remains mounted and resumes with its original state after Lobby.
+  assert.deepEqual(kernel.surfaceBindings({ includeStack: true }).map((binding) => binding.appId), [PROFILE, LOBBY]);
+  assert.deepEqual(kernel.surfaceBindings({ includeStack: true }).map((binding) => binding.focused), [false, true]);
+  assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE, LOBBY]);
+
+  const returned = await invoke({
+    requestId: "req-stack-return-lobby",
+    sourceAppId: LOBBY,
+    sourceInstanceId: lobbyInstance,
+    sourceGeneration: host.generations.get(lobbyInstance)!,
+    capability: "platform.apps.return",
+    params: { value: { from: "lobby" } },
+  });
+  assert.equal(returned.ok, true);
+  assert.deepEqual(kernel.surfaceBindings({ includeStack: true }).map((binding) => binding.appId), [PROFILE]);
+  assert.equal(host.destroyed.includes(lobbyInstance), true, "return destroys only the popped foreground runtime");
+  assert.equal(host.destroyed.includes(profileInstance), false, "return must preserve the lower caller runtime");
+});
+
+test("return waits for before-dismiss handlers before popping and destroys once", async () => {
+  const { host, kernel, invoke } = createEnv(5);
+  await kernel.ready;
+
+  const opened = await invoke({
+    requestId: "req-dismiss-return-open",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.open",
+    params: { appId: PROFILE },
+  });
+  assert.equal(opened.ok, true);
+  const profile = kernel.snapshot().residents.find((record) => record.appId === PROFILE)!;
+  const launchId = String((opened.value as JsonObject).requestId);
+  let started = false;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const dismissed: string[][] = [];
+  const unsubscribe = kernel.onBeforeDismiss(async (instanceIds) => {
+    started = true;
+    dismissed.push([...instanceIds]);
+    await gate;
+  });
+
+  const returning = invoke({
+    requestId: "req-dismiss-return",
+    sourceAppId: PROFILE,
+    sourceInstanceId: profile.instanceId,
+    sourceGeneration: profile.generation!,
+    capability: "platform.apps.return",
+    params: { value: { done: true } },
+  });
+  for (let attempt = 0; attempt < 100 && !started; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.equal(started, true, "return should enter the dismissal barrier");
+  assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE]);
+  assert.equal(host.destroyed.includes(profile.instanceId), false, "target stays resident during reverse animation");
+  assert.equal(
+    host.posted.filter((post) => post.event === "platform.result" && post.params.requestId === launchId).length,
+    0,
+  );
+
+  release();
+  const response = await returning;
+  assert.equal(response.ok, true);
+  assert.deepEqual(dismissed, [[profile.instanceId]]);
+  for (let attempt = 0; attempt < 100 && !host.destroyed.includes(profile.instanceId); attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.equal(host.destroyed.filter((instanceId) => instanceId === profile.instanceId).length, 1);
+  assert.equal(
+    host.posted.filter((post) => post.event === "platform.result" && post.params.requestId === launchId).length,
+    1,
+  );
+  unsubscribe();
+  kernel.dispose();
+});
+
+test("cancel waits for one top-to-bottom dismissal barrier before unwinding nested frames", async () => {
+  const { host, kernel, invoke } = createEnv(5);
+  await kernel.ready;
+
+  const profileOpened = await invoke({
+    requestId: "req-dismiss-cancel-profile",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.open",
+    params: { appId: PROFILE },
+  });
+  assert.equal(profileOpened.ok, true);
+  const profile = kernel.snapshot().residents.find((record) => record.appId === PROFILE)!;
+  const lobbyOpened = await invoke({
+    requestId: "req-dismiss-cancel-lobby",
+    sourceAppId: PROFILE,
+    sourceInstanceId: profile.instanceId,
+    sourceGeneration: profile.generation!,
+    capability: "platform.apps.open",
+    params: { appId: LOBBY },
+  });
+  assert.equal(lobbyOpened.ok, true);
+  const lobby = kernel.snapshot().residents.find((record) => record.appId === LOBBY)!;
+  const lobbyLaunch = String((lobbyOpened.value as JsonObject).requestId);
+
+  let started = false;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const dismissed: string[][] = [];
+  const unsubscribe = kernel.onBeforeDismiss(async (instanceIds) => {
+    started = true;
+    dismissed.push([...instanceIds]);
+    await gate;
+  });
+
+  const cancelling = invoke({
+    requestId: "req-dismiss-cancel",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.cancel",
+    params: { requestId: (profileOpened.value as JsonObject).requestId },
+  });
+  for (let attempt = 0; attempt < 100 && !started; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.equal(started, true, "cancel should enter the dismissal barrier");
+  assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE, LOBBY]);
+  assert.equal(host.destroyed.includes(profile.instanceId), false);
+  assert.equal(host.destroyed.includes(lobby.instanceId), false);
+
+  release();
+  const response = await cancelling;
+  assert.equal(response.ok, true);
+  assert.equal((response.value as JsonObject).cancelled, true);
+  assert.deepEqual(dismissed, [[lobby.instanceId, profile.instanceId]]);
+  assert.equal(host.destroyed.filter((instanceId) => instanceId === profile.instanceId).length, 1);
+  assert.equal(host.destroyed.filter((instanceId) => instanceId === lobby.instanceId).length, 1);
+  assert.equal(
+    host.posted.filter((post) => post.event === "platform.result" && post.params.requestId === (profileOpened.value as JsonObject).requestId).length,
+    1,
+  );
+  assert.equal(
+    host.posted.filter((post) => post.event === "platform.result" && post.params.requestId === lobbyLaunch).length,
+    0,
+    "nested call result is not delivered to a caller that is unwound",
+  );
+  unsubscribe();
+  kernel.dispose();
+});
+
+test("dispose releases a pending dismissal barrier without post-dispose teardown", async () => {
+  const { host, kernel, invoke } = createEnv(5);
+  await kernel.ready;
+
+  const opened = await invoke({
+    requestId: "req-dispose-dismiss-open",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.open",
+    params: { appId: PROFILE },
+  });
+  assert.equal(opened.ok, true);
+  const profile = kernel.snapshot().residents.find((record) => record.appId === PROFILE)!;
+  let started = false;
+  kernel.onBeforeDismiss(async () => {
+    started = true;
+    await new Promise<void>(() => {});
+  });
+
+  // This request is intentionally left awaiting the never-resolving visual
+  // transition. The kernel itself must still release its queue on dispose.
+  void invoke({
+    requestId: "req-dispose-dismiss-return",
+    sourceAppId: PROFILE,
+    sourceInstanceId: profile.instanceId,
+    sourceGeneration: profile.generation!,
+    capability: "platform.apps.return",
+    params: { value: null },
+  });
+  for (let attempt = 0; attempt < 100 && !started; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.equal(started, true, "return should be waiting inside the dismissal hook");
+  const callsAtDispose = host.calls.length;
+  kernel.dispose();
+
+  // This operation is queued behind the blocked return. If dispose did not
+  // release the barrier, it would remain pending forever.
+  const queueProbe = kernel.presentSurfaces([]).then(() => true);
+  const queueSettled = await Promise.race([
+    queueProbe,
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 100)),
+  ]);
+  assert.equal(queueSettled, true, "dispose must release the kernel queue");
+  assert.deepEqual(kernel.snapshot().stack, []);
+  assert.deepEqual(kernel.snapshot().residents, []);
+  assert.deepEqual(host.calls.slice(callsAtDispose), [], "dispose must prevent post-dispose host teardown or responses");
+});
+
+test("split-view non-active presented instance excluded from LRU eviction", async () => {
+  const { host, kernel, invoke } = createEnv(4);
+  await kernel.ready;
+
+  const openProfile = await invoke({
+    requestId: "req-open-profile-lru",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.open",
+    params: { appId: PROFILE },
+  });
+  assert.equal(openProfile.ok, true);
+  const profileInstance = kernel.snapshot().residents.find((r) => r.appId === PROFILE)!.instanceId;
+
+  const pwLobby = await invoke({
+    requestId: "pw-lobby",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.prewarm",
+    params: { appId: LOBBY },
+  });
+  assert.equal(pwLobby.ok, true);
+  const lobbyInstance = kernel.snapshot().residents.find((r) => r.appId === LOBBY)!.instanceId;
+
+  // Present Lobby alongside Profile in split-view (Profile is focused, Lobby is non-active)
+  await kernel.presentSurfaces([PROFILE, LOBBY], PROFILE);
+
+  const pwNotes = await invoke({
+    requestId: "pw-notes",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.prewarm",
+    params: { appId: NOTES },
+  });
+  assert.equal(pwNotes.ok, true);
+  const notesInstance = kernel.snapshot().residents.find((r) => r.appId === NOTES)!.instanceId;
+
+  // Now resident count is 4 (SystemUI, Profile, Lobby, Notes), which is maxResidentApps.
+  // Prewarm Extra. One candidate must be evicted.
+  // Candidate 1: Lobby (prewarmed earlier, so lastUsed is older than Notes). But Lobby is in presentedInstanceIds!
+  // Candidate 2: Notes (prewarmed later, but NOT in presentedInstanceIds).
+  // Without the fix, Lobby would be evicted. With the fix, Lobby is protected and Notes is evicted!
+  const pwExtra = await invoke({
+    requestId: "pw-extra",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.prewarm",
+    params: { appId: EXTRA },
+  });
+  assert.equal(pwExtra.ok, true);
+
+  assert.ok(host.destroyed.includes(notesInstance), "unpresented Notes should be evicted");
+  assert.equal(host.destroyed.includes(lobbyInstance), false, "split-view presented Lobby must not be evicted");
+  assert.ok(kernel.snapshot().residents.some((r) => r.appId === LOBBY));
+  assert.equal(kernel.snapshot().residents.some((r) => r.appId === NOTES), false);
+});
+
+test("memory pressure reclaims unreferenced backgrounds and preserves stack, presentation, and SystemUI", async () => {
+  const { host, kernel, invoke } = createEnv(5);
+  await kernel.ready;
+
+  const opened = await invoke(systemRequest("pressure-open-profile", "platform.apps.open", { appId: PROFILE }));
+  assert.equal(opened.ok, true);
+  const profile = kernel.snapshot().residents.find((record) => record.appId === PROFILE)!;
+
+  for (const [requestId, appId] of [["pressure-warm-lobby", LOBBY], ["pressure-warm-notes", NOTES], ["pressure-warm-extra", EXTRA]] as const) {
+    const warmed = await invoke(systemRequest(requestId, "platform.apps.prewarm", { appId }));
+    assert.equal(warmed.ok, true);
+  }
+  const lobby = kernel.snapshot().residents.find((record) => record.appId === LOBBY)!;
+  const notes = kernel.snapshot().residents.find((record) => record.appId === NOTES)!;
+  const extra = kernel.snapshot().residents.find((record) => record.appId === EXTRA)!;
+  assert.ok(
+    kernel.snapshot().pendingCalls.some((call) => call.targetInstanceId === profile.instanceId),
+    "the active Profile runtime still has a pending launch result reference",
+  );
+  await kernel.presentSurfaces([PROFILE, LOBBY], PROFILE);
+  const hostRequest = host.request.bind(host);
+  let failNotesDestroy = true;
+  host.request = async (capability, params = {}, options) => {
+    if (
+      capability === "system.runtime.destroy" &&
+      params.instanceId === notes.instanceId &&
+      failNotesDestroy
+    ) {
+      failNotesDestroy = false;
+      throw new Error("transient destroy failure");
+    }
+    return await hostRequest(capability, params, options) as never;
+  };
+
+  // A stale root generation must not apply a native pressure fact to this JS realm.
+  globalObject.__pocketEvent!({
+    type: "event",
+    name: "system.runtime.memoryPressure",
+    payload: { generation: "retired-root-generation" },
+  });
+  await kernel.presentSurfaces([PROFILE, LOBBY], PROFILE);
+  assert.deepEqual(host.destroyed, []);
+
+  globalObject.__pocketEvent!({
+    type: "event",
+    name: "system.runtime.memoryPressure",
+    payload: { generation: "gen-system-ui" },
+  });
+  // The public kernel operation shares the event queue, so it also waits for
+  // every pressure eviction to finish before asserting resident state.
+  await kernel.presentSurfaces([PROFILE, LOBBY], PROFILE);
+  assert.deepEqual(host.destroyed, [], "failed destroy is retained for the existing closing retry lane");
+  assert.equal(
+    kernel.snapshot().residents.find((record) => record.instanceId === notes.instanceId)?.state,
+    "closing",
+  );
+
+  globalObject.__pocketEvent!({
+    type: "event",
+    name: "system.runtime.memoryPressure",
+    payload: { generation: "gen-system-ui" },
+  });
+  await kernel.presentSurfaces([PROFILE, LOBBY], PROFILE);
+
+  assert.deepEqual(host.destroyed, [extra.instanceId, notes.instanceId]);
+  assert.deepEqual(
+    kernel.snapshot().residents.map((record) => record.appId).sort(),
+    [SYSTEM_UI, PROFILE, LOBBY].sort(),
+  );
+  assert.equal(host.destroyed.includes(profile.instanceId), false, "active stack runtime stays resident");
+  assert.equal(host.destroyed.includes(lobby.instanceId), false, "presented background runtime stays resident");
+  assert.ok(kernel.snapshot().residents.some((record) => record.instanceId === "system-ui"), "SystemUI stays pinned");
+  for (const record of [notes, extra]) {
+    assert.ok(
+      host.posted.some((post) => post.instanceId === record.instanceId && post.params.state === "onUnload"),
+      "each evicted background receives its existing unload lifecycle event",
+    );
+    assert.ok(
+      host.posted.some((post) => post.instanceId === record.instanceId && post.params.state === "onUnload" && post.params.reason === "memory_pressure"),
+      "pressure eviction reports its reason through the existing lifecycle event",
+    );
+  }
+
+  globalObject.__pocketEvent!({
+    type: "event",
+    name: "system.runtime.memoryPressure",
+    payload: { generation: "gen-system-ui" },
+  });
+  await kernel.presentSurfaces([PROFILE, LOBBY], PROFILE);
+  assert.deepEqual(host.destroyed, [extra.instanceId, notes.instanceId], "a repeated pressure signal does not destroy residents twice");
+});
+
+test("destroyRuntime cleaning up presentedInstanceIds", async () => {
+  const { host, kernel, invoke } = createEnv(4);
+  await kernel.ready;
+
+  const openProfile = await invoke({
+    requestId: "req-open-profile",
+    sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui",
+    sourceGeneration: "gen-system-ui",
+    capability: "platform.apps.open",
+    params: { appId: PROFILE },
+  });
+  assert.equal(openProfile.ok, true);
+  const profileInstance = kernel.snapshot().residents.find((r) => r.appId === PROFILE)!.instanceId;
+  const profileGen = host.generations.get(profileInstance)!;
+
+  const openLobby = await invoke({
+    requestId: "req-open-lobby",
+    sourceAppId: PROFILE,
+    sourceInstanceId: profileInstance,
+    sourceGeneration: profileGen,
+    capability: "platform.apps.open",
+    params: { appId: LOBBY },
+  });
+  assert.equal(openLobby.ok, true);
+  const lobbyInstance = kernel.snapshot().residents.find((r) => r.appId === LOBBY)!.instanceId;
+
+  await kernel.presentSurfaces([PROFILE, LOBBY], LOBBY);
+  assert.deepEqual(kernel.surfaceBindings().map((b) => b.appId), [PROFILE, LOBBY]);
+
+  let notified = false;
+  kernel.subscribe(() => { notified = true; });
+
+  const returnLobby = await invoke({
+    requestId: "req-return-lobby",
+    sourceAppId: LOBBY,
+    sourceInstanceId: lobbyInstance,
+    sourceGeneration: host.generations.get(lobbyInstance)!,
+    capability: "platform.apps.return",
+    params: { value: { done: true } },
+  });
+  assert.equal(returnLobby.ok, true);
+  assert.ok(host.destroyed.includes(lobbyInstance));
+
+  assert.deepEqual(kernel.surfaceBindings().map((b) => b.appId), [PROFILE]);
+  assert.equal(notified, true, "destroyRuntime should notify presentation subscribers");
+});
+
+function systemRequest(requestId: string, capability: string, params: JsonObject): JsonObject {
+  return { requestId, capability, params, sourceAppId: SYSTEM_UI,
+    sourceInstanceId: "system-ui", sourceGeneration: "gen-system-ui" };
+}
+
+async function until(predicate: () => boolean): Promise<void> {
+  for (let turn = 0; turn < 50; turn++) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  throw new Error("System transaction did not reach the expected boundary");
+}
+
+test("a cold open reports preparing and first-frame stages until its first frame settles", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  const request = host.request.bind(host);
+  let finish!: () => void;
+  const pending = new Promise<void>((resolve) => { finish = resolve; });
+  let finishFrame!: () => void;
+  const pendingFrame = new Promise<void>((resolve) => { finishFrame = resolve; });
+  host.request = async (capability, params = {}, options) => {
+    const value = await request(capability, params, options);
+    if (capability === "system.runtime.create") await pending;
+    if (capability === "system.runtime.awaitFirstFrame") await pendingFrame;
+    return value as never;
+  };
+  const before = host.posted.length;
+  const observedStages: Array<string | null> = [];
+  const unsubscribe = kernel.subscribe(() => observedStages.push(kernel.snapshot().opening?.stage ?? null));
+  try {
+    const opening = invoke(systemRequest("cold-gate", "platform.apps.open", { appId: PROFILE }));
+    await until(() => host.calls.some((call) => call.capability === "system.runtime.create"));
+    assert.equal(host.calls.find((call) => call.capability === "system.runtime.create")!.params.prepareForOpen, undefined);
+    assert.deepEqual(kernel.snapshot().opening, { appId: PROFILE, stage: "preparing" });
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI]);
+    assert.equal(host.posted.slice(before).some((event) => event.params.state === "onWillDisappear"), false);
+    assert.equal(host.calls.some((call) => call.capability === "system.runtime.awaitFirstFrame"), false);
+    finish();
+    await until(() => host.calls.some((call) => call.capability === "system.runtime.awaitFirstFrame"));
+    assert.deepEqual(kernel.snapshot().opening, { appId: PROFILE, stage: "firstFrame" });
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE]);
+    finishFrame();
+    assert.equal((await opening).ok, true);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE]);
+    assert.equal(kernel.snapshot().opening, null);
+    assert.ok(observedStages.includes("preparing"), "subscribers see the pre-first-await loading fact");
+    assert.ok(observedStages.includes("firstFrame"), "subscribers see the presented first-frame wait");
+    assert.equal(observedStages.at(-1), null, "subscribers see opening clear after success");
+  } finally { finish(); finishFrame(); unsubscribe(); kernel.dispose(); }
+});
+
+test("a cold open shares one preparation deadline and destroys a child whose prepare exceeds it", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  const request = host.request.bind(host);
+  host.request = async (capability, params = {}, options) => {
+    const value = await request(capability, params, options);
+    if (capability === "system.runtime.create") host.advanceTicks(150 * 60);
+    if (capability === "system.runtime.prepareOpen") {
+      assert.equal(options?.timeoutFrames, 30 * 60, "prepare receives only the create remainder");
+      host.advanceTicks(30 * 60);
+    }
+    return value as never;
+  };
+  try {
+    const result = await invoke(systemRequest("cold-open-deadline", "platform.apps.open", { appId: PROFILE }));
+    assert.equal(result.ok, false);
+    assert.equal((result.error as JsonObject).code, "request_timeout");
+    const instanceId = [...host.appIds].find(([, appId]) => appId === PROFILE)![0];
+    assert.equal(host.calls.find((call) => call.capability === "system.runtime.create")?.options?.timeoutFrames, 180 * 60);
+    assert.deepEqual(host.destroyed.filter((destroyedId) => destroyedId === instanceId), [instanceId]);
+    assert.equal(kernel.snapshot().residents.some((record) => record.instanceId === instanceId), false);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI]);
+    assert.equal(kernel.snapshot().opening, null);
+    assert.equal(host.calls.some((call) => call.capability === "system.runtime.awaitFirstFrame"), false);
+    assert.equal(host.posted.some((event) => event.instanceId === "system-ui" && event.params.state === "onWillDisappear"), false);
+  } finally { kernel.dispose(); }
+});
+
+test("an exhausted open deadline leaves a prewarmed resident reusable and restores its presentation style", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  assert.equal((await invoke(systemRequest("warm-deadline-resident", "platform.apps.prewarm", { appId: PROFILE }))).ok, true);
+  const instanceId = kernel.snapshot().residents.find((record) => record.appId === PROFILE)!.instanceId;
+  const request = host.request.bind(host);
+  let expirePrepare = true;
+  host.request = async (capability, params = {}, options) => {
+    const value = await request(capability, params, options);
+    if (capability === "system.runtime.prepareOpen" && expirePrepare) {
+      assert.equal(options?.timeoutFrames, 180 * 60);
+      expirePrepare = false;
+      host.advanceTicks(180 * 60);
+    }
+    return value as never;
+  };
+  try {
+    const failed = await invoke(systemRequest("resident-open-deadline", "platform.apps.open", {
+      appId: PROFILE,
+      presentationStyle: "page",
+    }));
+    assert.equal(failed.ok, false);
+    assert.equal((failed.error as JsonObject).code, "request_timeout");
+    assert.deepEqual(host.destroyed.filter((destroyedId) => destroyedId === instanceId), []);
+    assert.equal(kernel.snapshot().residents.find((record) => record.instanceId === instanceId)?.prewarmed, true);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI]);
+    assert.equal(host.calls.some((call) => call.capability === "system.runtime.awaitFirstFrame"), false);
+
+    const retry = await invoke(systemRequest("resident-open-deadline-retry", "platform.apps.open", { appId: PROFILE }));
+    assert.equal(retry.ok, true);
+    assert.equal(host.calls.filter((call) => call.capability === "system.runtime.create" && call.params.appId === PROFILE).length, 1);
+    assert.equal(kernel.surfaceBindings()[0]?.presentationStyle, "sheet");
+  } finally { kernel.dispose(); }
+});
+
+test("a queued open spends its request-receipt budget before creating a late child", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  const request = host.request.bind(host);
+  let releaseFirstPrepare!: () => void;
+  let markFirstPrepareStarted!: () => void;
+  const firstPrepareGate = new Promise<void>((resolve) => { releaseFirstPrepare = resolve; });
+  const firstPrepareStarted = new Promise<void>((resolve) => { markFirstPrepareStarted = resolve; });
+  let heldProfilePrepare = false;
+  host.request = async (capability, params = {}, options) => {
+    const value = await request(capability, params, options);
+    if (capability === "system.runtime.prepareOpen" &&
+        host.appIds.get(String(params.instanceId)) === PROFILE && !heldProfilePrepare) {
+      heldProfilePrepare = true;
+      markFirstPrepareStarted();
+      await firstPrepareGate;
+      host.advanceTicks(179 * 60);
+    }
+    if (capability === "system.runtime.create" && params.appId === LOBBY) {
+      assert.equal(host.activeTickListenerCount, 1, "the queued open budget remains active through its host request");
+      assert.equal(options?.timeoutFrames, 60, "the queued request retains only its time remaining after queue wait");
+      host.advanceTicks(61);
+    }
+    return value as never;
+  };
+  try {
+    const firstOpen = invoke(systemRequest("queue-budget-first", "platform.apps.open", { appId: PROFILE }));
+    await firstPrepareStarted;
+    assert.equal(host.activeTickListenerCount, 1);
+    const profileInstanceId = [...host.appIds].find(([, appId]) => appId === PROFILE)![0];
+    const queuedOpen = invoke({
+      requestId: "queue-budget-second",
+      sourceAppId: PROFILE,
+      sourceInstanceId: profileInstanceId,
+      sourceGeneration: host.generations.get(profileInstanceId)!,
+      capability: "platform.apps.open",
+      params: { appId: LOBBY },
+    });
+    assert.equal(host.activeTickListenerCount, 2, "queued opens start consuming their deadline when received");
+    releaseFirstPrepare();
+
+    assert.equal((await firstOpen).ok, true);
+    const failed = await queuedOpen;
+    assert.equal(failed.ok, false);
+    assert.equal((failed.error as JsonObject).code, "request_timeout");
+    const lobbyInstanceId = [...host.appIds].find(([, appId]) => appId === LOBBY)![0];
+    assert.deepEqual(host.destroyed.filter((destroyedId) => destroyedId === lobbyInstanceId), [lobbyInstanceId]);
+    assert.equal(kernel.snapshot().residents.some((record) => record.instanceId === lobbyInstanceId), false);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE]);
+    assert.equal(host.calls.some((call) => call.capability === "system.runtime.prepareOpen" &&
+      call.params.instanceId === lobbyInstanceId), false);
+    assert.equal(host.calls.some((call) => call.capability === "system.runtime.awaitFirstFrame" &&
+      call.params.instanceId === lobbyInstanceId), false);
+  } finally {
+    releaseFirstPrepare();
+    kernel.dispose();
+  }
+});
+
+test("a queued open releases its tick deadline if the kernel is disposed before admission", async () => {
+  const { host, kernel } = createEnv();
+  await kernel.ready;
+  const request = host.request.bind(host);
+  let releaseUpdatePrepare!: () => void;
+  let markUpdatePrepareStarted!: () => void;
+  const updatePrepareGate = new Promise<void>((resolve) => { releaseUpdatePrepare = resolve; });
+  const updatePrepareStarted = new Promise<void>((resolve) => { markUpdatePrepareStarted = resolve; });
+  host.request = async (capability, params = {}, options) => {
+    const value = await request(capability, params, options);
+    if (capability === "system.runtime.appUpdatePrepare") {
+      markUpdatePrepareStarted();
+      await updatePrepareGate;
+    }
+    return value as never;
+  };
+  try {
+    globalObject.__pocketEvent!({ type: "event", name: "system.request", payload: systemRequest(
+      "blocked-update-prepare", "platform.apps.update.prepare", { appId: PROFILE },
+    ) });
+    await updatePrepareStarted;
+    globalObject.__pocketEvent!({ type: "event", name: "system.request", payload: systemRequest(
+      "queued-open-dispose", "platform.apps.open", { appId: PROFILE },
+    ) });
+    assert.equal(host.activeTickListenerCount, 1);
+    kernel.dispose();
+    releaseUpdatePrepare();
+    await until(() => host.activeTickListenerCount === 0);
+    assert.equal(host.calls.some((call) => call.capability === "system.runtime.create" && call.params.appId === PROFILE), false);
+  } finally {
+    releaseUpdatePrepare();
+    kernel.dispose();
+  }
+});
+
+test("a prewarmed update adopts its new generation before presentation and replays init only once", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  await invoke(systemRequest("warm", "platform.apps.prewarm", { appId: PROFILE }));
+  const record = kernel.snapshot().residents.find((entry) => entry.appId === PROFILE)!;
+  const previousGeneration = host.generations.get(record.instanceId)!;
+  const generation = previousGeneration + "-updated";
+  const request = host.request.bind(host);
+  let finish!: () => void;
+  const pending = new Promise<void>((resolve) => { finish = resolve; });
+  host.request = async (capability, params = {}, options) => {
+    const value = await request(capability, params, options);
+    if (capability !== "system.runtime.prepareOpen") return value as never;
+    await pending;
+    host.generations.set(record.instanceId, generation);
+    return { instanceId: record.instanceId, appId: PROFILE, previousGeneration,
+      generation, configured: true, updated: true } as never;
+  };
+  const before = host.posted.length;
+  try {
+    const opening = invoke(systemRequest("open-warm", "platform.apps.open", { appId: PROFILE }));
+    await until(() => host.calls.some((call) => call.capability === "system.runtime.prepareOpen"));
+    assert.equal(host.calls.find((call) => call.capability === "system.runtime.prepareOpen")!.params.cacheFirst, true);
+    assert.deepEqual(kernel.snapshot().opening, { appId: PROFILE, stage: "preparing" });
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI]);
+    assert.equal(host.posted.slice(before).some((event) => event.params.state === "onWillDisappear"), false);
+    globalObject.__pocketEvent!({ type: "event", name: "system.runtime.generation", payload: {
+      instanceId: record.instanceId, appId: PROFILE, previousGeneration, generation,
+    } });
+    finish();
+    assert.equal((await opening).ok, true);
+    assert.equal(kernel.snapshot().opening, null);
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    assert.equal(kernel.snapshot().residents.find((entry) => entry.appId === PROFILE)!.generation, generation);
+    assert.equal(host.calls.filter((call) => call.capability === "system.runtime.create").length, 1);
+    assert.equal(host.calls.find((call) => call.capability === "system.runtime.awaitFirstFrame")!.params.generation, generation);
+    assert.equal(host.posted.slice(before).filter((event) => event.instanceId === record.instanceId &&
+      event.params.state === "onInit" && event.params.generationChanged === true).length, 1);
+  } finally { finish(); kernel.dispose(); }
+});
+
+test("a failed pre-entry update leaves the caller and prewarmed instance available for retry", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  await invoke(systemRequest("warm-retry", "platform.apps.prewarm", { appId: PROFILE }));
+  const instanceId = kernel.snapshot().residents.find((entry) => entry.appId === PROFILE)!.instanceId;
+  const request = host.request.bind(host);
+  let fail = true;
+  host.request = async (capability, params = {}, options) => {
+    const value = await request(capability, params, options);
+    if (capability === "system.runtime.prepareOpen" && fail) {
+      throw Object.assign(new Error("Signature verification failed"), { code: "manifest-signature" });
+    }
+    if (capability === "system.runtime.prepareOpen") return { ...value as JsonObject, configured: true } as never;
+    return value as never;
+  };
+  const before = host.posted.length;
+  try {
+    const failed = await invoke(systemRequest("bad-update", "platform.apps.open", { appId: PROFILE }));
+    assert.equal(failed.ok, false);
+    assert.equal((failed.error as JsonObject).code, "manifest-signature");
+    assert.equal(kernel.snapshot().opening, null);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI]);
+    assert.equal(host.destroyed.includes(instanceId), false);
+    assert.equal(kernel.snapshot().residents.find((entry) => entry.appId === PROFILE)!.prewarmed, true);
+    assert.equal(host.posted.slice(before).some((event) => event.params.state === "onWillDisappear"), false);
+    fail = false;
+    assert.equal((await invoke(systemRequest("retry-update", "platform.apps.open", { appId: PROFILE }))).ok, true);
+    assert.equal(kernel.snapshot().opening, null);
+    assert.equal(host.calls.filter((call) => call.capability === "system.runtime.create").length, 1);
+    assert.equal(kernel.snapshot().residents.find((entry) => entry.appId === PROFILE)!.generation, host.generations.get(instanceId));
+    assert.equal(host.posted.slice(before).filter((event) => event.instanceId === instanceId && event.params.state === "onInit").length, 0);
+  } finally { kernel.dispose(); }
+});
+
+test("a cold-open preparation response with stale package facts destroys the hidden child", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  const request = host.request.bind(host);
+  host.request = async (capability, params = {}, options) => {
+    const value = await request(capability, params, options);
+    if (capability === "system.runtime.prepareOpen") {
+      return { ...value as JsonObject, previousGeneration: "stale-generation" } as never;
+    }
+    return value as never;
+  };
+  try {
+    const result = await invoke(systemRequest("stale-prepare", "platform.apps.open", { appId: PROFILE }));
+    assert.equal(result.ok, false);
+    assert.equal((result.error as JsonObject).code, "host_protocol_error");
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI]);
+    assert.equal(kernel.snapshot().residents.some((entry) => entry.appId === PROFILE), false);
+    const instanceId = [...host.appIds].find(([, appId]) => appId === PROFILE)![0];
+    assert.deepEqual(host.destroyed.filter((destroyedId) => destroyedId === instanceId), [instanceId]);
+  } finally { kernel.dispose(); }
+});
+
+test("a remounted app with a failed boot lifecycle is removed before the caller disappears", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  await invoke(systemRequest("warm-boot", "platform.apps.prewarm", { appId: PROFILE }));
+  const record = kernel.snapshot().residents.find((entry) => entry.appId === PROFILE)!;
+  const request = host.request.bind(host);
+  const before = host.posted.length;
+  host.request = async (capability, params = {}, options) => {
+    const value = await request(capability, params, options);
+    if (capability === "system.runtime.prepareOpen") return {
+      instanceId: record.instanceId, appId: PROFILE, previousGeneration: record.generation,
+      generation: String(record.generation) + "-new", configured: true, updated: true,
+    } as never;
+    if (capability === "system.runtime.post" && (params.params as JsonObject).generationChanged) {
+      throw Object.assign(new Error("new realm did not accept its lifecycle"), { code: "runtime_unavailable" });
+    }
+    return value as never;
+  };
+  try {
+    const failed = await invoke(systemRequest("boot-failure", "platform.apps.open", { appId: PROFILE }));
+    assert.equal(failed.ok, false);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI]);
+    assert.equal(kernel.snapshot().residents.some((entry) => entry.instanceId === record.instanceId), false);
+    assert.equal(host.destroyed.includes(record.instanceId), true);
+    assert.equal(host.posted.slice(before).some((event) => event.instanceId === "system-ui" &&
+      event.params.state === "onWillDisappear"), false);
+  } finally { kernel.dispose(); }
+});
+
+test("a queued generation boot failure retries transient teardown and permits a fresh open", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  await invoke(systemRequest("warm-event-boot", "platform.apps.prewarm", { appId: PROFILE }));
+  const record = kernel.snapshot().residents.find((entry) => entry.appId === PROFILE)!;
+  const request = host.request.bind(host);
+  let destroyAttempts = 0;
+  host.request = async (capability, params = {}, options) => {
+    if (capability === "system.runtime.destroy" && params.instanceId === record.instanceId) {
+      if (++destroyAttempts === 1) throw new Error("temporary transport failure");
+      throw Object.assign(new Error("native already closed the failed realm"), { code: "instance_not_found" });
+    }
+    if (capability === "system.runtime.post" && (params.params as JsonObject).generationChanged) {
+      throw new Error("replacement realm rejected boot");
+    }
+    return await request(capability, params, options) as never;
+  };
+  try {
+    globalObject.__pocketEvent!({ type: "event", name: "system.runtime.generation", payload: {
+      instanceId: record.instanceId, appId: PROFILE, previousGeneration: record.generation,
+      generation: String(record.generation) + "-failed",
+    } });
+    await until(() => destroyAttempts === 1);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI]);
+    // A later request uses the existing closing-runtime retry lane.
+    await invoke(systemRequest("flush-boot-cleanup", "platform.apps.list", {}));
+    await until(() => !kernel.snapshot().residents.some((entry) => entry.instanceId === record.instanceId));
+    assert.equal(destroyAttempts, 2);
+    assert.equal((await invoke(systemRequest("open-after-boot-error", "platform.apps.open", { appId: PROFILE }))).ok, true);
+    assert.notEqual(kernel.snapshot().residents.find((entry) => entry.appId === PROFILE)!.instanceId, record.instanceId);
+  } finally { kernel.dispose(); }
+});
+
+
+test("pending boot lifecycle stays ordered when the new controller becomes ready mid-boot", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  await invoke(systemRequest("warm-order", "platform.apps.prewarm", { appId: PROFILE }));
+  const record = kernel.snapshot().residents.find((entry) => entry.appId === PROFILE)!;
+  const request = host.request.bind(host);
+  const delivered: string[] = [];
+  let pendingInit = true;
+  host.request = async (capability, params = {}, options) => {
+    if (capability === "system.runtime.prepareOpen") return {
+      instanceId: record.instanceId, appId: PROFILE, previousGeneration: record.generation,
+      generation: String(record.generation) + "-new", configured: true, updated: true,
+    } as never;
+    if (capability === "system.runtime.post" && params.instanceId === record.instanceId &&
+        params.event === "platform.lifecycle") {
+      const state = String((params.params as JsonObject).state);
+      if (state === "onInit" && pendingInit) {
+        pendingInit = false;
+        return { accepted: false } as never;
+      }
+      delivered.push(state);
+    }
+    return await request(capability, params, options) as never;
+  };
+  try {
+    assert.equal((await invoke(systemRequest("open-ordered", "platform.apps.open", { appId: PROFILE }))).ok, true);
+    assert.deepEqual(delivered, ["onInit", "onLoad", "frozenInStack", "onWillAppear", "onDidAppear"]);
+  } finally { kernel.dispose(); }
+});
+
+test("resident SystemUI receives platform.messages.send immediately while child app is foreground", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  try {
+    const opened = await invoke(systemRequest("msg-open-profile", "platform.apps.open", { appId: PROFILE }));
+    assert.equal(opened.ok, true);
+    const profile = kernel.snapshot().residents.find((record) => record.appId === PROFILE)!;
+    const before = host.posted.length;
+
+    const sent = await invoke({
+      requestId: "msg-profile-to-system",
+      sourceAppId: PROFILE,
+      sourceInstanceId: profile.instanceId,
+      sourceGeneration: profile.generation!,
+      capability: "platform.messages.send",
+      params: { appId: SYSTEM_UI, topic: "status", data: { ok: true } },
+    });
+    assert.equal(sent.ok, true);
+    const sentValue = sent.value as JsonObject;
+    assert.equal(typeof sentValue.messageId, "string");
+    assert.deepEqual(sentValue, { sent: true, queued: false, messageId: sentValue.messageId });
+
+    const messages = host.posted.slice(before).filter((post) => post.event === "platform.message");
+    assert.equal(messages.length, 1);
+    assert.equal(messages[0]!.instanceId, "system-ui");
+    assert.deepEqual(messages[0]!.params, {
+      id: sentValue.messageId,
+      sourceAppId: PROFILE,
+      targetAppId: SYSTEM_UI,
+      topic: "status",
+      data: { ok: true },
+    });
+
+    const denied = await invoke({
+      requestId: "msg-profile-to-unauthorized",
+      sourceAppId: PROFILE,
+      sourceInstanceId: profile.instanceId,
+      sourceGeneration: profile.generation!,
+      capability: "platform.messages.send",
+      params: { appId: NOTES, topic: "status", data: { ok: false } },
+    });
+    assert.equal(denied.ok, false);
+    assert.equal((denied.error as JsonObject).code, "message_denied");
+  } finally { kernel.dispose(); }
+});
+
+test("closeContainer sends system.container.close over the existing host bridge and rejects untrusted child requests", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  let closeSupported = true;
+  const baseRequest = host.request.bind(host);
+  host.request = async (capability, params = {}, options) => {
+    if (capability === "system.container.close") {
+      host.calls.push({ capability, params, options });
+      if (!closeSupported) {
+        const error = new Error("Host container close is not configured") as Error & { code?: string };
+        error.code = "capability_unavailable";
+        throw error;
+      }
+      return { closed: true } as never;
+    }
+    return await baseRequest(capability, params, options) as never;
+  };
+  try {
+    const result = await kernel.closeContainer();
+    assert.deepEqual(result, { closed: true });
+    assert.deepEqual(
+      host.calls.filter((call) => call.capability === "system.container.close").map((call) => call.params),
+      [{}],
+    );
+
+    closeSupported = false;
+    await assert.rejects(
+      () => kernel.closeContainer(),
+      (error: { code?: string }) => error?.code === "capability_unavailable",
+    );
+
+    const opened = await invoke(systemRequest("close-open-profile", "platform.apps.open", { appId: PROFILE }));
+    assert.equal(opened.ok, true);
+    const profile = kernel.snapshot().residents.find((record) => record.appId === PROFILE)!;
+    const childAttempt = await invoke({
+      requestId: "child-close-container",
+      sourceAppId: PROFILE,
+      sourceInstanceId: profile.instanceId,
+      sourceGeneration: profile.generation!,
+      capability: "system.container.close",
+      params: {},
+    });
+    assert.equal(childAttempt.ok, false);
+    assert.equal((childAttempt.error as JsonObject).code, "system_context_denied");
+  } finally { kernel.dispose(); }
+});
+
+test("handleBack cancels one foreground app call and resolves its pending result", async () => {
+  const { host, kernel, invoke } = createEnv();
+  await kernel.ready;
+  try {
+    assert.equal(await kernel.handleBack(), false, "SystemUI root has no app call to pop");
+    const opened = await invoke(systemRequest(
+      "native-back-open-profile",
+      "platform.apps.open",
+      { appId: PROFILE },
+    ));
+    assert.equal(opened.ok, true);
+    const requestId = (opened.value as JsonObject).requestId as string;
+    const profileInstance = kernel.snapshot().residents.find((r) => r.appId === PROFILE)!.instanceId;
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE]);
+
+    assert.equal(await kernel.handleBack(), true);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI]);
+    assert.ok(host.destroyed.includes(profileInstance));
+    const resultEvents = host.posted.filter(
+      (post) => post.event === "platform.result" && post.params.requestId === requestId,
+    );
+    assert.equal(resultEvents.length, 1, "the caller receives one result for the cancelled app call");
+    assert.equal(resultEvents[0]!.params.cancelled, true);
+    assert.equal(resultEvents[0]!.params.reason, "back");
+    assert.equal(await kernel.handleBack(), false, "one back request must pop at most one app call");
+  } finally {
+    kernel.dispose();
+  }
+});
+
+
+test("container close remains available while SystemUI configuration is blocked", async () => {
+  const host = new TestHost();
+  const baseRequest = host.request.bind(host);
+  let releaseConfigure!: () => void;
+  const gate = new Promise<void>((resolve) => { releaseConfigure = resolve; });
+  host.request = async (capability, params = {}, options) => {
+    if (capability === "system.runtime.configure") await gate;
+    if (capability === "system.container.close") {
+      host.calls.push({ capability, params, options });
+      return { closed: true } as never;
+    }
+    return await baseRequest(capability, params, options) as never;
+  };
+  const kernel = installPocketSystem(manifest, { bridge: host, policies });
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const closed = await Promise.race([
+      kernel.closeContainer(),
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => reject(new Error("close waited for runtime configuration")), 2000);
+      }),
+    ]);
+    assert.deepEqual(closed, { closed: true });
+    assert.equal(host.calls.some((call) => call.capability === "system.runtime.configure"), false);
+  } finally {
+    clearTimeout(timeout);
+    releaseConfigure();
+    await kernel.ready;
+    kernel.dispose();
+  }
+});
+
+test("system.host.launch with closeContainerWhenEmpty marks directLaunch synchronously, binds directRoot, and handles back/return/cancel/error", async () => {
+  const { host, kernel, invoke } = createEnv();
+  const baseRequest = host.request.bind(host);
+  host.request = async (capability, params = {}, options) => {
+    if (capability === "system.container.close") {
+      host.calls.push({ capability, params, options });
+      return { closed: true } as never;
+    }
+    return await baseRequest(capability, params, options) as never;
+  };
+  let dismissedCount = 0;
+  kernel.onBeforeDismiss(async () => {
+    dismissedCount += 1;
+  });
+  try {
+    // Emit system.host.launch synchronously right after install (before kernel.ready resolves)
+    globalObject.__pocketEvent!({
+      type: "event",
+      name: "system.host.launch",
+      payload: {
+        appId: PROFILE,
+        arguments: { fromHost: "direct" },
+        closeContainerWhenEmpty: true,
+      },
+    });
+    assert.equal(kernel.snapshot().directLaunch, true, "directLaunch must be true synchronously at t=0");
+    assert.deepEqual(kernel.snapshot().opening, { appId: PROFILE, stage: "preparing" });
+
+    await kernel.ready;
+    await until(() => kernel.snapshot().stack.length === 2 && kernel.surfaceBindings()[0]?.ready !== false);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE]);
+    assert.equal(kernel.surfaceBindings()[0]?.directRoot, true, "root child binding has directRoot: true");
+    assert.equal(kernel.snapshot().directLaunchError, null);
+
+    // At stack length 2, handleBack returns false so enclosing Flutter container handles back/edge-swipe
+    assert.equal(await kernel.handleBack(), false);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE]);
+
+    // Open a nested child (Profile -> Lobby)
+    const profile = kernel.snapshot().residents.find((record) => record.appId === PROFILE)!;
+    const lobbyOpened = await invoke({
+      requestId: "direct-open-lobby",
+      sourceAppId: PROFILE,
+      sourceInstanceId: profile.instanceId,
+      sourceGeneration: profile.generation!,
+      capability: "platform.apps.open",
+      params: { appId: LOBBY },
+    });
+    assert.equal(lobbyOpened.ok, true);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE, LOBBY]);
+    const stackedBindings = kernel.surfaceBindings({ includeStack: true });
+    assert.equal(stackedBindings.find((b) => b.appId === PROFILE)?.directRoot, true);
+    assert.equal(stackedBindings.find((b) => b.appId === LOBBY)?.directRoot, undefined);
+
+    // At stack length 3, handleBack pops the nested Lobby child inside JS without closing container
+    assert.equal(await kernel.handleBack(), true);
+    assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE]);
+    assert.equal(dismissedCount, 1, "nested child dismissal still runs before-dismiss handler");
+    assert.equal(host.calls.filter((c) => c.capability === "system.container.close").length, 0);
+
+    // Root child returning a result auto-closes the container without calling onBeforeDismiss
+    const returned = await invoke({
+      requestId: "direct-return-profile",
+      sourceAppId: PROFILE,
+      sourceInstanceId: profile.instanceId,
+      sourceGeneration: profile.generation!,
+      capability: "platform.apps.return",
+      params: { value: { status: "completed" } },
+    });
+    assert.equal(returned.ok, true);
+    await until(() => host.calls.filter((c) => c.capability === "system.container.close").length === 1);
+    assert.equal(dismissedCount, 1, "auto-closing direct root must skip JS onBeforeDismiss animation");
+    assert.deepEqual(
+      host.calls.find((c) => c.capability === "system.container.close")?.params,
+      {
+        result: {
+          appId: PROFILE,
+          cancelled: false,
+          value: { status: "completed" },
+        },
+      },
+    );
+  } finally {
+    kernel.dispose();
+  }
+});
+
+test("system.host.launch auto-closes on root cancel and records directLaunchError on failed launch", async () => {
+  const { host, kernel, invoke } = createEnv();
+  const baseRequest = host.request.bind(host);
+  host.request = async (capability, params = {}, options) => {
+    if (capability === "system.container.close") {
+      host.calls.push({ capability, params, options });
+      return { closed: true } as never;
+    }
+    return await baseRequest(capability, params, options) as never;
+  };
+  let dismissedCount = 0;
+  kernel.onBeforeDismiss(async () => {
+    dismissedCount += 1;
+  });
+  try {
+    await kernel.ready;
+    globalObject.__pocketEvent!({
+      type: "event",
+      name: "system.host.launch",
+      payload: {
+        appId: PROFILE,
+        closeContainerWhenEmpty: true,
+      },
+    });
+    await until(() => kernel.snapshot().stack.length === 2 && kernel.surfaceBindings()[0]?.ready !== false);
+    const rootFrame = kernel.snapshot().stack[1]!;
+
+    const cancelled = await invoke(systemRequest(
+      "direct-cancel-profile",
+      "platform.apps.cancel",
+      { requestId: rootFrame.requestId! },
+    ));
+    assert.equal(cancelled.ok, true);
+    await until(() => host.calls.filter((c) => c.capability === "system.container.close").length === 1);
+    assert.equal(dismissedCount, 0, "cancelling direct root skips onBeforeDismiss");
+    assert.deepEqual(
+      host.calls.find((c) => c.capability === "system.container.close")?.params,
+      {
+        result: {
+          appId: PROFILE,
+          cancelled: true,
+          value: null,
+          reason: "cancelled",
+        },
+      },
+    );
+
+    // Failed direct launch sets directLaunchError instead of hanging silently
+    globalObject.__pocketEvent!({
+      type: "event",
+      name: "system.host.launch",
+      payload: {
+        appId: "pocket.demo.unknown",
+        closeContainerWhenEmpty: true,
+      },
+    });
+    await until(() => kernel.snapshot().directLaunchError !== null);
+    assert.deepEqual(kernel.snapshot().directLaunchError, {
+      appId: "pocket.demo.unknown",
+      code: "app_not_installed",
+      message: "target app is not installed",
+    });
+    assert.equal(kernel.snapshot().opening, null);
+  } finally {
+    kernel.dispose();
+  }
+});

@@ -1,0 +1,641 @@
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:pocket_flutter/src/pocket_model.dart' show PocketEvent;
+import 'package:pocket_services/pocket_services.dart';
+
+import 'package:pocket_hardware/pocket_hardware.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  Future<Object?> Function(MethodCall)? permissionHandler;
+  setUp(() {
+    permissionHandler = null;
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('flutter.baseflow.com/permissions/methods'),
+          (call) async {
+            if (permissionHandler != null) return permissionHandler!(call);
+            if (call.method == 'requestPermissions') {
+              return {for (final id in call.arguments as List) id as int: 1};
+            }
+            return 1;
+          },
+        );
+  });
+  tearDown(() {
+    debugDefaultTargetPlatformOverride = null;
+  });
+  test('descriptor exposes only compiled hardware capabilities', () {
+    final descriptor = HardwarePlugin().descriptor;
+    expect(descriptor.id, hardwarePluginId);
+    expect(descriptor.capabilities.keys, containsAll(HardwareCapabilities.all));
+    expect(descriptor.permissions, isEmpty);
+  });
+
+  test(
+    'network-only weather with explicit coordinates succeeds without native GPS',
+    () async {
+      final fake = _FakeHardwarePlatform(<String, Map<String, dynamic>>{
+        'getCurrentLocation': <String, dynamic>{
+          'ok': true,
+          'latitude': 1.29,
+          'longitude': 103.85,
+        },
+      });
+      final harness = await _Harness.create(
+        _weatherPlugin(fake),
+        allowedPermissions: const <String>{HardwarePermissions.network},
+        requestedPermissions: const <String>{HardwarePermissions.network},
+      );
+      try {
+        final result = await harness.manager.invoke(
+          HardwareCapabilities.weatherCurrent,
+          const <String, dynamic>{'latitude': 31.2304, 'longitude': 121.4737},
+        );
+        final response = result as Map;
+        expect(response['ok'], isTrue);
+        expect(response['realGps'], isFalse);
+        expect(fake.calls, isNot(contains('getCurrentLocation')));
+      } finally {
+        await harness.dispose();
+      }
+    },
+  );
+
+  test(
+    'network-only weather without coordinates is denied before native GPS',
+    () async {
+      final fake = _FakeHardwarePlatform(<String, Map<String, dynamic>>{
+        'getCurrentLocation': <String, dynamic>{
+          'ok': true,
+          'latitude': 1.29,
+          'longitude': 103.85,
+        },
+      });
+      final harness = await _Harness.create(
+        _weatherPlugin(fake),
+        allowedPermissions: const <String>{HardwarePermissions.network},
+        requestedPermissions: const <String>{HardwarePermissions.network},
+      );
+      try {
+        await expectLater(
+          harness.manager.invoke(
+            HardwareCapabilities.weatherCurrent,
+            const <String, dynamic>{},
+          ),
+          throwsA(
+            isA<PocketCapabilityException>().having(
+              (error) => error.code,
+              'code',
+              'permission_denied',
+            ),
+          ),
+        );
+        expect(fake.calls, isNot(contains('getCurrentLocation')));
+      } finally {
+        await harness.dispose();
+      }
+    },
+  );
+
+  test(
+    'network plus location weather without coordinates invokes native GPS',
+    () async {
+      final fake = _FakeHardwarePlatform(<String, Map<String, dynamic>>{
+        'getCurrentLocation': <String, dynamic>{
+          'ok': true,
+          'realGps': true,
+          'latitude': 1.29,
+          'longitude': 103.85,
+        },
+      });
+      final permissions = <String>{
+        HardwarePermissions.network,
+        HardwarePermissions.location,
+      };
+      final harness = await _Harness.create(
+        _weatherPlugin(fake),
+        allowedPermissions: permissions,
+        requestedPermissions: permissions,
+      );
+      try {
+        final result = await harness.manager.invoke(
+          HardwareCapabilities.weatherCurrent,
+        );
+        final response = result as Map;
+        expect(response['ok'], isTrue);
+        expect(response['realGps'], isTrue);
+        expect(fake.calls, contains('getCurrentLocation'));
+      } finally {
+        await harness.dispose();
+      }
+    },
+  );
+
+  test(
+    'switchCameraLens returns stopped when preview is not running',
+    () async {
+      final fake = _FakeHardwarePlatform(<String, Map<String, dynamic>>{});
+      final harness = await _Harness.create(HardwarePlugin(platform: fake));
+      try {
+        await harness.request(
+          HardwareCapabilities.cameraLensSwitch,
+          'switch-stopped',
+          params: <String, dynamic>{'lens': 'front'},
+        );
+        expect(harness.last['ok'], isTrue);
+        final result = harness.last['result'] as Map;
+        expect(result['stopped'], isTrue);
+        expect(result['lens'], 'front');
+        expect(fake.calls, isEmpty);
+      } finally {
+        await harness.dispose();
+      }
+    },
+  );
+
+  test('switchCameraLens updates texture when preview is active', () async {
+    final fake = _FakeHardwarePlatform(<String, Map<String, dynamic>>{
+      'startCameraPreview': <String, dynamic>{
+        'ok': true,
+        'textureId': 10,
+        'width': 1280,
+        'height': 720,
+        'lens': 'back',
+      },
+      'switchCameraLens': <String, dynamic>{
+        'ok': true,
+        'textureId': 20,
+        'width': 1280,
+        'height': 720,
+        'lens': 'front',
+      },
+      'stopCameraPreview': <String, dynamic>{
+        'ok': true,
+        'previewActive': false,
+      },
+    });
+    final registered = <int>[];
+    final released = <int>[];
+    final plugin = HardwarePlugin(
+      platform: fake,
+      onTextureRegistered: registered.add,
+      onTextureReleased: released.add,
+    );
+    final harness = await _Harness.create(plugin);
+    try {
+      await harness.request(HardwareCapabilities.cameraPreviewStart, 'start');
+      expect(registered, <int>[10]);
+      await harness.request(
+        HardwareCapabilities.cameraLensSwitch,
+        'switch-active',
+        params: <String, dynamic>{'lens': 'front'},
+      );
+      expect(registered, <int>[10, 20]);
+      expect(released, <int>[10]);
+      await harness.manager.deactivate();
+      expect(released, <int>[10, 20]);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
+  test(
+    'Android-shaped provider responses use the same platform-neutral contract',
+    () async {
+      final fake = _FakeHardwarePlatform(<String, Map<String, dynamic>>{
+        'startCameraPreview': <String, dynamic>{
+          'ok': true,
+          'platform': 'android',
+          'realHardwareCamera': true,
+          'textureId': 7,
+          'width': 1280,
+          'height': 720,
+          'lens': 'back',
+        },
+        'stopCameraPreview': <String, dynamic>{
+          'ok': true,
+          'platform': 'android',
+          'previewActive': false,
+        },
+      });
+      final harness = await _Harness.create(HardwarePlugin(platform: fake));
+      try {
+        await harness.request(
+          HardwareCapabilities.permissions,
+          'android-permissions',
+        );
+        expect(harness.last['ok'], isTrue);
+        expect((harness.last['result'] as Map)['permissions'], isA<Map>());
+
+        await harness.request(
+          HardwareCapabilities.cameraPreviewStart,
+          'android-camera',
+        );
+        expect(harness.last['ok'], isTrue);
+        final preview = harness.last['result'] as Map;
+        expect(preview['platform'], 'android');
+        expect(preview['textureId'], 7);
+        expect(fake.calls, contains('startCameraPreview'));
+
+        await harness.request(
+          HardwareCapabilities.cameraPreviewStop,
+          'android-camera-stop',
+        );
+        expect(harness.last['ok'], isTrue);
+        expect(fake.calls, contains('stopCameraPreview'));
+      } finally {
+        await harness.dispose();
+      }
+    },
+  );
+
+  test(
+    'unsupported native responses are structured errors, never success',
+    () async {
+      final fake = _FakeHardwarePlatform(<String, Map<String, dynamic>>{
+        'readSensors': <String, dynamic>{
+          'ok': false,
+          'errorCode': 'hardware_unsupported',
+          'error': 'motion sensor is unavailable',
+        },
+      });
+      final harness = await _Harness.create(HardwarePlugin(platform: fake));
+      try {
+        await harness.request(HardwareCapabilities.sensorsRead, 'sensor-1');
+        expect(harness.last['ok'], isFalse);
+        expect((harness.last['error'] as Map)['code'], 'hardware_unsupported');
+      } finally {
+        await harness.dispose();
+      }
+    },
+  );
+
+  test(
+    'BLE scan followed by sensors permission request and numeric read preserves full payload',
+    () async {
+      final fake = _FakeHardwarePlatform(<String, Map<String, dynamic>>{
+        'startBleScan': <String, dynamic>{
+          'ok': true,
+          'realBle': true,
+          'state': 'poweredOn',
+          'devices': const <Map<String, dynamic>>[],
+        },
+        'readSensors': <String, dynamic>{
+          'ok': true,
+          'realSensors': true,
+          'accelX': 0.01,
+          'accelY': -0.02,
+          'accelZ': 0.03,
+          'gravityX': 0.0,
+          'gravityY': -0.98,
+          'gravityZ': -0.19,
+          'gyroX': 0.004,
+          'gyroY': -0.003,
+          'gyroZ': 0.001,
+          'pitch': 0.19,
+          'roll': 0.01,
+          'yaw': -0.42,
+          'pressureHpa': 1013.25,
+          'relativeAltitudeM': 1.5,
+        },
+      });
+      final harness = await _Harness.create(HardwarePlugin(platform: fake));
+      try {
+        await harness.request(
+          HardwareCapabilities.bluetoothScan,
+          'ble-scan-1',
+          params: const <String, dynamic>{'timeoutMs': 1600},
+        );
+        expect(harness.last['ok'], isTrue);
+        expect((harness.last['result'] as Map)['realBle'], isTrue);
+
+        await harness.request(
+          HardwareCapabilities.requestPermission,
+          'sensor-perm-1',
+          params: const <String, dynamic>{
+            'permission': HardwarePermissions.sensors,
+          },
+        );
+        expect(harness.last['ok'], isTrue);
+        expect((harness.last['result'] as Map)['granted'], isTrue);
+
+        await harness.request(
+          HardwareCapabilities.sensorsRead,
+          'sensor-read-1',
+        );
+        expect(harness.last['ok'], isTrue);
+        final sensorResult = harness.last['result'] as Map<String, dynamic>;
+        expect(sensorResult['realSensors'], isTrue);
+        expect(sensorResult['accelX'], 0.01);
+        expect(sensorResult['gravityY'], -0.98);
+        expect(sensorResult['gyroZ'], 0.001);
+        expect(sensorResult['pitch'], 0.19);
+        expect(sensorResult['pressureHpa'], 1013.25);
+        expect(fake.calls, equals(<String>['startBleScan', 'readSensors']));
+      } finally {
+        await harness.dispose();
+      }
+    },
+  );
+
+  test(
+    'camera texture registration and cutover cleanup are observable',
+    () async {
+      final fake = _FakeHardwarePlatform(<String, Map<String, dynamic>>{
+        'startCameraPreview': <String, dynamic>{
+          'ok': true,
+          'textureId': 41,
+          'width': 1920,
+          'height': 1080,
+          'lens': 'back',
+        },
+        'stopCameraPreview': <String, dynamic>{
+          'ok': true,
+          'previewActive': false,
+        },
+      });
+      final registered = <int>[];
+      final released = <int>[];
+      final plugin = HardwarePlugin(
+        platform: fake,
+        onTextureRegistered: registered.add,
+        onTextureReleased: released.add,
+      );
+      final harness = await _Harness.create(plugin);
+      try {
+        await harness.request(
+          HardwareCapabilities.cameraPreviewStart,
+          'camera-1',
+        );
+        expect(harness.last['ok'], isTrue);
+        expect((harness.last['result'] as Map)['textureId'], 41);
+        expect(registered, <int>[41]);
+        await harness.manager.deactivate();
+        expect(released, <int>[41]);
+        expect(fake.calls, contains('stopCameraPreview'));
+      } finally {
+        await harness.dispose();
+      }
+    },
+  );
+
+  test('weather uses real coordinates and injected network response', () async {
+    Uri? requestedUri;
+    final fake = _FakeHardwarePlatform(<String, Map<String, dynamic>>{
+      'getCurrentLocation': <String, dynamic>{
+        'ok': true,
+        'realGps': true,
+        'latitude': 1.29,
+        'longitude': 103.85,
+      },
+    });
+    final plugin = HardwarePlugin(
+      platform: fake,
+      weatherFetcher: (uri) async {
+        requestedUri = uri;
+        return <String, dynamic>{
+          'current': <String, dynamic>{'temperature_2m': 29.0},
+          'hourly': <String, dynamic>{
+            'temperature_2m': <dynamic>[29.0],
+          },
+          'daily': <String, dynamic>{
+            'weather_code': <dynamic>[1],
+          },
+        };
+      },
+    );
+    final harness = await _Harness.create(plugin);
+    try {
+      await harness.request(HardwareCapabilities.weatherCurrent, 'weather-1');
+      expect(harness.last['ok'], isTrue);
+      final result = harness.last['result'] as Map;
+      expect(result['source'], 'open-meteo');
+      expect(result['realGps'], isTrue);
+      expect(requestedUri?.host, 'api.open-meteo.com');
+      expect(requestedUri?.queryParameters['latitude'], '1.29');
+      expect(requestedUri?.queryParameters['longitude'], '103.85');
+    } finally {
+      await harness.dispose();
+    }
+  });
+
+  test('invalid input is rejected before reaching native provider', () async {
+    final fake = _FakeHardwarePlatform(<String, Map<String, dynamic>>{});
+    final harness = await _Harness.create(HardwarePlugin(platform: fake));
+    try {
+      await harness.request(
+        HardwareCapabilities.bluetoothScan,
+        'invalid-1',
+        params: <String, dynamic>{'timeoutMs': 1},
+      );
+      expect(harness.last['ok'], isFalse);
+      expect((harness.last['error'] as Map)['code'], 'invalid_argument');
+      expect(fake.calls, isEmpty);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
+  test(
+    'a preview that completes after deactivation cannot authorize a texture',
+    () async {
+      final fake = _DelayedHardwarePlatform();
+      final registered = <int>[];
+      final plugin = HardwarePlugin(
+        platform: fake,
+        onTextureRegistered: registered.add,
+      );
+      final harness = await _Harness.create(plugin);
+      final pending = harness.request(
+        HardwareCapabilities.cameraPreviewStart,
+        'late-camera',
+      );
+      await Future<void>.delayed(Duration.zero);
+      final deactivating = harness.manager.deactivate();
+      fake.start.complete(<String, dynamic>{
+        'ok': true,
+        'textureId': 77,
+        'width': 640,
+        'height': 480,
+      });
+      await Future.wait<void>(<Future<void>>[pending, deactivating]);
+      expect(registered, isEmpty);
+      expect(fake.calls, contains('stopCameraPreview'));
+      expect(fake.calls, contains('disposeSession'));
+      await harness.dispose();
+    },
+  );
+
+  test('a timed-out preview ignores its late native result', () async {
+    final fake = _DelayedHardwarePlatform();
+    final registered = <int>[];
+    final harness = await _Harness.create(
+      HardwarePlugin(
+        platform: fake,
+        requestTimeout: const Duration(milliseconds: 10),
+        onTextureRegistered: registered.add,
+      ),
+    );
+    try {
+      await harness.request(
+        HardwareCapabilities.cameraPreviewStart,
+        'timeout-camera',
+      );
+      expect(harness.last['ok'], isFalse);
+      expect((harness.last['error'] as Map)['code'], 'hardware_timeout');
+      fake.start.complete(<String, dynamic>{
+        'ok': true,
+        'textureId': 88,
+        'width': 640,
+        'height': 480,
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(registered, isEmpty);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
+  test(
+    'permission status uses permission_handler without the hardware queue',
+    () async {
+      final fake = _FakeHardwarePlatform({});
+      final harness = await _Harness.create(HardwarePlugin(platform: fake));
+      try {
+        await harness.request(
+          HardwareCapabilities.permissions,
+          'permission-status',
+        );
+        expect(harness.last['ok'], isTrue);
+        expect(
+          ((harness.last['result'] as Map)['permissions'] as Map)['camera'],
+          containsPair('granted', true),
+        );
+        expect(fake.calls, isEmpty);
+      } finally {
+        await harness.dispose();
+      }
+    },
+  );
+}
+
+HardwarePlugin _weatherPlugin(_FakeHardwarePlatform fake) => HardwarePlugin(
+  platform: fake,
+  weatherFetcher: (_) async => <String, dynamic>{
+    'current': <String, dynamic>{'temperature_2m': 20.0},
+  },
+);
+
+final class _FakeHardwarePlatform implements HardwarePlatform {
+  _FakeHardwarePlatform(this.responses);
+
+  final Map<String, Map<String, dynamic>> responses;
+  final List<String> calls = <String>[];
+
+  @override
+  Future<Map<String, dynamic>> invoke(
+    String method, [
+    Map<String, dynamic> arguments = const <String, dynamic>{},
+  ]) async {
+    calls.add(method);
+    return Map<String, dynamic>.from(
+      responses[method] ?? <String, dynamic>{'ok': true},
+    );
+  }
+}
+
+final class _DelayedHardwarePlatform implements HardwarePlatform {
+  final Completer<Map<String, dynamic>> start =
+      Completer<Map<String, dynamic>>();
+  final List<String> calls = <String>[];
+
+  @override
+  Future<Map<String, dynamic>> invoke(
+    String method, [
+    Map<String, dynamic> arguments = const <String, dynamic>{},
+  ]) {
+    calls.add(method);
+    if (method == 'startCameraPreview') return start.future;
+    return Future<Map<String, dynamic>>.value(<String, dynamic>{'ok': true});
+  }
+}
+
+final class _Harness {
+  _Harness(this.plugin, this.host, this.manager, this.sent);
+
+  final HardwarePlugin plugin;
+  final PocketHost host;
+  final PocketPluginManager manager;
+  final List<Map<String, dynamic>> sent;
+
+  Map<String, dynamic> get last => sent.last;
+
+  static Future<_Harness> create(
+    HardwarePlugin plugin, {
+    Set<String> allowedPermissions = HardwarePermissions.all,
+    Set<String>? requestedPermissions,
+  }) async {
+    final sent = <Map<String, dynamic>>[];
+    final registry = PocketHostRegistry();
+    final streams = PocketStreamBridge(send: (_, __) => true);
+    final host = PocketHost(
+      registry: registry,
+      streams: streams,
+      allowedCapabilities: HardwareCapabilities.all,
+      send: (method, params) {
+        sent.add(<String, dynamic>{'method': method, ...params});
+        return true;
+      },
+    );
+    final manager = PocketPluginManager(
+      host: host,
+      appId: 'test.hardware',
+      sessionId: 'hardware-test-session',
+      allowedPermissions: allowedPermissions,
+      onPermissionRequest: (_) => allowedPermissions,
+    );
+    manager.register(plugin);
+    final declaredPermissions = plugin.descriptor.capabilities.values
+        .expand((m) => m.permissions ?? plugin.descriptor.permissions)
+        .toSet();
+    final availability = manager.negotiate(
+      required: const <String>[],
+      optional: HardwareCapabilities.all,
+      requestedPermissions:
+          requestedPermissions ??
+          (plugin.descriptor.permissions.isNotEmpty
+              ? plugin.descriptor.permissions
+              : declaredPermissions),
+    );
+    await manager.activate(availability);
+    return _Harness(plugin, host, manager, sent);
+  }
+
+  Future<void> request(
+    String capability,
+    String requestId, {
+    Map<String, dynamic> params = const <String, dynamic>{},
+  }) async {
+    await host.handle(
+      PocketEvent(
+        id: requestId,
+        method: 'host.request',
+        params: <String, dynamic>{
+          'requestId': requestId,
+          'capability': capability,
+          'params': params,
+        },
+      ),
+    );
+  }
+
+  Future<void> dispose() async {
+    await manager.dispose();
+    host.dispose();
+  }
+}

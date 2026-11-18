@@ -1,0 +1,20 @@
+{
+  "$schema": "https://pocketjs.dev/schema/pocket-guest-manifest.json",
+  "protocolVersion": 1,
+  "capabilities": {
+    "requires": [
+      "platform.apps.open",
+      "platform.apps.return",
+      "platform.storage.get",
+      "platform.storage.set",
+      "text.layout.native"
+    ],
+    "optional": []
+  },
+  "permissions": {
+    "optional": []
+  },
+  "version": "0.1.0",
+  "build": 1,
+  "fonts": "host"
+}
