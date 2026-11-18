@@ -1427,7 +1427,7 @@ export interface LiquidGlassAlertAction {
 
 /**
  * iOS 26 `AlertController` (`Alert glass group`) with Continuous Scrub Selection:
- * - Centered `292pt` refractive Liquid Glass platter (`radius: 28`)
+ * - Centered `320pt` refractive Liquid Glass platter (`radius: 32`)
  * - Automatically lays out 2 short actions side-by-side (`horizontal`) and stacks 3+ or
  *   long-titled actions vertically (`stacked`)
  * - Continuous press-and-scrub gesture (`LongPressGestureRecognizer` parity) highlights
@@ -1445,7 +1445,7 @@ export function LiquidGlassAlertModal(props: {
   const isOpen = () => (typeof props.open === "function" ? props.open() : props.open);
 
   const presence = createGlassSpring(() => (isOpen() ? 1 : 0), {
-    preset: "morph",
+    config: { stiffness: 440, damping: 38, mass: 1, precision: 0.002 },
     reducedMotion: ctx.reducedMotion,
     quantizeStep: 0.005,
   });
@@ -1474,8 +1474,8 @@ export function LiquidGlassAlertModal(props: {
       return props.actions[idx]?.disabled ? null : idx;
     }
     const count = Math.max(1, props.actions.length);
-    const rowH = pt.height / count;
-    const idx = Math.max(0, Math.min(count - 1, Math.floor(pt.y / Math.max(1, rowH))));
+    const pitch = Math.max(1, (pt.height - 16 + 9) / count);
+    const idx = Math.max(0, Math.min(count - 1, Math.floor(pt.y / pitch)));
     return props.actions[idx]?.disabled ? null : idx;
   };
 
@@ -1513,7 +1513,30 @@ export function LiquidGlassAlertModal(props: {
   const actionLabelColor = (a: LiquidGlassAlertAction): string => {
     if (a.disabled) return ctx.palette().inkMuted;
     if (a.style === "destructive") return ctx.palette().danger.fg;
-    return ctx.palette().accentHex;
+    return ctx.palette().ink;
+  };
+
+  const alertColors = () => {
+    const mode = ctx.palette().mode;
+    if (mode === "amber-night") {
+      return {
+        backing: "#221600D9",
+        capsule: "#3B2800",
+        capsuleActive: "#4A3300",
+      };
+    }
+    if (mode === "dark") {
+      return {
+        backing: "#222222D9",
+        capsule: "#3B3F43",
+        capsuleActive: "#4A4F54",
+      };
+    }
+    return {
+      backing: "#E9E9ECD9",
+      capsule: "#DADEE3",
+      capsuleActive: "#C9CED4",
+    };
   };
 
   return (
@@ -1532,7 +1555,7 @@ export function LiquidGlassAlertModal(props: {
             insetR: 0,
             insetB: 0,
             insetL: 0,
-            bgColor: ctx.palette().dark ? "#00000066" : "#0F172A38",
+            bgColor: ctx.palette().dark ? "#00000078" : "#00000033",
             opacity: clamped(),
             hitPass: 1,
           }}
@@ -1549,32 +1572,46 @@ export function LiquidGlassAlertModal(props: {
         {/* No clip on the platter wrapper: the glass quad's optical halo and
             shadow must stay visible; the glass fades via its own opacity. */}
         <View
-          class="w-[296] shrink-0"
+          class="w-[320] shrink-0"
           style={{
-            width: 296,
+            width: 320,
             opacity: clamped(),
-            scale: quantizeOptical(0.86 + 0.14 * presence(), 0.005, 1),
-            radius: 28,
+            scale: quantizeOptical(isOpen() ? 1 + 0.2 * (1 - presence()) : 1, 0.005, 1),
+            radius: 32,
           }}
         >
           <LiquidGlassSurface
-            material="regular"
+            material="thick"
             priority="critical"
             shape="rounded"
-            radius={28}
+            radius={32}
             magnification={1.06}
             opacity={clamped}
             class="w-full flex-col"
-            contentClass="flex-col w-full p-0"
+            contentClass="relative flex-col w-full p-0"
           >
+            <View
+              class="absolute inset-0 w-full h-full"
+              style={{
+                posType: 1,
+                insetT: 0,
+                insetR: 0,
+                insetB: 0,
+                insetL: 0,
+                radius: 32,
+                hitPass: 1,
+                bgColor: alertColors().backing,
+              }}
+            />
+
             {/* Title & Message Header */}
-            <View class="flex-col items-center gap-1.5 px-5 pt-5 pb-4 w-full">
+            <View class="flex-col items-start gap-1 px-[30] pt-[22] pb-[16] w-full">
               <Show when={Boolean(props.title)}>
                 <MobileParagraph
                   text={props.title!}
-                  class="text-base font-bold text-center"
+                  class="text-base font-bold text-left"
                   style={{ textColor: ctx.palette().ink }}
-                  fallbackInsetPx={120}
+                  fallbackInsetPx={130}
                 />
               </Show>
               <Show when={Boolean(props.message)}>
@@ -1582,27 +1619,16 @@ export function LiquidGlassAlertModal(props: {
                   text={props.message!}
                   class={
                     props.title
-                      ? "text-xs text-center"
-                      : "text-sm text-center"
+                      ? "text-xs text-left"
+                      : "text-sm text-left"
                   }
                   style={{
-                    textColor: props.title
-                      ? ctx.palette().inkSecondary
-                      : ctx.palette().ink,
+                    textColor: ctx.palette().inkMuted,
                   }}
-                  fallbackInsetPx={120}
+                  fallbackInsetPx={130}
                 />
               </Show>
             </View>
-
-            {/* Hairline Separator */}
-            <View
-              class="w-full h-[1]"
-              style={{
-                height: 1,
-                bgColor: ctx.palette().contourOuter,
-              }}
-            />
 
             {/* Scrubbable Action Group (`_UIAlertControllerInterfaceActionGroupView`) */}
             <View
@@ -1611,15 +1637,14 @@ export function LiquidGlassAlertModal(props: {
               }}
               class={
                 sideBySide()
-                  ? "flex-row items-center w-full p-1.5 gap-1.5"
-                  : "flex-col w-full p-1.5 gap-1"
+                  ? "flex-row items-center w-full px-4 pb-4 gap-[9]"
+                  : "flex-col w-full px-4 pb-4 gap-[9]"
               }
             >
               <For each={props.actions}>
                 {(action, idx) => {
                   const active = () => scrubIndex() === idx();
-                  const isBold = () =>
-                    action.preferred === true || action.style === "cancel";
+                  const isBold = () => action.preferred === true;
                   return (
                     <Focusable
                       focusable={!action.disabled}
@@ -1629,25 +1654,13 @@ export function LiquidGlassAlertModal(props: {
                       }
                     >
                       <View
-                        class="h-[42] items-center justify-center px-3 w-full"
+                        class="h-[48] items-center justify-center px-3 w-full"
                         style={{
-                          height: 42,
+                          height: 48,
                           bgColor: active()
-                            ? ctx.palette().dark
-                              ? "#FFFFFF28"
-                              : "#0F172A14"
-                            : action.preferred
-                              ? ctx.palette().accentSubtle
-                              : ctx.palette().dark
-                                ? "#FFFFFF0D"
-                                : "#FFFFFF88",
-                          borderColor: active()
-                            ? ctx.palette().rimHighlight
-                            : action.preferred
-                              ? ctx.palette().accentHex
-                              : ctx.palette().rimSubtle,
-                          borderWidth: 1,
-                          radius: 999,
+                            ? alertColors().capsuleActive
+                            : alertColors().capsule,
+                          radius: 24,
                           opacity: action.disabled ? 0.45 : 1,
                         }}
                       >

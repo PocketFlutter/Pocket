@@ -44,7 +44,7 @@ test("the Showcase UIKit Gallery supports native pointer navigation, controls, a
   }
 }, 30_000);
 
-type GlassSample = { x: number; y: number; w: number; h: number; material?: string; opacity: number; magnification: number };
+type GlassSample = { x: number; y: number; w: number; h: number; material?: string; blur: number; opacity: number; magnification: number };
 
 function glassSurfaces(frame: { ops?: Array<Record<string, unknown>> }): GlassSample[] {
   return (frame.ops ?? []).filter((op) => op.type === "hostSurface" && typeof op.asset === "string").map((op) => {
@@ -52,6 +52,7 @@ function glassSurfaces(frame: { ops?: Array<Record<string, unknown>> }): GlassSa
     return {
       x: Number(op.x), y: Number(op.y), w: Number(op.w), h: Number(op.h),
       material: parameters.material as string | undefined,
+      blur: Number(parameters.blur ?? 0),
       opacity: Number(parameters.opacity ?? 1),
       magnification: Number(parameters.magnification ?? 1),
     };
@@ -203,6 +204,50 @@ test("UIKit Gallery motion matches the uikit.even.how reference captures", async
     frame = await session.settle(await session.tap("UIKit Gallery", frame), 45);
     assert.equal(textOps(frame, "Configurations").length, 0);
     assert.ok(Math.abs(xOf(frame, "BARS & PRESENTATION")! - catalogRest) < 0.5, "catalog returns to rest");
+  } finally {
+    await session.quit();
+  }
+}, 30_000);
+
+test("UIKit Gallery alert matches the uikit.even.how presentation captures", async () => {
+  // Reference: page dimmed with black (not blurred), platter shrinks 1.2 -> 1 on open, dismiss is a pure fade.
+  const session = new NativeSession(readNativeArtifacts("POCKET_LIQUID_GLASS"), { width: 390, height: 844 });
+  const platter = (frame: { ops?: Array<Record<string, unknown>> }) => glassSurfaces(frame).find((surface) => surface.blur === 16); // the thick modal material
+  const dimAlpha = (frame: { ops?: Array<Record<string, unknown>> }) => {
+    const dims = (frame.ops ?? []).filter((op) => op.type === "rect" && Number(op.w) >= 389 && Number(op.h) >= 843 && ((Number(op.color) >>> 0) & 0xffffff) === 0);
+    return dims.length ? ((Number(dims.at(-1)!.color) >>> 24) & 255) / 255 : 0;
+  };
+  try {
+    await session.boot();
+    session.sendEvent("demo.openUrl", { url: "pocket://showcase/uikit-gallery?component=alert" });
+    let frame = await session.settle(await session.frame(), 40);
+    frame = await session.tap("Two Actions (Side by Side)", frame);
+    const widths: number[] = [];
+    const opacities: number[] = [];
+    const dims: number[] = [];
+    for (let index = 0; index < 40; index += 1) {
+      const surface = platter(frame);
+      if (surface) { widths.push(surface.w); opacities.push(surface.opacity); dims.push(dimAlpha(frame)); }
+      frame = await session.frame();
+    }
+    const rest = widths.at(-1)!;
+    assert.ok(widths[0]! > rest * 1.08, `platter opens oversized (${widths[0]} vs ${rest})`);
+    for (let index = 1; index < widths.length; index += 1) assert.ok(widths[index]! <= widths[index - 1]! + 0.01, "platter shrinks monotonically");
+    assert.ok(opacities[0]! < 0.6 && opacities.at(-1) === 1, `platter fades in (${opacities[0]} -> ${opacities.at(-1)})`);
+    assert.ok(Math.abs(dims.at(-1)! - 0.2) < 0.02, `light-mode dim is 20% black (${dims.at(-1)})`);
+
+    frame = await session.tap("Cancel", frame);
+    const closing: Array<{ w: number; opacity: number }> = [];
+    for (let index = 0; index < 40; index += 1) {
+      const surface = platter(frame);
+      if (surface) closing.push({ w: surface.w, opacity: surface.opacity });
+      frame = await session.frame();
+    }
+    assert.ok(closing.length > 3, "dismiss animates over several frames");
+    for (const sample of closing) assert.ok(Math.abs(sample.w - rest) < 0.5, `dismiss keeps the platter size (${sample.w})`);
+    for (let index = 1; index < closing.length; index += 1) assert.ok(closing[index]!.opacity <= closing[index - 1]!.opacity + 1e-6, "dismiss fades monotonically");
+    assert.equal(platter(frame), undefined, "platter unmounts after dismiss");
+    assert.equal(dimAlpha(frame), 0, "dim clears after dismiss");
   } finally {
     await session.quit();
   }
