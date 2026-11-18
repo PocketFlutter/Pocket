@@ -144,7 +144,23 @@ test("export_web_sdk creates a Flutter-free toolchain repo with Editor and the Q
   expect(manifest.license).toBe("MIT");
   expect(manifest.workspaces).toContain("packages/pocket_tftc");
   expect(manifest.workspaces).toContain("packages/pocket_ui");
-  for (const name of ["pocket_looseleaf", "pocket_arc"]) {
+
+  // Exercise the exported scaffold boundary, including its Python URL helper.
+  const consumer = mkdtempSync(join(tmpdir(), "pocket-export-surfaces-"));
+  try {
+    const main = join(consumer, "android/app/src/main");
+    mkdirSync(main, { recursive: true });
+    writeFileSync(join(main, "AndroidManifest.xml"), '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application><activity android:name=".MainActivity"><intent-filter><action android:name="android.intent.action.MAIN"/></intent-filter></activity></application></manifest>');
+    const scaffold = spawnSync(process.execPath, ["--eval", `import {syncNativeEcosystemProject} from ${JSON.stringify(join(output, "scripts/native_surface_scaffold.ts"))}; syncNativeEcosystemProject(${JSON.stringify(consumer)}, {modules:["android-devices"],deepLinkScheme:"pocketsurface"});`], { encoding: "utf8" });
+    expect(scaffold.status, scaffold.stderr).toBe(0);
+    const xml = readFileSync(join(main, "AndroidManifest.xml"), "utf8");
+    expect(xml).toContain("android.intent.action.VIEW");
+    expect(xml).toContain('android:scheme="pocketsurface"');
+  } finally {
+    rmSync(consumer, { recursive: true, force: true });
+  }
+
+  for (const name of ["pocket_looseleaf", "pocket_arc", "pocket_liquid_glass"]) {
     expect(manifest.workspaces).toContain(`packages/${name}`);
     expect(existsSync(join(output, `packages/${name}/src/index.ts`))).toBe(true);
     expect(existsSync(join(output, `packages/${name}/test`))).toBe(false);

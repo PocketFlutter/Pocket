@@ -146,7 +146,7 @@ See [Plugin types](PLUGIN_TYPES.md) and [Streams](JS_HOST_STREAMS.md).
 | `pocket_weather` | `PocketWeatherPlugin` | Actual location and network facts. JS handles application policy. |
 | `pocket_clipboard` | `PocketClipboardPlugin` | Plain-text clipboard read and write, `clipboard.read` and `clipboard.write`. See [Clipboard plugin](CLIPBOARD_PLUGIN.md). |
 | `pocket_file_picker` | `PocketFilePickerPlugin` | System file-open dialog through `files.open`. Returns opaque handles only. See [File picker plugin](FILE_PICKER_PLUGIN.md). |
-| `pocket_platform` | `PocketPlatformPlugin`, `PocketDeepLinkPlugin` | System bars and haptics register separately from links. See [Platform experience](PLATFORM_EXPERIENCE.md). |
+| `pocket_platform` | `PocketPlatformPlugin`, `PocketDeepLinkPlugin`, `PocketSurfaceBridgePlugin` | Register system bars and haptics, links, and system surfaces separately. See [Platform experience](PLATFORM_EXPERIENCE.md). |
 | `pocket_dio` | `PocketDioPlugin(allowedOrigins=[], requestTimeout=30s, maxResponseBytes=256KiB, dioFactory?)` | Empty origins deny network access. Worker I/O applies. Guest timeouts can only shorten the deadline. See [Optional plugins](OPTIONAL_PLUGINS.md). |
 | `pocket_audio` | `PocketAudioPlugin.forPocketViewController` | Consumers register the plugin and limit resource prefixes. JS owns VN and audio policy. |
 | `pocket_live2d` | `PocketLive2dPlugin.fromBundledCatalog` | Model resources and native decoding. JS owns orchestration. |
@@ -328,6 +328,7 @@ export chain permits it.
 | --- | --- |
 | [packages/pocket_platform/lib/pocket_platform.dart](../packages/pocket_platform/lib/pocket_platform.dart) | See the library and machine-readable inventory for exports, functions, and constants. |
 | [packages/pocket_platform/lib/src/platform_plugin.dart](../packages/pocket_platform/lib/src/platform_plugin.dart) | `FlutterPocketPlatformUi`, `MethodChannelPocketPlatformTransport`, `PocketDeepLinkPlugin`, `PocketPlatformCapabilities`, `PocketPlatformClock`, `PocketPlatformHaptics`, `PocketPlatformMethodCallHandler`, `PocketPlatformPlugin`, `PocketPlatformTransport`, `PocketPlatformUi`, `StopwatchPocketPlatformClock` |
+| [packages/pocket_platform/lib/src/surface_bridge_plugin.dart](../packages/pocket_platform/lib/src/surface_bridge_plugin.dart) | `PocketSurfaceBridgePlugin`, `PocketSurfaceCapabilities`, `pocketSurfaceBridgePluginId`, `pocketSurfaceMethodChannelName`. [Native surface bridge](OPTIONAL_PLUGINS.md#native-surface-bridge) |
 
 ### `pocket_sensors`
 

@@ -254,8 +254,25 @@ Each row lists subpaths from its package's `exports`. Use those public entries f
 | --- | --- | --- |
 | `@pocket/looseleaf` | `.`, `./tokens`, `./surfaces`, `./marks`, `./controls`, `./navigation`, `./data`, `./overlays`, `./skins`, `./kit` | Surfaces include `Desk/Paper/Tape/Card/IndexCard/StickyNote/Polaroid/Notebook/Page/Receipt/Ticket/Envelope/Folder/Corkboard/Clipboard/Napkin/FlipCard`. Marks include `Highlight/Underline/Circled/Strike/Squiggle/Scribble/Bracket/Arrow/Asterisk/Callout/Annotate/Lettering/Marker/Handwritten/Quote/Signature/Tally/Stamp/Seal/Sticker/Doodle/Mascot/Confetti/Boil`. Controls, data, navigation, and overlays include `Button/Input/Switch/Select/Combobox/Tabs/Table/DataTable/Calendar/DatePicker/Toast/Dialog/Drawer/Tooltip/Accordion` among others. The package also exports `Looseleaf*` aliases. See subpath types in [`src`](../packages/pocket_looseleaf/src/index.ts). |
 | `@pocket/arc` | `.`, `./tokens`, `./motion`, `./surfaces`, `./controls`, `./navigation`, `./data`, `./overlays`, `./skins`, `./kit` | `ArcThemeProvider/useArcTheme`, `createArcSpring/stepArcSpring`, surface/control/navigation/data/overlay/skin families. The kit exposes `ArcAppBar/ArcNavigationBar/ArcListTile/ArcCheckbox/ArcRadioGroup/ArcInput/ArcStepper/ArcAlert/ArcMetric/ArcEmpty/ArcAccordion`. See props in [`src/index.ts`](../packages/pocket_arc/src/index.ts) and its recursively re-exported public modules. |
+| `@pocket/liquid_glass` | `.`, `./tokens`, `./motion`, `./governor`, `./surfaces`, `./controls`, `./navigation`, `./overlays`, `./menus`, `./kit` | `LiquidGlassProvider`, `LiquidGlassSurface`, `LiquidGlassGroup`, optical tokens, spring helpers, priority admission, controls, navigation, menus, and the `liquid-glass` skin adapter. [Liquid Glass](LIQUID_GLASS_PACKAGE.md) |
 
 Component packages expose their declared public entries. Target support depends on PocketJS primitives and runtime behavior in Flutter, Web, or WeChat.
+
+### System widget and activity requests
+
+`@pocket/ui/surfaces` exports `publishWidgetSnapshot(host, manifest)`, `upsertLiveActivity(host, payload)`, and `endLiveActivity(host, activityId?)`, each returning `Promise<BridgeObject>`. `drainPendingWidgetActions(host)` returns `Promise<readonly QueuedWidgetActionEvent[]>`. The helpers accept the request portion of a `HostBridge`. Use `RichWidgetSnapshotPayload` for optional widget text, progress, metrics, actions, and hotspots. `LiveActivityUpsertPayload` requires a title. The trusted host registers and grants the corresponding capabilities.
+
+```ts
+import { publishWidgetSnapshot } from "@pocket/ui/surfaces";
+
+const result = await publishWidgetSnapshot(host, {
+  title: "Today's progress",
+  primaryValue: "3 of 5",
+  progress: 0.6,
+});
+```
+
+Check `result.published` for the native outcome. See [Native surface bridge](OPTIONAL_PLUGINS.md#native-surface-bridge) for availability, action events, and error responses.
 
 ### TFTC
 

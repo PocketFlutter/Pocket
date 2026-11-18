@@ -224,6 +224,8 @@ function copySources(out: string, sourceCommit: string): void {
     "package_update.ts",
     "platform_scaffold.ts",
     "ecosystem_scaffold.ts",
+    "native_surface_scaffold.ts",
+    "patch_deep_links.py",
     "project_templates.ts",
     "project_scaffold.ts",
     "project_commands.mjs",
@@ -238,7 +240,7 @@ function copySources(out: string, sourceCommit: string): void {
   copyTree(join(SDK_ROOT, "native"), join(out, "native"));
   copyTree(join(SDK_ROOT, "packages/pocket_ui"), join(out, "packages/pocket_ui"));
   rmSync(join(out, "packages/pocket_ui/test"), { recursive: true, force: true });
-  for (const name of ["pocket_looseleaf", "pocket_arc"]) {
+  for (const name of ["pocket_looseleaf", "pocket_arc", "pocket_liquid_glass"]) {
     copyTree(join(SDK_ROOT, "packages", name), join(out, "packages", name));
     rmSync(join(out, "packages", name, "test"), { recursive: true, force: true });
   }
@@ -292,7 +294,7 @@ function writeRepositoryFiles(out: string, sourceCommit: string, platform?: Plat
     type: "module",
     license: "MIT",
     engines: { node: ">=22.22.2" },
-    workspaces: ["packages/pocket_ui", "packages/pocket_looseleaf", "packages/pocket_arc", "packages/pocket_tftc", "packages/pocket_spine", "packages/pocket_live2d", "packages/pocket_diagnostics", "packages/pocket_cos", "packages/pocket_sync"],
+    workspaces: ["packages/pocket_ui", "packages/pocket_looseleaf", "packages/pocket_arc", "packages/pocket_liquid_glass", "packages/pocket_tftc", "packages/pocket_spine", "packages/pocket_live2d", "packages/pocket_diagnostics", "packages/pocket_cos", "packages/pocket_sync"],
     dependencies: {
       "@pocket/spine": "0.1.0",
       "@pocket/live2d": "0.1.0",

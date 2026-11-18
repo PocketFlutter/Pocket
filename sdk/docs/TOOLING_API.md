@@ -80,7 +80,24 @@ bun sdk/pocket.ts surfaces /path/to/app --set=MODULE_A
 bun sdk/pocket.ts surfaces --list
 ```
 
-Use `--add=MODULES` to append or `--set=MODULES` to replace the selection. They are mutually exclusive. `--list` prints available/enabled modules and profiles without editing. Module names and profiles come from [ecosystem_scaffold.ts](../scripts/ecosystem_scaffold.ts). Unknown modules fail.
+Use `--add=MODULES` to append or `--set=MODULES` to replace the selection. They are mutually exclusive. `--list` prints available/enabled modules and profiles without editing. Module names and profiles come from [ecosystem_scaffold.ts](../scripts/ecosystem_scaffold.ts). Unknown modules fail. Use `--xcodegen` to opt into a generated XcodeGen spec, `--embed-ios-extensions` to include the selected WidgetKit target, and `--run-xcodegen` to execute generation with `--xcodegen`. `--bundle-id=ID`, `--team-id=ID`, and `--deep-link-scheme=SCHEME` set native host identifiers and the custom URL scheme.
+
+#### Native surface scaffold options
+
+`scaffoldEcosystemModules(projectDir, selectedModules, options?)` updates the guest module selection and synchronizes a detected Flutter companion host by default. The programmatic options below are defined in [ecosystem_scaffold.ts](../scripts/ecosystem_scaffold.ts).
+
+| Option | Default and effect |
+| --- | --- |
+| `mode` | Defaults to `"set"`. Use `"add"` to merge modules. |
+| `appTitle` | Overrides the inferred display title used for generated templates. |
+| `wireEntry` | Defaults to `true` for the supported guest mount shape. |
+| `bundleId`, `teamId`, `deepLinkScheme` | Override the inferred host identity and link scheme. The App Group is derived as `group.<bundleId>`. |
+| `syncNative` | Defaults to `true` when a Flutter host is detected and the selection, descriptor, or XcodeGen request triggers synchronization. Set `false` to skip native project synchronization. |
+| `useXcodeGen` | Set `true` to create `ios/project.yml` and `ios/generate-xcodeproj.sh`. The scaffold preserves an existing consumer spec and script. |
+| `embedIosExtensions` | Set `true` to include the selected WidgetKit extension and App Group entitlements in the XcodeGen spec. The environment setting `POCKET_EMBED_IOS_EXTENSIONS=1` also enables embedding. |
+| `runXcodeGen` | Set `true` with `useXcodeGen` to attempt generation from a scaffold-owned spec. The result reports whether the command succeeded. |
+
+The result includes the selected modules, enabled profile IDs, created and updated files, and whether the guest entry was wired. It can also include the detected Flutter root, bundle ID, App Group ID, and XcodeGen status. The native scaffolder emits Swift sources for selected Apple widget and activity modules, Android AppWidget provider sources and resources for `android-widgets`, and relevant host configuration. Native generated files are updated only while their content matches the `.pocket-native-surfaces.json` ownership record. Keep that record with the generated consumer project so later runs can identify unchanged scaffold-owned files. Existing consumer changes are preserved. Custom iOS scene delegates require manual URL forwarding. Review signing, permissions, and deployment requirements against the generated project. [Native surface bridge](OPTIONAL_PLUGINS.md#native-surface-bridge)
 
 ### `build <directory>`
 

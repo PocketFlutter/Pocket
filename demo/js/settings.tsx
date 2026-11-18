@@ -44,7 +44,7 @@ export function readAppearance(value: unknown): Appearance | undefined {
     density:
       record.density === "touch" || record.density === "desktop" ? record.density : "auto",
     ...(record.presentationStyle === "page" ? { presentationStyle: "page" as const } : {}),
-    ...(record.skin === "looseleaf" || record.skin === "arc"
+    ...(record.skin === "looseleaf" || record.skin === "arc" || record.skin === "liquid-glass"
       ? { skin: record.skin }
       : {}),
   };
@@ -138,9 +138,10 @@ export function SettingsPage(props: {
             <MobileSegmentedControl
               accentActive
               items={[
-                { id: "default", label: "Default UI" },
+                { id: "default", label: "Default" },
                 { id: "looseleaf", label: "Looseleaf" },
                 { id: "arc", label: "Arc" },
+                { id: "liquid-glass", label: "Glass" },
               ]}
               active={props.state().uiSkin}
               onChange={(id) =>

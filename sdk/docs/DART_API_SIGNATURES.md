@@ -6,7 +6,7 @@ This catalog lists declarations importable from each package library after apply
 
 Source-first reuse note: outside the retained parent `pocket_host/`, this work checked `README.md`, `docs/02_ARCHITECTURE_AND_MEMORY_DESIGN.md`, `docs/03_DUAL_HOST_UI_COMPONENTS_SPEC.md`, `docs/04_DEVELOPER_GUIDE_AND_VERIFICATION.md`, and `docs/04_BIDIRECTIONAL_FFI_WASM_AND_YOOASSET_HOTUPDATE.md` in `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo`. These preserve the earlier Flutter/WeChat host split, component-to-host projections, and run/regression scenarios. The necessary adaptation is to use only current SDK library exports and apply every Dart `show`/`hide`, keeping app UI policy and composition in JS and Dart at the rendering/input/lifecycle/native boundary. Validation checks the biometrics and root SDK facade filters, default parameter signatures, and current source SHA markers.
 
-Coverage: 605 public declarations and 3024 declared members across 22 library entrances; 107 inventoried source digests.
+Coverage: 609 public declarations and 3041 declared members across 22 library entrances; 108 inventoried source digests.
 
 ## Packages and imports
 
@@ -3992,6 +3992,39 @@ Members:
 
 Source: [packages/pocket_platform/lib/src/platform_plugin.dart](../packages/pocket_platform/lib/src/platform_plugin.dart#L83)
 
+### `PocketSurfaceBridgePlugin`
+
+**Class** `final class PocketSurfaceBridgePlugin extends PocketPlugin`
+
+Members:
+- `PocketSurfaceBridgePlugin({ this.appGroupId, this.deepLinkScheme, PocketPlatformTransport? transport, this.maxSnapshotBytes = 64 * 1024, })`
+- `final String? appGroupId`
+- `final String? deepLinkScheme`
+- `final int maxSnapshotBytes`
+- `bool get backgroundSafe`
+- `PocketPluginDescriptor get descriptor`
+- `void register(PocketPluginContext context)`
+- `Future<void> activate(PocketPluginContext context)`
+- `Future<void> deactivate(PocketPluginContext context)`
+- `Future<void> dispose()`
+
+Source: [packages/pocket_platform/lib/src/surface_bridge_plugin.dart](../packages/pocket_platform/lib/src/surface_bridge_plugin.dart#L137)
+
+### `PocketSurfaceCapabilities`
+
+**Class** `abstract final class PocketSurfaceCapabilities`
+
+Members:
+- `static const String surfaceGet = 'platform.surface.get'`
+- `static const String publishSnapshot = 'platform.widgets.publishSnapshot'`
+- `static const String drainActions = 'platform.widgets.drainActions'`
+- `static const String actionEvents = 'platform.widgets.actions'`
+- `static const String liveActivityUpsert = 'platform.liveActivity.upsert'`
+- `static const String liveActivityEnd = 'platform.liveActivity.end'`
+- `static const Set<String> all = <String>{surfaceGet, publishSnapshot, drainActions, actionEvents, liveActivityUpsert, liveActivityEnd}`
+
+Source: [packages/pocket_platform/lib/src/surface_bridge_plugin.dart](../packages/pocket_platform/lib/src/surface_bridge_plugin.dart#L12)
+
 ### `StopwatchPocketPlatformClock`
 
 **Class** `final class StopwatchPocketPlatformClock implements PocketPlatformClock`
@@ -4019,6 +4052,18 @@ Source: [packages/pocket_platform/lib/src/platform_plugin.dart](../packages/pock
 **Top-level variable** `const String pocketPlatformPluginId = 'flutter.platform'`
 
 Source: [packages/pocket_platform/lib/src/platform_plugin.dart](../packages/pocket_platform/lib/src/platform_plugin.dart#L32)
+
+### `pocketSurfaceBridgePluginId`
+
+**Top-level variable** `const String pocketSurfaceBridgePluginId = 'flutter.surfaces'`
+
+Source: [packages/pocket_platform/lib/src/surface_bridge_plugin.dart](../packages/pocket_platform/lib/src/surface_bridge_plugin.dart#L30)
+
+### `pocketSurfaceMethodChannelName`
+
+**Top-level variable** `const String pocketSurfaceMethodChannelName = 'com.pocketnexus.host/surfaces'`
+
+Source: [packages/pocket_platform/lib/src/surface_bridge_plugin.dart](../packages/pocket_platform/lib/src/surface_bridge_plugin.dart#L31)
 ## `pocket_sensors`
 
 ### Import `package:pocket_sensors/pocket_sensors.dart`
@@ -7691,8 +7736,9 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: packages/pocket_permissions/lib/pocket_permissions.dart aa355337467a81b1a9276fba3b97ea493d1984294f6e8b5d604625739ed60bf0 -->
 <!-- api-source: packages/pocket_permissions/lib/src/permissions_plugin.dart 9f0c5ece5d775524b69694ed19d0ab3a706990ba920aefbc041971102afebf23 -->
 <!-- api-source: packages/pocket_permissions/pubspec.yaml cc78fad3a484222faa76cf90fbfc47300d9f1e6dea0582d1224ef83aa7932629 -->
-<!-- api-source: packages/pocket_platform/lib/pocket_platform.dart 12876c7c90f96a8ad04ae927b5407b4989d170b34ddc20cef5d2ee947e24e7d3 -->
+<!-- api-source: packages/pocket_platform/lib/pocket_platform.dart 411c6628bd3b1e1856e99e3ef1f9134ac866f3025675656f7f81efc7dfcfebf9 -->
 <!-- api-source: packages/pocket_platform/lib/src/platform_plugin.dart fe9397498342991ab5ca37c36318b2153e9230dd0e2fad302c1da702c7f21846 -->
+<!-- api-source: packages/pocket_platform/lib/src/surface_bridge_plugin.dart 6566383215bdfe3e598cb77a7ef543c765ec59fe0f60bd5c01ecf87b1f405d06 -->
 <!-- api-source: packages/pocket_platform/pubspec.yaml c653f3c2f6fb7ff89616036a866e863f5b4014a8a351eeffac3486acf08d3aa7 -->
 <!-- api-source: packages/pocket_sensors/lib/pocket_sensors.dart fc829910a7a33310db8594bf9cdaa73acd875cd0a201309b2fe410f364d2d715 -->
 <!-- api-source: packages/pocket_sensors/pubspec.yaml f203ea0e75639b9f376fa24d309b0d2e56b64f761ae91861d5834c50de35b654 -->

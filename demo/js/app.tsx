@@ -98,6 +98,7 @@ import {
 } from "@pocket/ui/surfaces";
 import { looseleafSkinAdapter } from "@pocket/looseleaf";
 import { arcSkinAdapter } from "@pocket/arc";
+import { liquidGlassSkinAdapter } from "@pocket/liquid_glass";
 import { HardwarePage, MobileUiPage, TransitionsPage } from "./mobile-pages.tsx";
 import { createHostBridge, hostError, type HostBridge, type HostEvent, type JsonValue } from "@pocket/ui/host";
 import {
@@ -117,6 +118,7 @@ import { SettingsPage, readAppearance, storedAppearance } from "./settings.tsx";
 import { ApplePage } from "./apple-page.tsx";
 import { LooseleafPage } from "./looseleaf-page.tsx";
 import { SkinStudioPage } from "./skin-studio-page.tsx";
+import { UIKitGalleryReplicaPage } from "./uikit-gallery-page.tsx";
 import { RouterStudioPage } from "./router-page.tsx";
 import { StressLabPage } from "./stress-page.tsx";
 import { EcosystemStudioPage, ShowcaseSystemWidgetRoot } from "./ecosystem-page.tsx";
@@ -231,6 +233,7 @@ const SHOWCASE_ROUTES: readonly PocketRouteDefinition<Route>[] = [
   { id: "about", path: "/about", aliases: ["/host"], primary: true },
   { id: "settings", path: "/settings", primary: true },
   { id: "skins", path: "/skins/:tab?", parent: "gallery" },
+  { id: "uikit-gallery", path: "/uikit-gallery/:component?", aliases: ["/kit-gallery"], parent: "gallery" },
   { id: "looseleaf", path: "/looseleaf/:section?", parent: "gallery" },
   { id: "apple", path: "/apple", parent: "gallery" },
   { id: "router", path: "/router", aliases: ["/deeplink"], parent: "gallery" },
@@ -250,7 +253,8 @@ const SHOWCASE_ROUTES: readonly PocketRouteDefinition<Route>[] = [
 function routeOf(value: unknown): Route | undefined {
   const route = String(value ?? "");
   // `gallery` remains the old probe's compatibility spelling for UI.
-  if (route === "settings" || route === "home" || route === "gallery" || route === "about" || route === "bytecode" || route === "updates" || route === "miniapps" || route === "plugins" || route === "stress" || route === "performance" || route === "mobile" || route === "transitions" || route === "hardware" || route === "video" || route === "apple" || route === "looseleaf" || route === "skins" || route === "router" || route === "ecosystem") return route;
+  if (route === "settings" || route === "home" || route === "gallery" || route === "about" || route === "bytecode" || route === "updates" || route === "miniapps" || route === "plugins" || route === "stress" || route === "performance" || route === "mobile" || route === "transitions" || route === "hardware" || route === "video" || route === "apple" || route === "looseleaf" || route === "skins" || route === "uikit-gallery" || route === "router" || route === "ecosystem") return route;
+  if (route === "kit-gallery") return "uikit-gallery";
   if (route === "ui") return "gallery";
   if (route === "host") return "about";
   if (route === "deeplink") return "router";
@@ -817,14 +821,14 @@ function App() {
 
     const rawSkin = firstStr("skin");
     const uiSkin: ShowcaseSkin | undefined =
-      rawSkin === "default" || rawSkin === "looseleaf" || rawSkin === "arc"
+      rawSkin === "default" || rawSkin === "looseleaf" || rawSkin === "arc" || rawSkin === "liquid-glass"
         ? rawSkin
         : isFullDeepLink
           ? "default"
           : undefined;
 
     const rawDark = firstStr("dark");
-    const rawMode = firstStr("mode");
+    const rawMode = firstStr("mode") ?? firstStr("appearance");
     const mobileDark: boolean | undefined =
       rawDark === "1" || rawDark === "true"
         ? true
@@ -1338,7 +1342,7 @@ function App() {
   });
 
   const isShowcaseRoute = (route: Route): boolean =>
-    route === "mobile" || route === "transitions" || route === "hardware" || route === "video" || route === "apple" || route === "looseleaf" || route === "skins" || route === "router" || route === "ecosystem";
+    route === "mobile" || route === "transitions" || route === "hardware" || route === "video" || route === "apple" || route === "looseleaf" || route === "skins" || route === "uikit-gallery" || route === "router" || route === "ecosystem";
   const transitionDescriptor = () => {
     const transition = routeTransition();
     const width = Math.max(1, contentPaneWidth());
@@ -1604,6 +1608,8 @@ function App() {
         return <LooseleafPage />;
       case "skins":
         return <SkinStudioPage state={state} dispatch={dispatch} />;
+      case "uikit-gallery":
+        return <UIKitGalleryReplicaPage state={state} dispatch={dispatch} geometry={() => displayGeometry()} />;
       case "router":
         return <RouterStudioPage state={state} dispatch={dispatch} experience={experience} onOpenDeepLink={openShowcaseDeepLink} />;
       case "ecosystem":
@@ -1625,6 +1631,7 @@ function App() {
     : route === "apple" ? "Apple Glass"
     : route === "looseleaf" ? "Looseleaf"
     : route === "skins" ? "Skin Studio"
+    : route === "uikit-gallery" ? "UIKit Gallery"
     : route === "router" ? "URL & State Router"
     : route === "ecosystem" ? "Ecosystem & Widgets"
     : hostTabs.find((tab) => tab.id === route)?.label ?? "Frame diagnostics";
@@ -1668,7 +1675,9 @@ function App() {
         ? looseleafSkinAdapter
         : skin === "arc"
           ? arcSkinAdapter
-          : defaultSkinAdapter;
+          : skin === "liquid-glass"
+            ? liquidGlassSkinAdapter
+            : defaultSkinAdapter;
     return adapter.resolveTokens(mode, state().accentColor).canvasBg;
   };
 
@@ -1684,7 +1693,7 @@ function App() {
       accent={() => state().accentColor}
       density={() => state().interfaceDensity}
       reducedMotion={() => accessibility().reduceMotion}
-      skins={[defaultSkinAdapter, looseleafSkinAdapter, arcSkinAdapter]}
+      skins={[defaultSkinAdapter, looseleafSkinAdapter, arcSkinAdapter, liquidGlassSkinAdapter]}
       onSkinChange={(next) => dispatch({ type: "setUiSkin", value: next as ShowcaseSkin })}
     >
     <SurfaceEnvironmentProvider bridge={host}>
@@ -1721,12 +1730,12 @@ function App() {
             >
               <PocketRouteScope routeId={route}>
               <SafeAreaScaffold
-                edges={isPrimaryRoute(route) || route === "skins" || route === "router" || route === "ecosystem" ? ["top"] : ["top", "bottom"]}
+                edges={route === "uikit-gallery" ? [] : isPrimaryRoute(route) || route === "skins" || route === "router" || route === "ecosystem" ? ["top"] : ["top", "bottom"]}
                 geometry={() => displayGeometry()}
                 class="flex-col w-full h-full"
                 style={{ bgColor: activeSkinCanvasBg() }}
-                appBar={() => renderRouteAppBar(route)}
-                bottomBar={isPrimaryRoute(route) ? (
+                appBar={route === "uikit-gallery" ? undefined : () => renderRouteAppBar(route)}
+                bottomBar={route !== "uikit-gallery" && isPrimaryRoute(route) ? (
                   state().uiSkin === "default" ? (
                     <NavigationBar
                       route={route}
@@ -1748,7 +1757,7 @@ function App() {
                   )
                 ) : undefined}
               >
-                {state().uiSkin === "default" || route === "skins" ? (
+                {state().uiSkin === "default" || route === "skins" || route === "uikit-gallery" ? (
                   renderRoute(route)
                 ) : (
                   <View class="relative flex-1 flex-col w-full h-full overflow-hidden" style={{ posType: 0 }}>
@@ -1853,6 +1862,9 @@ function HomePage(props: {
           <MobileParagraph text="Small building blocks. Real possibilities." class="text-xs text-[#A1A1AA]" />
         </ScrollContourItem>
         <HomeExplore dispatch={props.dispatch} />
+        <MobileCard title="UIKit Gallery · 1:1 Liquid Glass Replica" detail="Full-bleed 21-component gallery, morphing menus, submenus, context menu lift & Siri edge glow at >=60 FPS.">
+          <MobileButton label="Open 1:1 UIKit Gallery" onPress={() => props.dispatch({ type: "navigate", route: "uikit-gallery" })} />
+        </MobileCard>
         <MobileCard title="Playground" detail="A small interaction. An immediate response.">
           <Named name="CounterCard">
             <View class="flex-row items-center justify-between gap-3">
@@ -2230,6 +2242,12 @@ function GalleryPage(props: {
       <View class="flex-col gap-4 p-4 pb-6">
       <MobileListTile title="Official building blocks" detail="The essentials, ready to explore." />
       <MobileCard
+        title="UIKit Gallery · 1:1 Liquid Glass Replica"
+        detail="21 interactive iOS 26 scenes, morphing Options & ••• menus, inline submenus, Context Menu lift, iPadOS wallpapers & Siri IntelligentLight."
+      >
+        <MobileButton label="Open 1:1 UIKit Gallery" onPress={() => props.dispatch({ type: "navigate", route: "uikit-gallery" })} />
+      </MobileCard>
+      <MobileCard
         title="Apple Glass"
         detail="Apple-style controls and navigation, with a calm backdrop to explore."
       >
@@ -2242,8 +2260,8 @@ function GalleryPage(props: {
         <MobileButton label="Open Looseleaf" onPress={() => props.dispatch({ type: "navigate", route: "looseleaf" })} />
       </MobileCard>
       <MobileCard
-        title="Unified Skin Studio (Default · Looseleaf · Arc)"
-        detail="Seamless runtime switching across Default UI, @pocket/looseleaf and @pocket/arc behind one shared UiSkinKit interface."
+        title="Unified Skin Studio (Default · Looseleaf · Arc · Glass)"
+        detail="Seamless runtime switching across Default UI, @pocket/looseleaf, @pocket/arc and @pocket/liquid_glass behind one shared UiSkinKit interface."
       >
         <MobileButton label="Open Skin Studio" onPress={() => props.dispatch({ type: "navigate", route: "skins" })} />
       </MobileCard>

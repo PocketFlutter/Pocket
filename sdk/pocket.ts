@@ -1177,7 +1177,7 @@ function requireEditorDirectory(options: EditorCliOptions): string {
 }
 
 function usage(): never {
-  console.error("usage: bun pocket.ts init <directory> [--template=app|game] [--sdk-root=DIR] [--app-id=ID] [--name=NAME] [--version=VERSION] [--hardware] [--camera] [--bluetooth] [--sensors] [--location] [--biometrics] [--weather] [--permissions=POLICY_KEYS] [--dio] [--clipboard] [--platform-experience] [--deep-link-scheme=SCHEME] [--surfaces=MODULES]\n       bun pocket.ts surfaces [<directory>] [--add=MODULES | --set=MODULES | --list]\n       bun pocket.ts build <directory> [--sdk-root=DIR] [--out=DIR] [--platform=ios-sim|ios|macos|android]\n       bun pocket.ts types <descriptor.json> --out=plugin-types.ts\n       bun pocket.ts editor [--pocket|--web] [<directory>] [--port=N] [--workspace=DIR]   (Pocket Studio is the default on macOS when studio/ is present; --web selects web Studio; POCKET_EDITOR_UI=pocket|web overrides)\n       bun pocket.ts editor --web <directory> [--port=N] [--workspace=DIR] [--flutter-root=DIR] [--update-host=LAN_IP] [--update-port=N] [--update-host-version=VERSION] [--extra-project-root=DIR]... [--provision-update-key]");
+  console.error("usage: bun pocket.ts init <directory> [--template=app|game] [--sdk-root=DIR] [--app-id=ID] [--name=NAME] [--version=VERSION] [--hardware] [--camera] [--bluetooth] [--sensors] [--location] [--biometrics] [--weather] [--permissions=POLICY_KEYS] [--dio] [--clipboard] [--platform-experience] [--deep-link-scheme=SCHEME] [--surfaces=MODULES]\n       bun pocket.ts surfaces [<directory>] [--add=MODULES | --set=MODULES | --list | --xcodegen] [--bundle-id=ID] [--team-id=ID] [--deep-link-scheme=SCHEME] [--embed-ios-extensions] [--run-xcodegen]\n       bun pocket.ts build <directory> [--sdk-root=DIR] [--out=DIR] [--platform=ios-sim|ios|macos|android]\n       bun pocket.ts types <descriptor.json> --out=plugin-types.ts\n       bun pocket.ts editor [--pocket|--web] [<directory>] [--port=N] [--workspace=DIR]   (Pocket Studio is the default on macOS when studio/ is present; --web selects web Studio; POCKET_EDITOR_UI=pocket|web overrides)\n       bun pocket.ts editor --web <directory> [--port=N] [--workspace=DIR] [--flutter-root=DIR] [--update-host=LAN_IP] [--update-port=N] [--update-host-version=VERSION] [--extra-project-root=DIR]... [--provision-update-key]");
   process.exit(1);
 }
 
@@ -1205,6 +1205,12 @@ if (import.meta.main) {
       console.log(`pocket init: ${await initProject(directory, { sdkRoot: sdk, template, appId, name, version, hardware, hardwareModules, permissions, dio, clipboard, platformExperience, deepLinkScheme, surfaces })}`);
     } else if (command === "surfaces") {
       const listOnly = takeBooleanFlag(args, "list");
+      const useXcodeGen = takeBooleanFlag(args, "xcodegen");
+      const embedIosExtensions = takeBooleanFlag(args, "embed-ios-extensions");
+      const runXcodeGen = takeBooleanFlag(args, "run-xcodegen");
+      const bundleId = takeFlag(args, "bundle-id");
+      const teamId = takeFlag(args, "team-id");
+      const deepLinkScheme = takeFlag(args, "deep-link-scheme");
       const addSpec = takeFlag(args, "add");
       const setSpec = takeFlag(args, "set");
       const positional = args[0] && !args[0].startsWith("--") ? args.shift() : undefined;
@@ -1224,19 +1230,32 @@ if (import.meta.main) {
         }, null, 2));
       } else {
         if (!positional) fail("missing project directory");
-        if (addSpec === undefined && setSpec === undefined) {
-          fail("surfaces requires --add=MODULES, --set=MODULES, or --list");
+        if (addSpec === undefined && setSpec === undefined && !useXcodeGen) {
+          fail("surfaces requires --add=MODULES, --set=MODULES, --xcodegen, or --list");
         }
         const project = resolve(positional);
         if (!existsSync(join(project, "pocket.json"))) {
           fail(`pocket.json not found in ${project}`);
         }
         const mode = addSpec !== undefined ? "add" : "set";
-        const rawSpec = addSpec !== undefined ? addSpec : setSpec!;
+        const rawSpec =
+          addSpec !== undefined
+            ? addSpec
+            : setSpec !== undefined
+              ? setSpec
+              : readProjectEcosystemModules(project).join(",");
         const requested = rawSpec.trim() === "" || rawSpec.trim() === "none"
           ? []
           : resolveEcosystemModules(rawSpec, mode === "add" ? "add" : "set");
-        const result = scaffoldEcosystemModules(project, requested, { mode });
+        const result = scaffoldEcosystemModules(project, requested, {
+          mode,
+          bundleId,
+          teamId,
+          deepLinkScheme,
+          useXcodeGen,
+          embedIosExtensions,
+          runXcodeGen: runXcodeGen || useXcodeGen,
+        });
         console.log(JSON.stringify(result, null, 2));
       }
     } else if (command === "build") {

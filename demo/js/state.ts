@@ -25,11 +25,12 @@ export type Route =
   | "apple"
   | "looseleaf"
   | "skins"
+  | "uikit-gallery"
   | "router"
   | "ecosystem"
   | "settings";
 
-export type ShowcaseSkin = "default" | "looseleaf" | "arc";
+export type ShowcaseSkin = "default" | "looseleaf" | "arc" | "liquid-glass";
 export type AccentColor = "blue" | "violet" | "teal" | "rose";
 export type InterfaceDensity = "auto" | "touch" | "desktop";
 export type MiniAppPresentationMode = "sheet" | "page";
@@ -203,7 +204,7 @@ export interface DemoState {
   selectedComponent: string | null;
   detailsOpen: boolean;
   lazyVisible: boolean;
-  /** Active pluggable UI skin across Default UI, Looseleaf, and Arc. */
+  /** Active pluggable UI skin across Default UI, Looseleaf, Arc, and Liquid Glass. */
   uiSkin: ShowcaseSkin;
   /** Shared mobile showcase theme; the root canvas mirrors this signal. */
   mobileDark: boolean;
@@ -713,7 +714,7 @@ export function reduceDemoState(state: DemoState, event: DemoEvent): DemoState {
     case "restoreAppearance":
       return {
         ...state,
-        uiSkin: event.skin === "looseleaf" || event.skin === "arc" ? event.skin : "default",
+        uiSkin: event.skin === "looseleaf" || event.skin === "arc" || event.skin === "liquid-glass" ? event.skin : "default",
         mobileDark: event.dark,
         accentColor: event.accent,
         interfaceDensity: event.density,

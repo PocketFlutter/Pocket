@@ -649,6 +649,7 @@ export function StressLabPage(props: {
               { id: "default", label: "Default" },
               { id: "looseleaf", label: "Looseleaf" },
               { id: "arc", label: "Arc" },
+              { id: "liquid-glass", label: "Glass" },
             ]}
             active={props.state().uiSkin}
             onChange={(id) => props.dispatch({ type: "setUiSkin", value: id as ShowcaseSkin })}

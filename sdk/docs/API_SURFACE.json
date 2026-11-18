@@ -835,7 +835,7 @@
             {
               "file": "packages/pocket_platform/lib/pocket_platform.dart",
               "declarations": [],
-              "sourceSha256": "12876c7c90f96a8ad04ae927b5407b4989d170b34ddc20cef5d2ee947e24e7d3"
+              "sourceSha256": "411c6628bd3b1e1856e99e3ef1f9134ac866f3025675656f7f81efc7dfcfebf9"
             },
             {
               "from": "packages/pocket_platform/lib/pocket_platform.dart",
@@ -858,6 +858,19 @@
                 "StopwatchPocketPlatformClock"
               ],
               "sourceSha256": "fe9397498342991ab5ca37c36318b2153e9230dd0e2fad302c1da702c7f21846"
+            },
+            {
+              "from": "packages/pocket_platform/lib/pocket_platform.dart",
+              "export": "src/surface_bridge_plugin.dart",
+              "filter": ""
+            },
+            {
+              "file": "packages/pocket_platform/lib/src/surface_bridge_plugin.dart",
+              "declarations": [
+                "PocketSurfaceBridgePlugin",
+                "PocketSurfaceCapabilities"
+              ],
+              "sourceSha256": "6566383215bdfe3e598cb77a7ef543c765ec59fe0f60bd5c01ecf87b1f405d06"
             }
           ]
         }
@@ -1821,6 +1834,197 @@
             "RecentLogCaptureMode"
           ],
           "sourceSha256": "217d69664534ff232b0727f33d9d699e629f5136a1e173c49bc8dcd719160be6",
+          "reexports": []
+        }
+      ]
+    },
+    {
+      "name": "@pocket/liquid_glass",
+      "manifest": "packages/pocket_liquid_glass/package.json",
+      "scripts": {
+        "test": "node test/liquid_glass.test.ts"
+      },
+      "bin": {},
+      "exports": {
+        ".": "./src/index.ts",
+        "./tokens": "./src/tokens.ts",
+        "./motion": "./src/motion.ts",
+        "./governor": "./src/governor.ts",
+        "./surfaces": "./src/surfaces.tsx",
+        "./controls": "./src/controls.tsx",
+        "./navigation": "./src/navigation.tsx",
+        "./overlays": "./src/overlays.tsx",
+        "./menus": "./src/menus.tsx",
+        "./kit": "./src/kit.tsx"
+      },
+      "sourceDeclarations": [
+        {
+          "file": "packages/pocket_liquid_glass/src/controls.tsx",
+          "declarations": [
+            "LiquidGlassActivityIndicator",
+            "LiquidGlassBadge",
+            "LiquidGlassButton",
+            "LiquidGlassButtonVariant",
+            "LiquidGlassCheckbox",
+            "LiquidGlassFlexSurface",
+            "LiquidGlassIconButton",
+            "LiquidGlassInput",
+            "LiquidGlassPageControl",
+            "LiquidGlassProgress",
+            "LiquidGlassRadioGroup",
+            "LiquidGlassSegmentedControl",
+            "LiquidGlassSlider",
+            "LiquidGlassStepper",
+            "LiquidGlassSwitch",
+            "LiquidGlassTone"
+          ],
+          "sourceSha256": "ac938defb32e15ecd661e3cd35eb1bece0fe0c6263d22509c12726ff9c6fc5ba",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_liquid_glass/src/governor.ts",
+          "declarations": [
+            "GlassFrameProfileSnapshot",
+            "GlassFrameProfiler",
+            "LiquidGlassGovernor",
+            "LiquidGlassGovernorOptions",
+            "LiquidGlassLease",
+            "LiquidGlassQualityTier",
+            "LiquidGlassSurfacePriority",
+            "TIER_GPU_BUDGET",
+            "createGlassFrameProfiler",
+            "createLiquidGlassGovernor"
+          ],
+          "sourceSha256": "d73f2db2242ab9ff1c192974a5522a0450a5db1d97f0efd13738df20207db5e9",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_liquid_glass/src/index.ts",
+          "declarations": [],
+          "sourceSha256": "c247c04f3c7626b401c618f244b61d3f767850571fe6ac5d9c3d3e9675fcb6d3",
+          "reexports": [
+            "export * from \"./tokens.ts\";",
+            "export * from \"./motion.ts\";",
+            "export * from \"./governor.ts\";",
+            "export * from \"./surfaces.tsx\";",
+            "export * from \"./controls.tsx\";",
+            "export * from \"./navigation.tsx\";",
+            "export * from \"./overlays.tsx\";",
+            "export * from \"./menus.tsx\";",
+            "export * from \"./kit.tsx\";"
+          ]
+        },
+        {
+          "file": "packages/pocket_liquid_glass/src/kit.tsx",
+          "declarations": [
+            "liquidGlassSkinAdapter",
+            "registerLiquidGlassSkin",
+            "resolveLiquidGlassSkinTokens"
+          ],
+          "sourceSha256": "85ebfdd64068419d41ce7d94fa42aad9472adfe1ae7104649b6e26c20c1c97d1",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_liquid_glass/src/menus.tsx",
+          "declarations": [
+            "LiquidGlassAlertAction",
+            "LiquidGlassAlertModal",
+            "LiquidGlassAnchorRect",
+            "LiquidGlassContextMenu",
+            "LiquidGlassMenu",
+            "LiquidGlassMenuButton",
+            "LiquidGlassMenuEntry",
+            "LiquidGlassMenuItem",
+            "LiquidGlassMenuSection",
+            "LiquidGlassPopover",
+            "measureViewportRect",
+            "normalizeMenuSections"
+          ],
+          "sourceSha256": "0d0bb1938d129d62c7add1298c13564e59aae79aba8c71e7486a8a9541ca1f1a",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_liquid_glass/src/motion.ts",
+          "declarations": [
+            "GLASS_SPRINGS",
+            "GlassSpringConfig",
+            "GlassSpringPreset",
+            "GlassSpringState",
+            "ImperativeSpringHandle",
+            "createGlassSpring",
+            "createImperativeSpring",
+            "quantizeOptical",
+            "stepGlassSpring"
+          ],
+          "sourceSha256": "2f83606c0c3fd7c72de5400b8e2bd788c146db002fb9177b4843a629ee339d0a",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_liquid_glass/src/navigation.tsx",
+          "declarations": [
+            "LiquidGlassAccordion",
+            "LiquidGlassAppBar",
+            "LiquidGlassCard",
+            "LiquidGlassCardVariant",
+            "LiquidGlassEmpty",
+            "LiquidGlassFpsHud",
+            "LiquidGlassListTile",
+            "LiquidGlassMetric",
+            "LiquidGlassNavigationBar",
+            "LiquidGlassToolbar",
+            "LiquidGlassVirtualList"
+          ],
+          "sourceSha256": "8b42844d38a34ee4472b98c4e4a99b25e8714d8c6ec21ad74c5a8cce3b502125",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_liquid_glass/src/overlays.tsx",
+          "declarations": [
+            "LiquidGlassAlert",
+            "LiquidGlassDialog",
+            "LiquidGlassSheet",
+            "LiquidGlassSheetAction",
+            "LiquidGlassToast"
+          ],
+          "sourceSha256": "5312c463fa4cf124079f1ee3d6ff4b51b33626cad20067605d6567e4e221ad6a",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_liquid_glass/src/surfaces.tsx",
+          "declarations": [
+            "LiquidGlassBackdrop",
+            "LiquidGlassContext",
+            "LiquidGlassContextValue",
+            "LiquidGlassGroup",
+            "LiquidGlassProvider",
+            "LiquidGlassSurface",
+            "LiquidGlassSurfaceProps",
+            "useInLiquidGlassGroup",
+            "useLiquidGlass"
+          ],
+          "sourceSha256": "b1cbe0142c73618855160d7c8dc4a4d61b4cbf6bdd07dc209309d876f5247de4",
+          "reexports": [
+            "export type { NodeMirror };"
+          ]
+        },
+        {
+          "file": "packages/pocket_liquid_glass/src/tokens.ts",
+          "declarations": [
+            "LIQUID_GLASS_ACCENTS",
+            "LiquidGlassAccent",
+            "LiquidGlassDensity",
+            "LiquidGlassMaterial",
+            "LiquidGlassNamedAccent",
+            "LiquidGlassOpticalRecipe",
+            "LiquidGlassPalette",
+            "LiquidGlassStatusTriplet",
+            "LiquidGlassThemeMode",
+            "concentricGlassRadius",
+            "hexToArgb",
+            "resolveLiquidGlassPalette",
+            "resolveOpticalRecipe"
+          ],
+          "sourceSha256": "f5c9d9391a56e14712c09a0d7ccc795c3819c1ab5d3aa42d17fc719ed0caead2",
           "reexports": []
         }
       ]
@@ -3764,7 +3968,7 @@
             "resolveDefaultSkinTokens",
             "useUiSkin"
           ],
-          "sourceSha256": "d73d6ca3432e3977def83d563c4249887f0de5bba74a9e1edc0feb78ba7b3b37",
+          "sourceSha256": "6907ece347f2d917db855bbcdb2451c6a5f10d8607e8992ac9c03994983b4fcb",
           "reexports": [
             "export { toMobileColor };"
           ]
@@ -3854,9 +4058,12 @@
             "EcosystemAdaptiveShellProps",
             "LiveActivityBanner",
             "LiveActivityBannerProps",
+            "LiveActivityUpsertPayload",
             "LockAccessoryWidget",
             "LockAccessoryWidgetProps",
+            "QueuedWidgetActionEvent",
             "ResolvedSurfacePalette",
+            "RichWidgetSnapshotPayload",
             "SurfaceEnvironmentOptions",
             "SurfaceEnvironmentProvider",
             "SurfaceEnvironmentProviderProps",
@@ -3881,12 +4088,15 @@
             "WidgetSurfaceProps",
             "createSurfaceEnvironment",
             "createWidgetSnapshotStore",
+            "drainPendingWidgetActions",
+            "endLiveActivity",
             "publishWidgetSnapshot",
             "resolveSurfacePalette",
+            "upsertLiveActivity",
             "useSurfaceEnvironment",
             "useWidgetSnapshots"
           ],
-          "sourceSha256": "da089c313150e9004c8e64127a94c3079d5da7915292870d1f546b1465deba90",
+          "sourceSha256": "46dc966b0fbaffdbb83f29dd3592bc6555afea444ff1d4fb695ce959001ac202",
           "reexports": [
             "export * from \"./surface-catalog.ts\";"
           ]
@@ -4054,7 +4264,7 @@
             "registerDesktopScrollPage",
             "useScrollContourReserve"
           ],
-          "sourceSha256": "ed0ef8f92d507676023a717dd791d0d3fe06253040b7251d4e7c8e78b3d3abab",
+          "sourceSha256": "562bc9a9b4f41aa64815961eb38329cced95d06f2b0dbc2590957684f87e4bea",
           "reexports": [
             "export * from \"./mobile.tsx\";"
           ]
@@ -4941,11 +5151,11 @@
         },
         {
           "file": "pocket.ts",
-          "sourceSha256": "fd881528328365d627d784f26c0dbf6e8eb3177b9551c1b99dcb945ce78aef0a"
+          "sourceSha256": "4af0c3b149b731656a9b8060614dc9211ed7af98f13b0c4471c8e7f6dc603f74"
         },
         {
           "file": "scripts/build_guest.ts",
-          "sourceSha256": "d618cc955b51e4b6b6a2ea79911781d1fbd22f89fa33aa6aedd2849caf17b319"
+          "sourceSha256": "bb142f4fa5ace8d29f526481d430020ddcc49fa40479a7a6af5e3a310ea67710"
         },
         {
           "file": "scripts/build_web.ts",
@@ -4961,7 +5171,7 @@
         },
         {
           "file": "scripts/export_web_sdk.ts",
-          "sourceSha256": "9c226cade230d93811306f639df34e2119dce51ebed7a6db991295a444933b49"
+          "sourceSha256": "6b783dba3776164836453b0ddb9e76e16cc72618131cc1777fc9f318da206801"
         },
         {
           "file": "scripts/install_studio.mjs",

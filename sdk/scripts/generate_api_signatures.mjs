@@ -108,8 +108,23 @@ let exportNameCount = 0;
 let memberCount = 0;
 const signatureAnchors = new Map();
 
+function portableTypeImports(signature) {
+  return signature.replace(/import\("([^"]+)"\)\.([\w$]+)/g, (match, importPath, name) => {
+    if (!path.isAbsolute(importPath)) return match;
+    const relative = path.relative(repoRoot, importPath);
+    if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return match;
+    const target = path.normalize(importPath).replace(/\.[cm]?[jt]sx?$/, '');
+    const entry = exportEntries.find(({ file }) => file.replace(/\.[cm]?[jt]sx?$/, '') === target);
+    const source = entry && program.getSourceFile(entry.file);
+    const symbol = source && checker.getSymbolAtLocation(source);
+    const exported = symbol && checker.getExportsOfModule(symbol).some((item) => item.getName() === name);
+    const portablePath = exported ? entry.importName : `./${relative.split(path.sep).join('/')}`;
+    return `import("${portablePath}").${name}`;
+  });
+}
+
 function typeString(type, location) {
-  return checker.typeToString(type, location, ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope);
+  return portableTypeImports(checker.typeToString(type, location, ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope));
 }
 function symbolName(symbol) { return symbol.getName(); }
 function actualSymbol(symbol) {
@@ -273,7 +288,7 @@ function renderPublicSymbol(exportedSymbol, sourceFile, id) {
     if (callSignatures.length) {
       const variableFunction = declaration?.initializer && (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer))
         ? [signatureText(declaration.initializer, visibleName)]
-        : callSignatures.map((signature) => checker.signatureToString(signature, declaration, ts.TypeFormatFlags.NoTruncation));
+        : callSignatures.map((signature) => portableTypeImports(checker.signatureToString(signature, declaration, ts.TypeFormatFlags.NoTruncation)));
       result.push('', `**Function value** ${variableFunction.map((signature) => code(signature)).join(' · ')}`);
     } else {
       result.push('', `**Value** ${code(`${visibleName}: ${declaration?.type ? sourceText(declaration.type) : typeString(valueType, declaration)}`)}`);

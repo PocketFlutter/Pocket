@@ -13,6 +13,7 @@
     "packages/pocket_live2d",
     "packages/pocket_diagnostics",
     "packages/pocket_arc",
+    "packages/pocket_liquid_glass",
     "packages/pocket_cos",
     "packages/pocket_sync"
   ],

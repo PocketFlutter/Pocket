@@ -36,6 +36,13 @@
       "name": "@pocket/diagnostics",
       "version": "0.1.0",
     },
+    "packages/pocket_liquid_glass": {
+      "name": "@pocket/liquid_glass",
+      "version": "0.1.0",
+      "dependencies": {
+        "@pocket/ui": "0.1.0",
+      },
+    },
     "packages/pocket_live2d": {
       "name": "@pocket/live2d",
       "version": "0.1.0",
@@ -216,6 +223,8 @@
     "@pocket/cos": ["@pocket/cos@workspace:packages/pocket_cos"],
 
     "@pocket/diagnostics": ["@pocket/diagnostics@workspace:packages/pocket_diagnostics"],
+
+    "@pocket/liquid_glass": ["@pocket/liquid_glass@workspace:packages/pocket_liquid_glass"],
 
     "@pocket/live2d": ["@pocket/live2d@workspace:packages/pocket_live2d"],
 

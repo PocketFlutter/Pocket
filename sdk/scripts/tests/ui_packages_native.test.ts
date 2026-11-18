@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { buildGuest } from "../build_guest.ts";
 
-test("Looseleaf and ARC buttons change real QJBC frames through pointer input", async () => {
+test("Looseleaf, ARC, and Liquid Glass buttons change real QJBC frames through pointer input within the native frame-work budget", async () => {
   const outDir = mkdtempSync(join(tmpdir(), "pocket-ui-packages-"));
   const probe = process.env.POCKET_NATIVE_PROBE;
   expect(probe, "Set POCKET_NATIVE_PROBE to the matching real native probe").toBeTruthy();
@@ -22,7 +22,11 @@ test("Looseleaf and ARC buttons change real QJBC frames through pointer input", 
     }
     const initial = run([...boot, ...frames()]).at(-1)!;
     const commands: object[] = [...boot, ...frames()];
-    for (const [label, expected] of [["Paper increment", "Count 1"], ["Arc increment", "Count 11"]]) {
+    for (const [label, expected] of [
+      ["Paper increment", "Count 1"],
+      ["Arc increment", "Count 11"],
+      ["Glass increment", "Count 111"],
+    ]) {
       const frame = run(commands).at(-1)!;
       const op = frame.ops.find((value: any) => value.type === "text" && value.text === label);
       expect(op, `Missing actual button ${label}`).toBeTruthy();
@@ -32,6 +36,15 @@ test("Looseleaf and ARC buttons change real QJBC frames through pointer input", 
       expect(changed.ops.some((value: any) => value.type === "text" && value.text === expected)).toBe(true);
       expect(changed.ops).not.toEqual(initial.ops);
     }
+
+    // Benchmark 180 consecutive active frames in native QuickJS + Rust probe to measure the 16.67 ms guest-work target (excludes Flutter/GPU rendering)
+    const benchFrames = Array.from({ length: 180 }, () => ({ op: "frame", deltaMs: 16 }));
+    const t0 = performance.now();
+    const benchOut = run([...boot, ...benchFrames]);
+    const elapsedMs = performance.now() - t0;
+    expect(benchOut.length).toBe(180);
+    const avgFrameMs = elapsedMs / 180;
+    expect(avgFrameMs).toBeLessThan(16.67);
   } finally {
     rmSync(outDir, { recursive: true, force: true });
   }

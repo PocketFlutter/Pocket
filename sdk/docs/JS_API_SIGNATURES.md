@@ -6,7 +6,7 @@ Each import path lists every directly exported name and alias, linking to one sh
 
 Source-first reuse note: outside the retained parent `pocket_host/`, this work checked `README.md`, `docs/02_ARCHITECTURE_AND_MEMORY_DESIGN.md`, `docs/03_DUAL_HOST_UI_COMPONENTS_SPEC.md`, `docs/04_DEVELOPER_GUIDE_AND_VERIFICATION.md`, and `docs/04_BIDIRECTIONAL_FFI_WASM_AND_YOOASSET_HOTUPDATE.md` in `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo`. These preserve the earlier Flutter/WeChat host split, component-to-host projection notes, and run/regression scenarios. Their historical 38-component and QuickJS/WeChat-specific claims are not treated as this SDK API; the necessary adaptation is to enumerate current package exports, with UI policy and composition owned by JS. Validation uses TypeScript parser/checker exports, default-value examples, and source SHA markers.
 
-Coverage: 3560 importable export names, 1903 shared signature definitions, and 3628 listed members across 111 direct import paths. Source digests cover 174 inventoried files.
+Coverage: 3744 importable export names, 1999 shared signature definitions, and 3801 listed members across 121 direct import paths. Source digests cover 185 inventoried files.
 
 ## Packages and imports
 
@@ -2338,6 +2338,1072 @@ Exports:
 - `RecentLogCaptureMode` — [signature](#api-sig-33f1d6da68c26d94)
 
 Signatures:
+## @pocket/liquid_glass
+
+### Import `@pocket/liquid_glass`
+
+Entry: [packages/pocket_liquid_glass/src/index.ts](../packages/pocket_liquid_glass/src/index.ts)
+
+Exports:
+- `concentricGlassRadius` — [signature](#api-sig-c870f0e2f254ce02)
+- `createGlassFrameProfiler` — [signature](#api-sig-d8b686c1f54cdada)
+- `createGlassSpring` — [signature](#api-sig-a82c67b826de7861)
+- `createImperativeSpring` — [signature](#api-sig-26535b44312656fb)
+- `createLiquidGlassGovernor` — [signature](#api-sig-a6cbbb8686dd3004)
+- `GLASS_SPRINGS` — [signature](#api-sig-a1bfb5badc147e44)
+- `GlassFrameProfiler` — [signature](#api-sig-5bc27b8d444b943e)
+- `GlassFrameProfileSnapshot` — [signature](#api-sig-703977833e13c5b0)
+- `GlassSpringConfig` — [signature](#api-sig-90d21c138f154273)
+- `GlassSpringPreset` — [signature](#api-sig-86d11f041542e9b8)
+- `GlassSpringState` — [signature](#api-sig-7c17955ca48aaa3c)
+- `hexToArgb` — [signature](#api-sig-91e7d978ae26db92)
+- `ImperativeSpringHandle` — [signature](#api-sig-3ae42cafc9cd95b0)
+- `LIQUID_GLASS_ACCENTS` — [signature](#api-sig-f3cd71e8494c0fe2)
+- `LiquidGlassAccent` — [signature](#api-sig-cfa253cc87336a74)
+- `LiquidGlassAccordion` — [signature](#api-sig-58ee3fd59650e7b9)
+- `LiquidGlassActivityIndicator` — [signature](#api-sig-51bb303fd4b68cda)
+- `LiquidGlassAlert` — [signature](#api-sig-5da4404ac309ab98)
+- `LiquidGlassAlertAction` — [signature](#api-sig-96d31ee14c467ab2)
+- `LiquidGlassAlertModal` — [signature](#api-sig-c4fb8882286cec58)
+- `LiquidGlassAnchorRect` — [signature](#api-sig-d4164fefabaa9ba0)
+- `LiquidGlassAppBar` — [signature](#api-sig-267d02922361a6bc)
+- `LiquidGlassBackdrop` — [signature](#api-sig-5eff2cd0895f1e21)
+- `LiquidGlassBadge` — [signature](#api-sig-6b1bd1696e67145c)
+- `LiquidGlassButton` — [signature](#api-sig-b81b99494bf6da72)
+- `LiquidGlassButtonVariant` — [signature](#api-sig-749e103207bc0222)
+- `LiquidGlassCard` — [signature](#api-sig-5c73f2a3f7849ba1)
+- `LiquidGlassCardVariant` — [signature](#api-sig-46cd43f734c02629)
+- `LiquidGlassCheckbox` — [signature](#api-sig-d6556c49594b91f8)
+- `LiquidGlassContext` — [signature](#api-sig-7f98c2f72819ee7d)
+- `LiquidGlassContextMenu` — [signature](#api-sig-f9899b147ced01c7)
+- `LiquidGlassContextValue` — [signature](#api-sig-791c56d821d99114)
+- `LiquidGlassDensity` — [signature](#api-sig-1f4ac891e2dc4bdc)
+- `LiquidGlassDialog` — [signature](#api-sig-bdfc7459d37a1a03)
+- `LiquidGlassEmpty` — [signature](#api-sig-d47ecaa690925b0c)
+- `LiquidGlassFlexSurface` — [signature](#api-sig-ea38935732cb867a)
+- `LiquidGlassFpsHud` — [signature](#api-sig-28c4a0c320135103)
+- `LiquidGlassGovernor` — [signature](#api-sig-3d4ea6248e350583)
+- `LiquidGlassGovernorOptions` — [signature](#api-sig-34b48ac8991f55f5)
+- `LiquidGlassGroup` — [signature](#api-sig-ff0c867790250dc0)
+- `LiquidGlassIconButton` — [signature](#api-sig-f17c20f904c50130)
+- `LiquidGlassInput` — [signature](#api-sig-2178717abfa4a5d3)
+- `LiquidGlassLease` — [signature](#api-sig-568fa5d4184ca107)
+- `LiquidGlassListTile` — [signature](#api-sig-3d6c5087aa7a3909)
+- `LiquidGlassMaterial` — [signature](#api-sig-dd2b350f800d2c86)
+- `LiquidGlassMenu` — [signature](#api-sig-879f4fafa59a83a0)
+- `LiquidGlassMenuButton` — [signature](#api-sig-1e59fbefbc90713c)
+- `LiquidGlassMenuEntry` — [signature](#api-sig-201bc2f2fc6cb21a)
+- `LiquidGlassMenuItem` — [signature](#api-sig-2a5723e7318157ec)
+- `LiquidGlassMenuSection` — [signature](#api-sig-0b566e22b81990ba)
+- `LiquidGlassMetric` — [signature](#api-sig-15ad84891ce0a06f)
+- `LiquidGlassNamedAccent` — [signature](#api-sig-b433c69faee3c403)
+- `LiquidGlassNavigationBar` — [signature](#api-sig-a841003894166643)
+- `LiquidGlassOpticalRecipe` — [signature](#api-sig-9a6c77157c5ad2af)
+- `LiquidGlassPageControl` — [signature](#api-sig-3cdb7b14c5ea40bf)
+- `LiquidGlassPalette` — [signature](#api-sig-6a3c08a45a785a62)
+- `LiquidGlassPopover` — [signature](#api-sig-9fd0f8cfdbec922a)
+- `LiquidGlassProgress` — [signature](#api-sig-a8893e995b22cf19)
+- `LiquidGlassProvider` — [signature](#api-sig-87213c5622098105)
+- `LiquidGlassQualityTier` — [signature](#api-sig-1b4cf2e636b64861)
+- `LiquidGlassRadioGroup` — [signature](#api-sig-908b88027a9ad25c)
+- `LiquidGlassSegmentedControl` — [signature](#api-sig-675d3127344df1a6)
+- `LiquidGlassSheet` — [signature](#api-sig-8f5a522bda476786)
+- `LiquidGlassSheetAction` — [signature](#api-sig-523cb4c967bc1102)
+- `liquidGlassSkinAdapter` — [signature](#api-sig-c11a67764a672ab7)
+- `LiquidGlassSlider` — [signature](#api-sig-31d20efc5095cc41)
+- `LiquidGlassStatusTriplet` — [signature](#api-sig-89b9484261daf20b)
+- `LiquidGlassStepper` — [signature](#api-sig-b7f191f078f5d956)
+- `LiquidGlassSurface` — [signature](#api-sig-2b4668c51dd85d23)
+- `LiquidGlassSurfacePriority` — [signature](#api-sig-786478f764a60769)
+- `LiquidGlassSurfaceProps` — [signature](#api-sig-858bc347d027a1a2)
+- `LiquidGlassSwitch` — [signature](#api-sig-73fa09aa03188c62)
+- `LiquidGlassThemeMode` — [signature](#api-sig-20ded60de1e26456)
+- `LiquidGlassToast` — [signature](#api-sig-af54d877bb0b17b4)
+- `LiquidGlassTone` — [signature](#api-sig-0bf845ade409ec90)
+- `LiquidGlassToolbar` — [signature](#api-sig-2ae4fdb75d1e93ac)
+- `LiquidGlassVirtualList` — [signature](#api-sig-d027f6041f31aec8)
+- `measureViewportRect` — [signature](#api-sig-0ba452dee2583d61)
+- `NodeMirror` → `unknown` — [signature](#api-sig-077f8567ff515bbb)
+- `normalizeMenuSections` — [signature](#api-sig-01875269e70b653d)
+- `quantizeOptical` — [signature](#api-sig-ae8ee5fd65413499)
+- `registerLiquidGlassSkin` — [signature](#api-sig-91fa19711f04169e)
+- `resolveLiquidGlassPalette` — [signature](#api-sig-b85bf6724c91fdf3)
+- `resolveLiquidGlassSkinTokens` — [signature](#api-sig-dcc73f3469585dcb)
+- `resolveOpticalRecipe` — [signature](#api-sig-3602b8e4e2dfd5e4)
+- `stepGlassSpring` — [signature](#api-sig-298936f267f581f0)
+- `TIER_GPU_BUDGET` — [signature](#api-sig-e905d581149ef40f)
+- `useInLiquidGlassGroup` — [signature](#api-sig-216d082111e1fc5a)
+- `useLiquidGlass` — [signature](#api-sig-ac3c1232fb8ef776)
+
+Signatures:
+<a id="api-sig-c870f0e2f254ce02"></a>
+### `concentricGlassRadius`
+
+**Function** `concentricGlassRadius(outerRadius: number, padding: number, minRadius: number = 8): number`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L269)
+
+<a id="api-sig-d8b686c1f54cdada"></a>
+### `createGlassFrameProfiler`
+
+**Function** `createGlassFrameProfiler(options: { windowSize?: number; targetHz?: number; } = {}): GlassFrameProfiler`
+
+Source: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid_glass/src/governor.ts#L45)
+
+<a id="api-sig-a82c67b826de7861"></a>
+### `createGlassSpring`
+
+**Function** `createGlassSpring(target: Accessor<number>, options: { preset?: GlassSpringPreset; reducedMotion?: Accessor<boolean>; quantizeStep?: number; } = {}): Accessor<number>`
+
+Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L120)
+
+<a id="api-sig-26535b44312656fb"></a>
+### `createImperativeSpring`
+
+**Function** `createImperativeSpring(target: Accessor<number>, prop: JumpProp, options: { preset?: GlassSpringPreset; reducedMotion?: Accessor<boolean>; map?: (raw: number) => number; } = {}): ImperativeSpringHandle`
+
+Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L204)
+
+<a id="api-sig-a6cbbb8686dd3004"></a>
+### `createLiquidGlassGovernor`
+
+**Function** `createLiquidGlassGovernor(options: LiquidGlassGovernorOptions = {}): LiquidGlassGovernor`
+
+Source: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid_glass/src/governor.ts#L118)
+
+<a id="api-sig-a1bfb5badc147e44"></a>
+### `GLASS_SPRINGS`
+
+**Value** `GLASS_SPRINGS: Readonly<Record<GlassSpringPreset, GlassSpringConfig>>`
+
+Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L37)
+
+<a id="api-sig-5bc27b8d444b943e"></a>
+### `GlassFrameProfiler`
+
+**Interface** `GlassFrameProfiler`
+
+Members:
+- `beginFrame(nowOverrideMs?: number): void`
+- `endFrame(nowOverrideMs?: number): number`
+- `frames(): number`
+- `reset(): void`
+- `snapshot(): GlassFrameProfileSnapshot`
+
+Source: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid_glass/src/governor.ts#L36)
+
+<a id="api-sig-703977833e13c5b0"></a>
+### `GlassFrameProfileSnapshot`
+
+**Interface** `GlassFrameProfileSnapshot`
+
+Members:
+- `readonly avgWorkMs: number`
+- `readonly budgetPct: number`
+- `readonly fps: number`
+- `readonly frames: number`
+- `readonly headroomFps: number`
+- `readonly maxWorkMs: number`
+- `readonly p95WorkMs: number`
+- `readonly sampleCount: number`
+
+Source: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid_glass/src/governor.ts#L25)
+
+<a id="api-sig-90d21c138f154273"></a>
+### `GlassSpringConfig`
+
+**Interface** `GlassSpringConfig`
+
+Members:
+- `readonly damping: number`
+- `readonly mass: number`
+- `readonly precision?: number`
+- `readonly stiffness: number`
+
+Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L30)
+
+<a id="api-sig-86d11f041542e9b8"></a>
+### `GlassSpringPreset`
+
+**Type** `GlassSpringPreset = | "fluid" | "tactile" | "jelly" | "sheet" | "morph" | "snappy"`
+
+Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L22)
+
+<a id="api-sig-7c17955ca48aaa3c"></a>
+### `GlassSpringState`
+
+**Interface** `GlassSpringState`
+
+Members:
+- `readonly settled: boolean`
+- `readonly value: number`
+- `readonly velocity: number`
+
+Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L52)
+
+<a id="api-sig-91e7d978ae26db92"></a>
+### `hexToArgb`
+
+**Function** `hexToArgb(hex: string, fallback: number = 0xff007aff): number`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L258)
+
+<a id="api-sig-3ae42cafc9cd95b0"></a>
+### `ImperativeSpringHandle`
+
+**Interface** `ImperativeSpringHandle`
+
+Members:
+- `readonly impulse: (deltaVelocity: number) => void`
+- `readonly peek: () => number`
+- `readonly ref: (node: NodeMirror | undefined) => void`
+- `readonly settled: Accessor<boolean>`
+- `readonly snap: (nextValue: number) => void`
+
+Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L187)
+
+<a id="api-sig-f3cd71e8494c0fe2"></a>
+### `LIQUID_GLASS_ACCENTS`
+
+**Value** `LIQUID_GLASS_ACCENTS: readonly LiquidGlassNamedAccent[]`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L117)
+
+<a id="api-sig-cfa253cc87336a74"></a>
+### `LiquidGlassAccent`
+
+**Type** `` LiquidGlassAccent = LiquidGlassNamedAccent | `#${string}` ``
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L30)
+
+<a id="api-sig-58ee3fd59650e7b9"></a>
+### `LiquidGlassAccordion`
+
+**Function** `LiquidGlassAccordion(props: { title: string; detail?: string; badge?: string; expanded: boolean; onToggle: () => void; children?: JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx#L591)
+
+<a id="api-sig-51bb303fd4b68cda"></a>
+### `LiquidGlassActivityIndicator`
+
+**Function** `LiquidGlassActivityIndicator(props: { animating?: boolean; size?: "medium" | "large"; hidesWhenStopped?: boolean; color?: string; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L1853)
+
+<a id="api-sig-5da4404ac309ab98"></a>
+### `LiquidGlassAlert`
+
+**Function** `LiquidGlassAlert(props: { title: string; body?: string; tone?: "info" | "success" | "warning" | "danger"; actionLabel?: string; onAction?: () => void; onDismiss?: () => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/overlays.tsx](../packages/pocket_liquid_glass/src/overlays.tsx#L47)
+
+<a id="api-sig-96d31ee14c467ab2"></a>
+### `LiquidGlassAlertAction`
+
+**Interface** `LiquidGlassAlertAction`
+
+Members:
+- `readonly disabled?: boolean`
+- `readonly id: string`
+- `readonly label: string`
+- `readonly onSelect?: () => void`
+- `readonly preferred?: boolean`
+- `readonly style?: "default" | "cancel" | "destructive"`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L1315)
+
+<a id="api-sig-c4fb8882286cec58"></a>
+### `LiquidGlassAlertModal`
+
+**Function** `LiquidGlassAlertModal(props: { open: boolean | (() => boolean); title?: string; message?: string; actions: readonly LiquidGlassAlertAction[]; onAction?: (action: LiquidGlassAlertAction) => void; onClose: () => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L1332)
+
+<a id="api-sig-d4164fefabaa9ba0"></a>
+### `LiquidGlassAnchorRect`
+
+**Interface** `LiquidGlassAnchorRect`
+
+Members:
+- `readonly height: number`
+- `readonly width: number`
+- `readonly x: number`
+- `readonly y: number`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L52)
+
+<a id="api-sig-267d02922361a6bc"></a>
+### `LiquidGlassAppBar`
+
+**Function** `LiquidGlassAppBar(props: { title: string; subtitle?: string; centered?: boolean; leading?: JSX.Element; trailing?: JSX.Element; actions?: () => JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx#L63)
+
+<a id="api-sig-5eff2cd0895f1e21"></a>
+### `LiquidGlassBackdrop`
+
+**Function** `LiquidGlassBackdrop(props: { mode?: LiquidGlassThemeMode | Accessor<LiquidGlassThemeMode>; accent?: LiquidGlassAccent | Accessor<LiquidGlassAccent>; children?: JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/surfaces.tsx](../packages/pocket_liquid_glass/src/surfaces.tsx#L168)
+
+<a id="api-sig-6b1bd1696e67145c"></a>
+### `LiquidGlassBadge`
+
+**Function** `LiquidGlassBadge(props: { label: string; tone?: LiquidGlassTone; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L1203)
+
+<a id="api-sig-b81b99494bf6da72"></a>
+### `LiquidGlassButton`
+
+**Function** `LiquidGlassButton(props: { label: string; pressedLabel?: string; icon?: JSX.Element; variant?: LiquidGlassButtonVariant; selected?: boolean; compact?: boolean; fullWidth?: boolean; flex?: boolean; disabled?: boolean; onPressStateChange?: (pressed: boolean) => void; onPress?: () => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L243)
+
+<a id="api-sig-749e103207bc0222"></a>
+### `LiquidGlassButtonVariant`
+
+**Type** `LiquidGlassButtonVariant = | "glass" | "primary" | "secondary" | "tonal" | "outline" | "ghost" | "danger"`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L55)
+
+<a id="api-sig-5c73f2a3f7849ba1"></a>
+### `LiquidGlassCard`
+
+**Function** `LiquidGlassCard(props: { title?: string; detail?: string; variant?: LiquidGlassCardVariant; refractive?: boolean; badge?: string; trailing?: JSX.Element; onPress?: () => void; class?: string; style?: ViewProps["style"]; children?: JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx#L350)
+
+<a id="api-sig-46cd43f734c02629"></a>
+### `LiquidGlassCardVariant`
+
+**Type** `LiquidGlassCardVariant = | "default" | "raised" | "muted" | "accent" | "sticky"`
+
+Source: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx#L336)
+
+<a id="api-sig-d6556c49594b91f8"></a>
+### `LiquidGlassCheckbox`
+
+**Function** `LiquidGlassCheckbox(props: { checked: boolean; label?: string; disabled?: boolean; onChange?: (checked: boolean) => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L1238)
+
+<a id="api-sig-7f98c2f72819ee7d"></a>
+### `LiquidGlassContext`
+
+**Value** `LiquidGlassContext: Context<LiquidGlassContextValue>`
+
+Source: [packages/pocket_liquid_glass/src/surfaces.tsx](../packages/pocket_liquid_glass/src/surfaces.tsx#L68)
+
+<a id="api-sig-f9899b147ced01c7"></a>
+### `LiquidGlassContextMenu`
+
+**Function** `LiquidGlassContextMenu(props: { entries: readonly LiquidGlassMenuEntry[]; previewTitle: string; previewSubtitle?: string; previewBadge?: string; open?: boolean; onOpenChange?: (open: boolean) => void; onSelect?: (item: LiquidGlassMenuItem) => void; children: JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L1033)
+
+<a id="api-sig-791c56d821d99114"></a>
+### `LiquidGlassContextValue`
+
+**Interface** `LiquidGlassContextValue`
+
+Members:
+- `readonly accent: Accessor<LiquidGlassAccent>`
+- `readonly density: Accessor<LiquidGlassDensity>`
+- `readonly governor: LiquidGlassGovernor`
+- `readonly mode: Accessor<LiquidGlassThemeMode>`
+- `readonly palette: Accessor<LiquidGlassPalette>`
+- `readonly reducedMotion: Accessor<boolean>`
+
+Source: [packages/pocket_liquid_glass/src/surfaces.tsx](../packages/pocket_liquid_glass/src/surfaces.tsx#L56)
+
+<a id="api-sig-1f4ac891e2dc4bdc"></a>
+### `LiquidGlassDensity`
+
+**Type** `LiquidGlassDensity = "comfortable" | "compact"`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L32)
+
+<a id="api-sig-bdfc7459d37a1a03"></a>
+### `LiquidGlassDialog`
+
+**Function** `LiquidGlassDialog(props: { open: boolean | (() => boolean); title: string; body?: string; tone?: "default" | "danger"; confirmLabel?: string; cancelLabel?: string; onConfirm?: () => void; onClose: () => void; children?: JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/overlays.tsx](../packages/pocket_liquid_glass/src/overlays.tsx#L202)
+
+<a id="api-sig-d47ecaa690925b0c"></a>
+### `LiquidGlassEmpty`
+
+**Function** `LiquidGlassEmpty(props: { title: string; detail?: string; actionLabel?: string; onAction?: () => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx#L536)
+
+<a id="api-sig-ea38935732cb867a"></a>
+### `LiquidGlassFlexSurface`
+
+**Function** `LiquidGlassFlexSurface(props: { material?: LiquidGlassMaterial; radius?: number; shape?: "rounded" | "pill" | "circle"; disabled?: boolean; class?: string; contentClass?: string; onPress?: () => void; children?: JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L94)
+
+<a id="api-sig-28c4a0c320135103"></a>
+### `LiquidGlassFpsHud`
+
+**Function** `LiquidGlassFpsHud(props: { active?: () => boolean; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx#L691)
+
+<a id="api-sig-3d4ea6248e350583"></a>
+### `LiquidGlassGovernor`
+
+**Interface** `LiquidGlassGovernor`
+
+Members:
+- `acquireLease(priority?: LiquidGlassSurfacePriority): LiquidGlassLease`
+- `readonly activeGpuCount: Accessor<number>`
+- `readonly budget: Accessor<number>`
+- `readonly profiler: GlassFrameProfiler`
+- `readonly tier: Accessor<LiquidGlassQualityTier>`
+- `readonly totalRegisteredCount: Accessor<number>`
+- `recordFrameSample(beginMs: number, endMs: number): GlassFrameProfileSnapshot`
+- `setTier(next: LiquidGlassQualityTier): void`
+
+Source: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid_glass/src/governor.ts#L91)
+
+<a id="api-sig-34b48ac8991f55f5"></a>
+### `LiquidGlassGovernorOptions`
+
+**Interface** `LiquidGlassGovernorOptions`
+
+Members:
+- `autoAdapt?: boolean`
+- `initialTier?: LiquidGlassQualityTier`
+- `maxGpuSurfaces?: number`
+- `minFps?: number`
+- `targetFps?: number`
+
+Source: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid_glass/src/governor.ts#L69)
+
+<a id="api-sig-ff0c867790250dc0"></a>
+### `LiquidGlassGroup`
+
+**Function** `LiquidGlassGroup(props: { material?: LiquidGlassMaterial; priority?: LiquidGlassSurfacePriority; shape?: GlassShape; radius?: number; class?: string; contentClass?: string; style?: ViewProps["style"]; nodeRef?: ViewProps["nodeRef"]; children?: JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/surfaces.tsx](../packages/pocket_liquid_glass/src/surfaces.tsx#L485)
+
+<a id="api-sig-f17c20f904c50130"></a>
+### `LiquidGlassIconButton`
+
+**Function** `LiquidGlassIconButton(props: { glyph: string; active?: boolean; compact?: boolean; disabled?: boolean; onPress?: () => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L445)
+
+<a id="api-sig-2178717abfa4a5d3"></a>
+### `LiquidGlassInput`
+
+**Function** `LiquidGlassInput(props: { value: string | (() => string); placeholder?: string; label?: string; hint?: string; onInput?: (value: string) => void; onSubmit?: (value: string) => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L1369)
+
+<a id="api-sig-568fa5d4184ca107"></a>
+### `LiquidGlassLease`
+
+**Interface** `LiquidGlassLease`
+
+Members:
+- `readonly granted: Accessor<boolean>`
+- `readonly id: number`
+- `readonly priority: LiquidGlassSurfacePriority`
+- `release(): void`
+
+Source: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid_glass/src/governor.ts#L82)
+
+<a id="api-sig-3d6c5087aa7a3909"></a>
+### `LiquidGlassListTile`
+
+**Function** `LiquidGlassListTile(props: { title: string; detail?: string; leading?: JSX.Element; trailing?: JSX.Element; selected?: boolean; onPress?: () => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx#L433)
+
+<a id="api-sig-dd2b350f800d2c86"></a>
+### `LiquidGlassMaterial`
+
+**Type** `LiquidGlassMaterial = "clear" | "regular" | "thick" | "chrome"`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L47)
+
+<a id="api-sig-879f4fafa59a83a0"></a>
+### `LiquidGlassMenu`
+
+**Function** `LiquidGlassMenu(props: { open: boolean | (() => boolean); entries: readonly LiquidGlassMenuEntry[]; anchor?: LiquidGlassAnchorRect | (() => LiquidGlassAnchorRect | undefined); title?: string; align?: "start" | "end" | "center"; placement?: "below" | "above" | "auto"; width?: number; /** Optional externally driven scrub viewport coordinates (for trigger press-drag handoff). */ handoffPointer?: () => { x: number; y: number; active: boolean } | undefined; onSelect?: (item: LiquidGlassMenuItem) => void; onClose: () => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L286)
+
+<a id="api-sig-1e59fbefbc90713c"></a>
+### `LiquidGlassMenuButton`
+
+**Function** `LiquidGlassMenuButton(props: { label?: string; glyph?: string; entries: readonly LiquidGlassMenuEntry[]; title?: string; compact?: boolean; align?: "start" | "end" | "center"; width?: number; open?: boolean; onOpenChange?: (open: boolean) => void; onSelect?: (item: LiquidGlassMenuItem) => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L871)
+
+<a id="api-sig-201bc2f2fc6cb21a"></a>
+### `LiquidGlassMenuEntry`
+
+**Type** `LiquidGlassMenuEntry = LiquidGlassMenuItem | LiquidGlassMenuSection`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L84)
+
+<a id="api-sig-2a5723e7318157ec"></a>
+### `LiquidGlassMenuItem`
+
+**Interface** `LiquidGlassMenuItem`
+
+Members:
+- `readonly checked?: boolean`
+- `readonly children?: readonly LiquidGlassMenuItem[]`
+- `readonly deferred?: () => readonly LiquidGlassMenuItem[] | Promise<readonly LiquidGlassMenuItem[]>`
+- `readonly destructive?: boolean`
+- `readonly disabled?: boolean`
+- `readonly icon?: string`
+- `readonly id: string`
+- `readonly keepOpen?: boolean`
+- `readonly label: string`
+- `readonly onSelect?: () => void`
+- `readonly shortcut?: string`
+- `readonly subtitle?: string`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L59)
+
+<a id="api-sig-0b566e22b81990ba"></a>
+### `LiquidGlassMenuSection`
+
+**Interface** `LiquidGlassMenuSection`
+
+Members:
+- `readonly id?: string`
+- `readonly items: readonly LiquidGlassMenuItem[]`
+- `readonly title?: string`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L78)
+
+<a id="api-sig-15ad84891ce0a06f"></a>
+### `LiquidGlassMetric`
+
+**Function** `LiquidGlassMetric(props: { label: string; value: string; detail?: string; tone?: LiquidGlassTone; refractive?: boolean; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx#L488)
+
+<a id="api-sig-b433c69faee3c403"></a>
+### `LiquidGlassNamedAccent`
+
+**Type** `LiquidGlassNamedAccent = | "blue" | "cyan" | "indigo" | "violet" | "teal" | "green" | "amber" | "orange" | "coral" | "rose" | "neutral"`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L17)
+
+<a id="api-sig-a841003894166643"></a>
+### `LiquidGlassNavigationBar`
+
+**Function** `LiquidGlassNavigationBar<T extends string = string>(props: { route: T; items: readonly NavigationItem[]; onNavigate: (route: T) => void; visible?: boolean; geometry?: () => DisplayGeometry; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx#L124)
+
+<a id="api-sig-9a6c77157c5ad2af"></a>
+### `LiquidGlassOpticalRecipe`
+
+**Interface** `LiquidGlassOpticalRecipe`
+
+Members:
+- `readonly blurSigma: number`
+- `readonly borderOuter: string`
+- `readonly material: LiquidGlassMaterial`
+- `readonly materialStrength: number`
+- `readonly materialTintArgb: number`
+- `readonly rimTop: string`
+- `readonly shaderMaterial: "clear" | "regular"`
+- `readonly shadowColor: string`
+- `readonly sheenFrom: string`
+- `readonly sheenTo: string`
+- `readonly tintOpacity: number`
+- `readonly usesGpuBackdrop: boolean`
+- `readonly warp: boolean`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L49)
+
+<a id="api-sig-3cdb7b14c5ea40bf"></a>
+### `LiquidGlassPageControl`
+
+**Function** `LiquidGlassPageControl(props: { count: number; current: number; prominentPlatter?: boolean; onChange: (index: number) => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L1715)
+
+<a id="api-sig-6a3c08a45a785a62"></a>
+### `LiquidGlassPalette`
+
+**Interface** `LiquidGlassPalette`
+
+Members:
+- `readonly accentForeground: string`
+- `readonly accentHex: string`
+- `readonly accentName: LiquidGlassNamedAccent`
+- `readonly accentStrong: string`
+- `readonly accentSubtle: string`
+- `readonly canvasBg: string`
+- `readonly canvasGradFrom: string`
+- `readonly canvasGradTo: string`
+- `readonly contourOuter: string`
+- `readonly danger: LiquidGlassStatusTriplet`
+- `readonly dark: boolean`
+- `readonly info: LiquidGlassStatusTriplet`
+- `readonly ink: string`
+- `readonly inkMuted: string`
+- `readonly inkSecondary: string`
+- `readonly mode: LiquidGlassThemeMode`
+- `readonly orbPrimary: string`
+- `readonly orbSecondary: string`
+- `readonly orbTertiary: string`
+- `readonly radiusControl: number`
+- `readonly radiusPanel: number`
+- `readonly radiusPill: number`
+- `readonly radiusSurface: number`
+- `readonly rimHighlight: string`
+- `readonly rimSubtle: string`
+- `readonly scrim: string`
+- `readonly shadowAmbient: string`
+- `readonly sheenLightFrom: string`
+- `readonly sheenLightTo: string`
+- `readonly success: LiquidGlassStatusTriplet`
+- `readonly surface: string`
+- `readonly surfaceMuted: string`
+- `readonly surfaceRaised: string`
+- `readonly surfaceSolidSheet: string`
+- `readonly warning: LiquidGlassStatusTriplet`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L73)
+
+<a id="api-sig-9fd0f8cfdbec922a"></a>
+### `LiquidGlassPopover`
+
+**Function** `LiquidGlassPopover(props: { open: boolean | (() => boolean); anchor?: LiquidGlassAnchorRect | (() => LiquidGlassAnchorRect | undefined); width?: number; onClose: () => void; children: JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L1236)
+
+<a id="api-sig-a8893e995b22cf19"></a>
+### `LiquidGlassProgress`
+
+**Function** `LiquidGlassProgress(props: { value: number; label?: string; barStyle?: "default" | "bar"; tone?: "accent" | "success" | "warning" | "danger"; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L1425)
+
+<a id="api-sig-87213c5622098105"></a>
+### `LiquidGlassProvider`
+
+**Function** `LiquidGlassProvider(props: { mode?: LiquidGlassThemeMode | Accessor<LiquidGlassThemeMode>; accent?: LiquidGlassAccent | Accessor<LiquidGlassAccent>; density?: LiquidGlassDensity | Accessor<LiquidGlassDensity>; reducedMotion?: boolean | Accessor<boolean>; qualityTier?: LiquidGlassQualityTier | Accessor<LiquidGlassQualityTier>; maxGpuSurfaces?: number; governor?: LiquidGlassGovernor; children?: JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/surfaces.tsx](../packages/pocket_liquid_glass/src/surfaces.tsx#L87)
+
+<a id="api-sig-1b4cf2e636b64861"></a>
+### `LiquidGlassQualityTier`
+
+**Type** `LiquidGlassQualityTier = "ultra" | "balanced" | "performance" | "vector"`
+
+Source: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid_glass/src/governor.ts#L21)
+
+<a id="api-sig-908b88027a9ad25c"></a>
+### `LiquidGlassRadioGroup`
+
+**Function** `LiquidGlassRadioGroup(props: { items: readonly { id: string; label: string; detail?: string }[]; value: string; direction?: "row" | "col"; onChange: (id: string) => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L1293)
+
+<a id="api-sig-675d3127344df1a6"></a>
+### `LiquidGlassSegmentedControl`
+
+**Function** `LiquidGlassSegmentedControl<T extends string = string>(props: { items: readonly { id: T; label: string; disabled?: boolean }[]; active: T; momentary?: boolean; tintColor?: string; accentActive?: boolean; onChange: (id: T) => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L980)
+
+<a id="api-sig-8f5a522bda476786"></a>
+### `LiquidGlassSheet`
+
+**Function** `LiquidGlassSheet(props: { open: boolean | (() => boolean); title: string; subtitle?: string; actions?: readonly LiquidGlassSheetAction[]; onSelectAction?: (id: string) => void; bottomPadding?: number; onClose: () => void; children?: JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/overlays.tsx](../packages/pocket_liquid_glass/src/overlays.tsx#L332)
+
+<a id="api-sig-523cb4c967bc1102"></a>
+### `LiquidGlassSheetAction`
+
+**Interface** `LiquidGlassSheetAction`
+
+Members:
+- `readonly detail?: string`
+- `readonly id: string`
+- `readonly label: string`
+- `readonly tone?: "danger" | "default"`
+
+Source: [packages/pocket_liquid_glass/src/overlays.tsx](../packages/pocket_liquid_glass/src/overlays.tsx#L320)
+
+<a id="api-sig-c11a67764a672ab7"></a>
+### `liquidGlassSkinAdapter`
+
+**Value** `liquidGlassSkinAdapter: UiSkinAdapter`
+
+Source: [packages/pocket_liquid_glass/src/kit.tsx](../packages/pocket_liquid_glass/src/kit.tsx#L130)
+
+<a id="api-sig-31d20efc5095cc41"></a>
+### `LiquidGlassSlider`
+
+**Function** `LiquidGlassSlider(props: { value: number; min?: number; max?: number; step?: number; label?: string; leadingGlyph?: string; trailingGlyph?: string; tintColor?: string; continuous?: boolean; showValue?: boolean; disabled?: boolean; onChange: (value: number) => void; onCommit?: (value: number) => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L691)
+
+<a id="api-sig-89b9484261daf20b"></a>
+### `LiquidGlassStatusTriplet`
+
+**Interface** `LiquidGlassStatusTriplet`
+
+Members:
+- `readonly border: string`
+- `readonly fg: string`
+- `readonly solid: string`
+- `readonly solidFg: string`
+- `readonly subtle: string`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L65)
+
+<a id="api-sig-b7f191f078f5d956"></a>
+### `LiquidGlassStepper`
+
+**Function** `LiquidGlassStepper(props: { value: number; min?: number; max?: number; step?: number; wraps?: boolean; autorepeat?: boolean; showValuePill?: boolean; label?: string; detail?: string; onChange: (value: number) => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L1503)
+
+<a id="api-sig-2b4668c51dd85d23"></a>
+### `LiquidGlassSurface`
+
+**Function** `LiquidGlassSurface(props: LiquidGlassSurfaceProps): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/surfaces.tsx](../packages/pocket_liquid_glass/src/surfaces.tsx#L289)
+
+<a id="api-sig-786478f764a60769"></a>
+### `LiquidGlassSurfacePriority`
+
+**Type** `LiquidGlassSurfacePriority = "critical" | "high" | "normal" | "low"`
+
+Source: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid_glass/src/governor.ts#L23)
+
+<a id="api-sig-858bc347d027a1a2"></a>
+### `LiquidGlassSurfaceProps`
+
+**Interface** `LiquidGlassSurfaceProps`
+
+Members:
+- `accentTint?: boolean`
+- `children?: JSX.Element`
+- `class?: string`
+- `contentClass?: string`
+- `deformation?: { anchorX: number; anchorY: number; offsetX: number; offsetY: number; radius: number; }`
+- `elastic?: boolean`
+- `elevated?: boolean`
+- `magnification?: number | Accessor<number>`
+- `material?: LiquidGlassMaterial`
+- `nodeRef?: ViewProps`
+- `pressed?: boolean`
+- `priority?: LiquidGlassSurfacePriority`
+- `radius?: number`
+- `shape?: GlassShape`
+- `style?: ViewProps`
+
+Source: [packages/pocket_liquid_glass/src/surfaces.tsx](../packages/pocket_liquid_glass/src/surfaces.tsx#L256)
+
+<a id="api-sig-73fa09aa03188c62"></a>
+### `LiquidGlassSwitch`
+
+**Function** `LiquidGlassSwitch(props: { value: boolean; label?: string; detail?: string; tintColor?: string; disabled?: boolean; onChange?: (next: boolean) => void; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L511)
+
+<a id="api-sig-20ded60de1e26456"></a>
+### `LiquidGlassThemeMode`
+
+**Type** `LiquidGlassThemeMode = "light" | "dark" | "amber-night"`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L15)
+
+<a id="api-sig-af54d877bb0b17b4"></a>
+### `LiquidGlassToast`
+
+**Function** `LiquidGlassToast(props: { open: boolean | (() => boolean); title: string; body?: string; tone?: "info" | "success" | "warning" | "danger"; actionLabel?: string; onAction?: () => void; onDismiss?: () => void; bottomOffset?: number; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/overlays.tsx](../packages/pocket_liquid_glass/src/overlays.tsx#L113)
+
+<a id="api-sig-0bf845ade409ec90"></a>
+### `LiquidGlassTone`
+
+**Type** `LiquidGlassTone = | "accent" | "info" | "success" | "warning" | "danger" | "neutral" | "outline"`
+
+Source: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx#L64)
+
+<a id="api-sig-2ae4fdb75d1e93ac"></a>
+### `LiquidGlassToolbar`
+
+**Function value** `(props: { title: string; subtitle?: string; centered?: boolean; leading?: JSX.Element; trailing?: JSX.Element; actions?: () => JSX.Element; }): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx#L118)
+
+<a id="api-sig-d027f6041f31aec8"></a>
+### `LiquidGlassVirtualList`
+
+**Function** `LiquidGlassVirtualList(props: PocketVirtualListProps): JSX.Element`
+
+Source: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx#L645)
+
+<a id="api-sig-0ba452dee2583d61"></a>
+### `measureViewportRect`
+
+**Function** `measureViewportRect(node: { id: number } | undefined, scrollPage?: { visualRect?: ( target: { id: number }, rect: { x: number; y: number; width: number; height: number }, ) => { x: number; y: number; width: number; height: number } | undefined; } | null): LiquidGlassAnchorRect | undefined`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L115)
+
+<a id="api-sig-077f8567ff515bbb"></a>
+### `NodeMirror` (re-export alias of `unknown`)
+
+**Value** `NodeMirror: any`
+
+<a id="api-sig-01875269e70b653d"></a>
+### `normalizeMenuSections`
+
+**Function** `normalizeMenuSections(entries: readonly LiquidGlassMenuEntry[]): LiquidGlassMenuSection[]`
+
+Source: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx#L95)
+
+<a id="api-sig-ae8ee5fd65413499"></a>
+### `quantizeOptical`
+
+**Function** `quantizeOptical(value: number, step: number = 0.005, restTarget: number = 0): number`
+
+Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L62)
+
+<a id="api-sig-91fa19711f04169e"></a>
+### `registerLiquidGlassSkin`
+
+**Function** `registerLiquidGlassSkin(): UiSkinAdapter`
+
+Source: [packages/pocket_liquid_glass/src/kit.tsx](../packages/pocket_liquid_glass/src/kit.tsx#L407)
+
+<a id="api-sig-b85bf6724c91fdf3"></a>
+### `resolveLiquidGlassPalette`
+
+**Function** `resolveLiquidGlassPalette(modeInput: LiquidGlassThemeMode | boolean = "light", accentInput: LiquidGlassAccent = "blue"): LiquidGlassPalette`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L343)
+
+<a id="api-sig-dcc73f3469585dcb"></a>
+### `resolveLiquidGlassSkinTokens`
+
+**Function** `resolveLiquidGlassSkinTokens(mode: UiSkinThemeMode = "light", accent: UiSkinAccent = "blue"): UiSkinTokens`
+
+Source: [packages/pocket_liquid_glass/src/kit.tsx](../packages/pocket_liquid_glass/src/kit.tsx#L66)
+
+<a id="api-sig-3602b8e4e2dfd5e4"></a>
+### `resolveOpticalRecipe`
+
+**Function** `resolveOpticalRecipe(material: LiquidGlassMaterial, palette: LiquidGlassPalette): LiquidGlassOpticalRecipe`
+
+Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L500)
+
+<a id="api-sig-298936f267f581f0"></a>
+### `stepGlassSpring`
+
+**Function** `stepGlassSpring(current: GlassSpringState, target: number, dtSec: number, config: GlassSpringConfig = GLASS_SPRINGS.fluid, reducedMotion: boolean = false): GlassSpringState`
+
+Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L71)
+
+<a id="api-sig-e905d581149ef40f"></a>
+### `TIER_GPU_BUDGET`
+
+**Value** `TIER_GPU_BUDGET: Readonly<Record<LiquidGlassQualityTier, number>>`
+
+Source: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid_glass/src/governor.ts#L62)
+
+<a id="api-sig-216d082111e1fc5a"></a>
+### `useInLiquidGlassGroup`
+
+**Function** `useInLiquidGlassGroup(): boolean`
+
+Source: [packages/pocket_liquid_glass/src/surfaces.tsx](../packages/pocket_liquid_glass/src/surfaces.tsx#L83)
+
+<a id="api-sig-ac3c1232fb8ef776"></a>
+### `useLiquidGlass`
+
+**Function** `useLiquidGlass(): LiquidGlassContextValue`
+
+Source: [packages/pocket_liquid_glass/src/surfaces.tsx](../packages/pocket_liquid_glass/src/surfaces.tsx#L79)
+
+
+### Import `@pocket/liquid_glass/controls`
+
+Entry: [packages/pocket_liquid_glass/src/controls.tsx](../packages/pocket_liquid_glass/src/controls.tsx)
+
+Exports:
+- `LiquidGlassActivityIndicator` — [signature](#api-sig-51bb303fd4b68cda)
+- `LiquidGlassBadge` — [signature](#api-sig-6b1bd1696e67145c)
+- `LiquidGlassButton` — [signature](#api-sig-b81b99494bf6da72)
+- `LiquidGlassButtonVariant` — [signature](#api-sig-749e103207bc0222)
+- `LiquidGlassCheckbox` — [signature](#api-sig-d6556c49594b91f8)
+- `LiquidGlassFlexSurface` — [signature](#api-sig-ea38935732cb867a)
+- `LiquidGlassIconButton` — [signature](#api-sig-f17c20f904c50130)
+- `LiquidGlassInput` — [signature](#api-sig-2178717abfa4a5d3)
+- `LiquidGlassPageControl` — [signature](#api-sig-3cdb7b14c5ea40bf)
+- `LiquidGlassProgress` — [signature](#api-sig-a8893e995b22cf19)
+- `LiquidGlassRadioGroup` — [signature](#api-sig-908b88027a9ad25c)
+- `LiquidGlassSegmentedControl` — [signature](#api-sig-675d3127344df1a6)
+- `LiquidGlassSlider` — [signature](#api-sig-31d20efc5095cc41)
+- `LiquidGlassStepper` — [signature](#api-sig-b7f191f078f5d956)
+- `LiquidGlassSwitch` — [signature](#api-sig-73fa09aa03188c62)
+- `LiquidGlassTone` — [signature](#api-sig-0bf845ade409ec90)
+
+Signatures:
+
+### Import `@pocket/liquid_glass/governor`
+
+Entry: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid_glass/src/governor.ts)
+
+Exports:
+- `createGlassFrameProfiler` — [signature](#api-sig-d8b686c1f54cdada)
+- `createLiquidGlassGovernor` — [signature](#api-sig-a6cbbb8686dd3004)
+- `GlassFrameProfiler` — [signature](#api-sig-5bc27b8d444b943e)
+- `GlassFrameProfileSnapshot` — [signature](#api-sig-703977833e13c5b0)
+- `LiquidGlassGovernor` — [signature](#api-sig-3d4ea6248e350583)
+- `LiquidGlassGovernorOptions` — [signature](#api-sig-34b48ac8991f55f5)
+- `LiquidGlassLease` — [signature](#api-sig-568fa5d4184ca107)
+- `LiquidGlassQualityTier` — [signature](#api-sig-1b4cf2e636b64861)
+- `LiquidGlassSurfacePriority` — [signature](#api-sig-786478f764a60769)
+- `TIER_GPU_BUDGET` — [signature](#api-sig-e905d581149ef40f)
+
+Signatures:
+
+### Import `@pocket/liquid_glass/kit`
+
+Entry: [packages/pocket_liquid_glass/src/kit.tsx](../packages/pocket_liquid_glass/src/kit.tsx)
+
+Exports:
+- `liquidGlassSkinAdapter` — [signature](#api-sig-c11a67764a672ab7)
+- `registerLiquidGlassSkin` — [signature](#api-sig-91fa19711f04169e)
+- `resolveLiquidGlassSkinTokens` — [signature](#api-sig-dcc73f3469585dcb)
+
+Signatures:
+
+### Import `@pocket/liquid_glass/menus`
+
+Entry: [packages/pocket_liquid_glass/src/menus.tsx](../packages/pocket_liquid_glass/src/menus.tsx)
+
+Exports:
+- `LiquidGlassAlertAction` — [signature](#api-sig-96d31ee14c467ab2)
+- `LiquidGlassAlertModal` — [signature](#api-sig-c4fb8882286cec58)
+- `LiquidGlassAnchorRect` — [signature](#api-sig-d4164fefabaa9ba0)
+- `LiquidGlassContextMenu` — [signature](#api-sig-f9899b147ced01c7)
+- `LiquidGlassMenu` — [signature](#api-sig-879f4fafa59a83a0)
+- `LiquidGlassMenuButton` — [signature](#api-sig-1e59fbefbc90713c)
+- `LiquidGlassMenuEntry` — [signature](#api-sig-201bc2f2fc6cb21a)
+- `LiquidGlassMenuItem` — [signature](#api-sig-2a5723e7318157ec)
+- `LiquidGlassMenuSection` — [signature](#api-sig-0b566e22b81990ba)
+- `LiquidGlassPopover` — [signature](#api-sig-9fd0f8cfdbec922a)
+- `measureViewportRect` — [signature](#api-sig-0ba452dee2583d61)
+- `normalizeMenuSections` — [signature](#api-sig-01875269e70b653d)
+
+Signatures:
+
+### Import `@pocket/liquid_glass/motion`
+
+Entry: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts)
+
+Exports:
+- `createGlassSpring` — [signature](#api-sig-a82c67b826de7861)
+- `createImperativeSpring` — [signature](#api-sig-26535b44312656fb)
+- `GLASS_SPRINGS` — [signature](#api-sig-a1bfb5badc147e44)
+- `GlassSpringConfig` — [signature](#api-sig-90d21c138f154273)
+- `GlassSpringPreset` — [signature](#api-sig-86d11f041542e9b8)
+- `GlassSpringState` — [signature](#api-sig-7c17955ca48aaa3c)
+- `ImperativeSpringHandle` — [signature](#api-sig-3ae42cafc9cd95b0)
+- `quantizeOptical` — [signature](#api-sig-ae8ee5fd65413499)
+- `stepGlassSpring` — [signature](#api-sig-298936f267f581f0)
+
+Signatures:
+
+### Import `@pocket/liquid_glass/navigation`
+
+Entry: [packages/pocket_liquid_glass/src/navigation.tsx](../packages/pocket_liquid_glass/src/navigation.tsx)
+
+Exports:
+- `LiquidGlassAccordion` — [signature](#api-sig-58ee3fd59650e7b9)
+- `LiquidGlassAppBar` — [signature](#api-sig-267d02922361a6bc)
+- `LiquidGlassCard` — [signature](#api-sig-5c73f2a3f7849ba1)
+- `LiquidGlassCardVariant` — [signature](#api-sig-46cd43f734c02629)
+- `LiquidGlassEmpty` — [signature](#api-sig-d47ecaa690925b0c)
+- `LiquidGlassFpsHud` — [signature](#api-sig-28c4a0c320135103)
+- `LiquidGlassListTile` — [signature](#api-sig-3d6c5087aa7a3909)
+- `LiquidGlassMetric` — [signature](#api-sig-15ad84891ce0a06f)
+- `LiquidGlassNavigationBar` — [signature](#api-sig-a841003894166643)
+- `LiquidGlassToolbar` — [signature](#api-sig-2ae4fdb75d1e93ac)
+- `LiquidGlassVirtualList` — [signature](#api-sig-d027f6041f31aec8)
+
+Signatures:
+
+### Import `@pocket/liquid_glass/overlays`
+
+Entry: [packages/pocket_liquid_glass/src/overlays.tsx](../packages/pocket_liquid_glass/src/overlays.tsx)
+
+Exports:
+- `LiquidGlassAlert` — [signature](#api-sig-5da4404ac309ab98)
+- `LiquidGlassDialog` — [signature](#api-sig-bdfc7459d37a1a03)
+- `LiquidGlassSheet` — [signature](#api-sig-8f5a522bda476786)
+- `LiquidGlassSheetAction` — [signature](#api-sig-523cb4c967bc1102)
+- `LiquidGlassToast` — [signature](#api-sig-af54d877bb0b17b4)
+
+Signatures:
+
+### Import `@pocket/liquid_glass/surfaces`
+
+Entry: [packages/pocket_liquid_glass/src/surfaces.tsx](../packages/pocket_liquid_glass/src/surfaces.tsx)
+
+Exports:
+- `LiquidGlassBackdrop` — [signature](#api-sig-5eff2cd0895f1e21)
+- `LiquidGlassContext` — [signature](#api-sig-7f98c2f72819ee7d)
+- `LiquidGlassContextValue` — [signature](#api-sig-791c56d821d99114)
+- `LiquidGlassGroup` — [signature](#api-sig-ff0c867790250dc0)
+- `LiquidGlassProvider` — [signature](#api-sig-87213c5622098105)
+- `LiquidGlassSurface` — [signature](#api-sig-2b4668c51dd85d23)
+- `LiquidGlassSurfaceProps` — [signature](#api-sig-858bc347d027a1a2)
+- `NodeMirror` → `unknown` — [signature](#api-sig-ed06bd9031bc5ed6)
+- `useInLiquidGlassGroup` — [signature](#api-sig-216d082111e1fc5a)
+- `useLiquidGlass` — [signature](#api-sig-ac3c1232fb8ef776)
+
+Signatures:
+<a id="api-sig-ed06bd9031bc5ed6"></a>
+### `NodeMirror` (re-export alias of `unknown`)
+
+**Value** `NodeMirror: any`
+
+
+### Import `@pocket/liquid_glass/tokens`
+
+Entry: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts)
+
+Exports:
+- `concentricGlassRadius` — [signature](#api-sig-c870f0e2f254ce02)
+- `hexToArgb` — [signature](#api-sig-91e7d978ae26db92)
+- `LIQUID_GLASS_ACCENTS` — [signature](#api-sig-f3cd71e8494c0fe2)
+- `LiquidGlassAccent` — [signature](#api-sig-cfa253cc87336a74)
+- `LiquidGlassDensity` — [signature](#api-sig-1f4ac891e2dc4bdc)
+- `LiquidGlassMaterial` — [signature](#api-sig-dd2b350f800d2c86)
+- `LiquidGlassNamedAccent` — [signature](#api-sig-b433c69faee3c403)
+- `LiquidGlassOpticalRecipe` — [signature](#api-sig-9a6c77157c5ad2af)
+- `LiquidGlassPalette` — [signature](#api-sig-6a3c08a45a785a62)
+- `LiquidGlassStatusTriplet` — [signature](#api-sig-89b9484261daf20b)
+- `LiquidGlassThemeMode` — [signature](#api-sig-20ded60de1e26456)
+- `resolveLiquidGlassPalette` — [signature](#api-sig-b85bf6724c91fdf3)
+- `resolveOpticalRecipe` — [signature](#api-sig-3602b8e4e2dfd5e4)
+
+Signatures:
 ## @pocket/live2d
 
 ### Import `@pocket/live2d`
@@ -3590,7 +4656,7 @@ Source: [packages/pocket_looseleaf/src/navigation.tsx](../packages/pocket_loosel
 <a id="api-sig-194ece6fdf65aa23"></a>
 ### `ChartContainer`
 
-**Function value** `(props: import("/Volumes/ORICO/Development/Github/pocket/sdk/packages/pocket_looseleaf/src/surfaces").PaperProps): JSX.Element`
+**Function value** `(props: import("@pocket/looseleaf/surfaces").PaperProps): JSX.Element`
 
 Source: [packages/pocket_looseleaf/src/data.tsx](../packages/pocket_looseleaf/src/data.tsx#L291)
 
@@ -7367,8 +8433,8 @@ Exports:
 - `accessibilityPreferencesPayload` — [signature](#api-sig-39ca50a0b466e436)
 - `AccessibilityPreferencesProvider` — [signature](#api-sig-fbcf9e8af94fa65e)
 - `Accordion` — [signature](#api-sig-cb9db8bc1482ee81)
-- `ActionButton` — [signature](#api-sig-fa1fdafa730205ee)
-- `ActionButtonProps` — [signature](#api-sig-9e7a6f19ec7f975b)
+- `ActionButton` — [signature](#api-sig-76642dc0ba11b6a2)
+- `ActionButtonProps` — [signature](#api-sig-fd66b20f3791d1de)
 - `ActionSheet` — [signature](#api-sig-e8c0b088f5060b16)
 - `Alert` — [signature](#api-sig-586a5a03852c6b55)
 - `AlertDialog` — [signature](#api-sig-0e6ec3fc0251d1e4)
@@ -7396,21 +8462,21 @@ Exports:
 - `availableDisplayRect` — [signature](#api-sig-6f071f17016c948f)
 - `Avatar` — [signature](#api-sig-87ad56c2636546c4)
 - `avoidDisplayOcclusions` — [signature](#api-sig-4e7bc83d329375ae)
-- `Badge` — [signature](#api-sig-225d9b5acf4917f3)
+- `Badge` — [signature](#api-sig-267613c99038b382)
 - `base64ToBytes` — [signature](#api-sig-3fd84f4d21355012)
 - `BindPlatformLinksOptions` — [signature](#api-sig-77acd5451c8b390d)
 - `bottomBarInsets` — [signature](#api-sig-1edf0030d85b20ed)
-- `BottomNavigationBar` — [signature](#api-sig-0e31b55c16fd7470)
+- `BottomNavigationBar` — [signature](#api-sig-d7a77937a7a904b0)
 - `Breadcrumb` — [signature](#api-sig-a73cafe08d51c734)
 - `buildLiquidGlassRecipe` — [signature](#api-sig-ccbd662aa6ab6da1)
 - `buildTree` — [signature](#api-sig-37090e1ca17170d2)
 - `BuildUriOptions` — [signature](#api-sig-01ef0d8fd9da25e9)
-- `Button` — [signature](#api-sig-77b939f32da8ed24)
+- `Button` — [signature](#api-sig-d86fa6c9d7b9d30e)
 - `ButtonGroup` — [signature](#api-sig-a15b90c26b2b2fd2)
 - `bytesToBase64` — [signature](#api-sig-0662f9c0cdcfe0d8)
 - `bytesToUtf8` — [signature](#api-sig-e28a9f5de56ea7cc)
 - `Calendar` — [signature](#api-sig-e7be3f989fe6b67b)
-- `Card` — [signature](#api-sig-8bd23723161c69a9)
+- `Card` — [signature](#api-sig-bbf3faf83efc899c)
 - `CardContent` — [signature](#api-sig-6785e90789caab78)
 - `CardDescription` — [signature](#api-sig-db3e6eea387a6e91)
 - `CardFooter` — [signature](#api-sig-732c93c2b37467eb)
@@ -7424,7 +8490,7 @@ Exports:
 - `Collapsible` — [signature](#api-sig-887c78cbd4eef032)
 - `Combobox` — [signature](#api-sig-ba53bbf7df339e80)
 - `Command` — [signature](#api-sig-d043a9359e72bb40)
-- `CommittedNodeRect` — [signature](#api-sig-2e76a085d1684c55)
+- `CommittedNodeRect` — [signature](#api-sig-fa6475b0af1c7d73)
 - `CompiledRoutePattern` — [signature](#api-sig-54de62e040ccf4df)
 - `compileRoutePattern` — [signature](#api-sig-69d3b07902370ed5)
 - `computeTransitionDescriptor` — [signature](#api-sig-4e52417a25169702)
@@ -7449,15 +8515,15 @@ Exports:
 - `deepEqualState` — [signature](#api-sig-e03bff2aa4178069)
 - `DEFAULT_ACCESSIBILITY_PREFERENCES` — [signature](#api-sig-a170d112985a03f9)
 - `DEFAULT_SYSTEM_PRESETS` — [signature](#api-sig-f3ada26ac809c732)
-- `defaultSkinAdapter` — [signature](#api-sig-94b9654ab6347d10)
-- `deliverTextInputEvent` — [signature](#api-sig-9006563614651ae2)
+- `defaultSkinAdapter` — [signature](#api-sig-84a6201f4ea6376d)
+- `deliverTextInputEvent` — [signature](#api-sig-34d230f154f3a0d6)
 - `deriveDesignDensity` — [signature](#api-sig-fe68573bec851d9f)
 - `deriveResponsiveLayout` — [signature](#api-sig-fe7dc3f672a5fb93)
 - `deriveWindowSizeClass` — [signature](#api-sig-3dad0e29c2198c7f)
 - `DesignDensity` — [signature](#api-sig-fed0a784eecc949a)
 - `DesignDensityProvider` — [signature](#api-sig-7b8929a5f3c474a8)
-- `DesktopScrollPage` — [signature](#api-sig-6e987e9acf9793b7)
-- `DetailModal` — [signature](#api-sig-e035c490058db213)
+- `DesktopScrollPage` — [signature](#api-sig-bedb7f7460befd03)
+- `DetailModal` — [signature](#api-sig-d02d1701ac6d7bed)
 - `Dialog` — [signature](#api-sig-d40a91a8bbaef99a)
 - `diffUpdateManifests` — [signature](#api-sig-4518ec0183d0219e)
 - `DISPLAY_CONTOUR_BOTTOM_TRIM_PX` — [signature](#api-sig-51d1cf08e4cad570)
@@ -7485,7 +8551,7 @@ Exports:
 - `ElevatedButton` — [signature](#api-sig-9469f5952ea2ae13)
 - `Empty` — [signature](#api-sig-da0877c690d87fed)
 - `EMPTY_DISPLAY_GEOMETRY` — [signature](#api-sig-ba734673ecd0660d)
-- `EmptyState` — [signature](#api-sig-f557b3f1ef788f3d)
+- `EmptyState` — [signature](#api-sig-e0496307c7fe5660)
 - `encodeUriPart` — [signature](#api-sig-631ff1ebf3ad0fd1)
 - `extractLinkUri` — [signature](#api-sig-ac936973539f65b5)
 - `FastTextSlot` — [signature](#api-sig-b1fa66de140215f4)
@@ -7503,17 +8569,17 @@ Exports:
 - `FormField` — [signature](#api-sig-0996cb4e8be98bab)
 - `FrameProfiler` — [signature](#api-sig-2307d6371520b40b)
 - `FrameProfileSnapshot` — [signature](#api-sig-77b8ac535afc1f4c)
-- `getActiveTextInputSession` — [signature](#api-sig-0e36cb7c59d446a9)
+- `getActiveTextInputSession` — [signature](#api-sig-320249ad7b897c5a)
 - `getSystemPresetsSnapshot` — [signature](#api-sig-46a51cee5916788a)
-- `getUiSkin` — [signature](#api-sig-a2b038efc0b1db81)
+- `getUiSkin` — [signature](#api-sig-e25fcb769123e01f)
 - `GlassShape` — [signature](#api-sig-40f804c2b08cf0de)
 - `GlassSurface` — [signature](#api-sig-72921e15e4719d07)
 - `hasActiveSideOcclusions` — [signature](#api-sig-ea0a3bb7ff5c9ea9)
 - `hasLocalLeftOcclusionInset` — [signature](#api-sig-bfbae587cb7d8c19)
 - `hasLocalRightOcclusionInset` — [signature](#api-sig-aed55f4652249264)
 - `hasLocalTopRightOcclusionInset` — [signature](#api-sig-c7269d8f44bf6343)
-- `Header` — [signature](#api-sig-8fef05555b31440f)
-- `HeaderProps` — [signature](#api-sig-76e13b7f107f42db)
+- `Header` — [signature](#api-sig-d540fd6b7749ddf0)
+- `HeaderProps` — [signature](#api-sig-6649d1f3a7dbe007)
 - `HostSystemPresetsSnapshot` — [signature](#api-sig-f8b9b2f2d0f11cc7)
 - `HoverCard` — [signature](#api-sig-5054b027f87b12ae)
 - `IconButton` — [signature](#api-sig-0bcb46e3ef607371)
@@ -7532,9 +8598,9 @@ Exports:
 - `InlineTextRef` — [signature](#api-sig-89f3957caf7a0da6)
 - `InlineTextRuby` — [signature](#api-sig-a68b3c31a5b29ebf)
 - `InlineTextRun` — [signature](#api-sig-78d55a32d8b5f07f)
-- `InputField` — [signature](#api-sig-950d1ad3b4c8385a)
-- `InputFieldAppearance` — [signature](#api-sig-ade460d3d5d913e0)
-- `InputFieldColor` — [signature](#api-sig-7c1923e2f5147f9a)
+- `InputField` — [signature](#api-sig-e40a289052f8e9c8)
+- `InputFieldAppearance` — [signature](#api-sig-61d01bd5fae091aa)
+- `InputFieldColor` — [signature](#api-sig-e0ed6aa00f40f006)
 - `InputGroup` — [signature](#api-sig-9af0dffc47a8c131)
 - `InputOTP` — [signature](#api-sig-9e0a08b3d07f997c)
 - `isSystemPresetsEvent` — [signature](#api-sig-90b90a0d23499797)
@@ -7546,10 +8612,10 @@ Exports:
 - `leftOcclusionFrames` — [signature](#api-sig-37e517e4cf0e1399)
 - `LinearProgressIndicator` — [signature](#api-sig-a127fd0e5ccfd77d)
 - `LiquidGlassRecipe` — [signature](#api-sig-75c0efe640cff5ea)
-- `List` — [signature](#api-sig-d464e86d7e8d18b0)
-- `ListItem` — [signature](#api-sig-70c507f8b2782a13)
+- `List` — [signature](#api-sig-da97d6cc32f7e92f)
+- `ListItem` — [signature](#api-sig-9d0cd2122ac536d9)
 - `ListTile` — [signature](#api-sig-96c61ec56461747d)
-- `listUiSkins` — [signature](#api-sig-93d41938ce4e21bd)
+- `listUiSkins` — [signature](#api-sig-09ce662669ecdea1)
 - `MatchedRoute` — [signature](#api-sig-29fb643bd668a055)
 - `MAX_APPLE_SEMANTIC_CONTROLS` — [signature](#api-sig-ed619547e351d529)
 - `MediaController` — [signature](#api-sig-16dc7c16cc3d881c)
@@ -7560,12 +8626,12 @@ Exports:
 - `MediaLifecycleState` — [signature](#api-sig-e9512864dfd1365b)
 - `MediaRegistration` — [signature](#api-sig-cb07eadf75978b3a)
 - `Menubar` — [signature](#api-sig-e38c15586f929e93)
-- `MetricCard` — [signature](#api-sig-ae0693e6a6320b2d)
+- `MetricCard` — [signature](#api-sig-6cd253e7426da6e3)
 - `MINI_APP_HOST_ACTION_RESERVE` — [signature](#api-sig-35c0c899f80f4d4b)
 - `MiniAppDeepLinkPayload` — [signature](#api-sig-cb2482f4d8ddc38d)
 - `MiniAppPresentationStyle` — [signature](#api-sig-542ad9bdbb35d9aa)
 - `MiniAppPresentationStyleInput` — [signature](#api-sig-fb5bb558be2ed006)
-- `MiniBarChart` — [signature](#api-sig-a606e89e9e94b797)
+- `MiniBarChart` — [signature](#api-sig-553971b1fde743b9)
 - `MOBILE_MOTION` — [signature](#api-sig-3c7c8def5a48b599)
 - `MOBILE_THEME_DARK` — [signature](#api-sig-4dd6c1894d25a845)
 - `MOBILE_THEME_LIGHT` — [signature](#api-sig-796f1f05584bf5b9)
@@ -7610,20 +8676,20 @@ Exports:
 - `MobileTonalButton` — [signature](#api-sig-2434564e7f049e3a)
 - `motionEaseInOut` — [signature](#api-sig-c502a90bee6c9e54)
 - `motionEaseOut` — [signature](#api-sig-d4236ab891c736e2)
-- `NamedUiSkinAccent` — [signature](#api-sig-41e26e964ab5210f)
-- `NavigationBar` — [signature](#api-sig-74f01c0b78b9c0fa)
-- `NavigationBarProps` — [signature](#api-sig-bffe0c2b7bb203c2)
+- `NamedUiSkinAccent` — [signature](#api-sig-815931fba8583a8a)
+- `NavigationBar` — [signature](#api-sig-43e0d5f1fb63641b)
+- `NavigationBarProps` — [signature](#api-sig-4977072bbc1cc6fb)
 - `NavigationDestination` — [signature](#api-sig-e73162c8c49ddbb9)
 - `NavigationHistoryAction` — [signature](#api-sig-eb0a0b3e900b6d8a)
-- `NavigationItem` — [signature](#api-sig-e2bd2d6c7a75be86)
+- `NavigationItem` — [signature](#api-sig-a59f26db1b8a51ce)
 - `NavigationMenu` — [signature](#api-sig-c441de511ff4e4ad)
-- `NavigationRoute` — [signature](#api-sig-9f5609da9c15d7fe)
+- `NavigationRoute` — [signature](#api-sig-79bfddd0589b42c6)
 - `NodeLocalPoint` — [signature](#api-sig-abdf4b48c9ab2bd6)
 - `normalizePathname` — [signature](#api-sig-23330e75eff01df3)
 - `normalizePresentationStyle` — [signature](#api-sig-9569bc578ffffad9)
 - `OutlinedButton` — [signature](#api-sig-4033c635d8c76fb9)
 - `pageInsets` — [signature](#api-sig-36bddf6b26233fa0)
-- `PageIntro` — [signature](#api-sig-17856b23c7b75ba6)
+- `PageIntro` — [signature](#api-sig-25093ee9cc61a7e9)
 - `Pagination` — [signature](#api-sig-24d58f28cabba55f)
 - `parseAccessibilityPreferences` — [signature](#api-sig-33f62b0bc3cd55cd)
 - `parseDisplayGeometry` — [signature](#api-sig-2ba4a19b2135c788)
@@ -7632,7 +8698,7 @@ Exports:
 - `parseSearchString` — [signature](#api-sig-1b0a7af91262aece)
 - `parseSearchWithSchema` — [signature](#api-sig-232f00b36a9c445a)
 - `parseSystemPresets` — [signature](#api-sig-145f479c4d8fba2e)
-- `parseTextInputParams` — [signature](#api-sig-27ab696726955654)
+- `parseTextInputParams` — [signature](#api-sig-5321db238b184580)
 - `planPackageUpdate` — [signature](#api-sig-c5995cefd0a184c8)
 - `PlanPackageUpdateOptions` — [signature](#api-sig-12dea3df572e1aa6)
 - `PlatformTextureSurface` — [signature](#api-sig-4c07937f27a19243)
@@ -7676,12 +8742,12 @@ Exports:
 - `QueryRecord` — [signature](#api-sig-ba91145a5e0159e9)
 - `QueryValue` — [signature](#api-sig-be9e8ff072277725)
 - `RadioGroup` — [signature](#api-sig-fb16dc2b0eac4e10)
-- `readCommittedNodeRect` — [signature](#api-sig-a4e5d768597f2453)
-- `registerDesktopScrollPage` — [signature](#api-sig-47af34e01c4ca0e1)
-- `registerUiSkin` — [signature](#api-sig-516d553987b56c68)
+- `readCommittedNodeRect` — [signature](#api-sig-737bd43fb3567046)
+- `registerDesktopScrollPage` — [signature](#api-sig-73b60126758d7ad8)
+- `registerUiSkin` — [signature](#api-sig-fb4ddee72aa304a1)
 - `reservedInsets` — [signature](#api-sig-125db5c4a1034735)
 - `Resizable` — [signature](#api-sig-608725b8486d090f)
-- `resolveDefaultSkinTokens` — [signature](#api-sig-ed54fe54ee4fb2ed)
+- `resolveDefaultSkinTokens` — [signature](#api-sig-8d75a86ca854a296)
 - `resolveNodeLocalPoint` — [signature](#api-sig-f26a4d5731a4d12d)
 - `ResponsiveLayout` — [signature](#api-sig-32e9e1fde77a94ac)
 - `rightOcclusionFrames` — [signature](#api-sig-37d3162ef353d493)
@@ -7690,7 +8756,7 @@ Exports:
 - `routeParam` — [signature](#api-sig-4058d672ee7b0078)
 - `RouteView` — [signature](#api-sig-496c4ba2aa9c68f0)
 - `RouteViewProps` — [signature](#api-sig-bcf3539fd72f3680)
-- `Row` — [signature](#api-sig-a4cead477bf9dfda)
+- `Row` — [signature](#api-sig-bffa70f0ab49ff51)
 - `SafeAreaEdge` — [signature](#api-sig-d3ffc625168dabea)
 - `SafeAreaEdges` — [signature](#api-sig-32a54957dbcadef8)
 - `SafeAreaReservedActions` — [signature](#api-sig-9961f74f93132e1b)
@@ -7700,16 +8766,16 @@ Exports:
 - `SafeAreaScaffoldProps` — [signature](#api-sig-eb7699ea1f76b652)
 - `SafeAreaSlot` — [signature](#api-sig-ea9fab48c3795d18)
 - `Scaffold` — [signature](#api-sig-29f337b276bf84d0)
-- `ScrollablePage` — [signature](#api-sig-9ffb708d9c1135fa)
+- `ScrollablePage` — [signature](#api-sig-31fd117e37ac790f)
 - `ScrollablePageContext` — [signature](#api-sig-01a81c9cd06b9e6a)
 - `ScrollablePageContextValue` — [signature](#api-sig-eb16f1eff819a628)
 - `ScrollArea` — [signature](#api-sig-08e7738e2b4ba909)
-- `ScrollContourItem` — [signature](#api-sig-42c763c505ff2d8c)
-- `ScrollContourOptions` — [signature](#api-sig-f1a871e41a9115a1)
+- `ScrollContourItem` — [signature](#api-sig-cacf3841ea683cc8)
+- `ScrollContourOptions` — [signature](#api-sig-8ede20906fa0e00f)
 - `ScrollFade` — [signature](#api-sig-5f6da08f0019b816)
 - `SearchHistoryMode` — [signature](#api-sig-fc71829086876922)
 - `SearchSyncOptions` — [signature](#api-sig-fb3547d7b9d85fb6)
-- `SectionHeading` — [signature](#api-sig-58e9a7b1e2cc5800)
+- `SectionHeading` — [signature](#api-sig-c428a1c04f56f1d6)
 - `SegmentedControl` — [signature](#api-sig-1679df7442af6586)
 - `Select` — [signature](#api-sig-876289cd2f6d8b00)
 - `SemanticTone` — [signature](#api-sig-c21ff953a3af8606)
@@ -7766,58 +8832,58 @@ Exports:
 - `Sidebar` — [signature](#api-sig-d755c31c31b64163)
 - `sideContourReservesForBand` — [signature](#api-sig-0f30e846b52c1fb3)
 - `Skeleton` — [signature](#api-sig-fcbbb54dce25e2df)
-- `SkinAccordion` — [signature](#api-sig-188e802be601cf6c)
-- `SkinAccordionProps` — [signature](#api-sig-9ed48ab8acf043e1)
-- `SkinAlert` — [signature](#api-sig-bb327f812590b5bc)
-- `SkinAlertProps` — [signature](#api-sig-d84d9446793764f7)
-- `SkinAppBar` — [signature](#api-sig-1bf6f45db9ede770)
-- `SkinAppBarProps` — [signature](#api-sig-f41b5997da52d4f4)
-- `SkinBackdrop` — [signature](#api-sig-5a088d7647acec4d)
-- `SkinBackdropProps` — [signature](#api-sig-9718e2521a3456b6)
-- `SkinBadge` — [signature](#api-sig-e88eaaa15626e427)
-- `SkinBadgeProps` — [signature](#api-sig-82e589bbbd2c0664)
-- `SkinButton` — [signature](#api-sig-2ba8f93e77eca95b)
-- `SkinButtonProps` — [signature](#api-sig-44e44a89f6cca2a4)
-- `SkinCard` — [signature](#api-sig-b413b9f2f76c8058)
-- `SkinCardProps` — [signature](#api-sig-08274c069a98bd6d)
-- `SkinCheckbox` — [signature](#api-sig-e585af9a8a3d885a)
-- `SkinCheckboxProps` — [signature](#api-sig-636a68ba5e530200)
-- `SkinDialog` — [signature](#api-sig-dad8c0b539b2a519)
-- `SkinDialogProps` — [signature](#api-sig-3750554f79de7a42)
-- `SkinEmptyState` — [signature](#api-sig-beef3bfd2f4e9114)
-- `SkinEmptyStateProps` — [signature](#api-sig-3516f3342370deaf)
-- `SkinInput` — [signature](#api-sig-13aa57c3372d2ddd)
-- `SkinInputProps` — [signature](#api-sig-3cb50726a4a6dfa6)
-- `SkinListTile` — [signature](#api-sig-2156103c91a61e86)
-- `SkinListTileProps` — [signature](#api-sig-c4764aa38c0061fe)
-- `SkinMetric` — [signature](#api-sig-de01e8c99f5229a8)
-- `SkinMetricProps` — [signature](#api-sig-54cfdde15042aa18)
-- `SkinNavigationBar` — [signature](#api-sig-6c7fd11fef62d170)
-- `SkinNavigationBarProps` — [signature](#api-sig-e8d5590d52f3c606)
-- `SkinParagraph` — [signature](#api-sig-794e1a0a3028e95d)
-- `SkinParagraphProps` — [signature](#api-sig-57a8ca7bdc0765aa)
-- `SkinProgress` — [signature](#api-sig-b991db1dc88845e2)
-- `SkinProgressProps` — [signature](#api-sig-0a4282d75e90508d)
-- `SkinRadioGroup` — [signature](#api-sig-04c32dd4ea4dedd6)
-- `SkinRadioGroupProps` — [signature](#api-sig-02eae8f96633da9a)
-- `SkinRadioItem` — [signature](#api-sig-f096346f8ef44af4)
-- `SkinScaffold` — [signature](#api-sig-d65718adad4cd9f4)
-- `SkinScaffoldProps` — [signature](#api-sig-77258d1759c0fed8)
-- `SkinSegmentedControl` — [signature](#api-sig-27328841e268cc42)
-- `SkinSegmentedControlProps` — [signature](#api-sig-0c74b1b712ba1dfe)
-- `SkinSegmentedItem` — [signature](#api-sig-4d5b89374584b0f4)
-- `SkinSheet` — [signature](#api-sig-a63f4de76c2ba19c)
-- `SkinSheetAction` — [signature](#api-sig-08b4f8649477b080)
-- `SkinSheetProps` — [signature](#api-sig-192408dcd7d3ca37)
-- `SkinSlot` — [signature](#api-sig-ae34a7b5ec308029)
-- `SkinStepper` — [signature](#api-sig-dbe6f1171001e4ce)
-- `SkinStepperProps` — [signature](#api-sig-db2494d979dd327a)
-- `SkinSwitch` — [signature](#api-sig-6f12efc2e2710a9a)
-- `SkinSwitcherBar` — [signature](#api-sig-967f2126763fa21a)
-- `SkinSwitchProps` — [signature](#api-sig-a3cf6facc30bd61d)
-- `SkinTabs` — [signature](#api-sig-9708d2ffb8f0e91f)
-- `SkinToast` — [signature](#api-sig-a6bb1729b1dc03b1)
-- `SkinToastProps` — [signature](#api-sig-2feab23cdc934de8)
+- `SkinAccordion` — [signature](#api-sig-0d134aa3d30e0669)
+- `SkinAccordionProps` — [signature](#api-sig-bc22c8ac20dae155)
+- `SkinAlert` — [signature](#api-sig-4f9c43cbd4e99289)
+- `SkinAlertProps` — [signature](#api-sig-3c1ffb6093607d26)
+- `SkinAppBar` — [signature](#api-sig-787f701bd7891bba)
+- `SkinAppBarProps` — [signature](#api-sig-6318ba0914bff380)
+- `SkinBackdrop` — [signature](#api-sig-efdcbeb06e1d8260)
+- `SkinBackdropProps` — [signature](#api-sig-94c542154f6119e9)
+- `SkinBadge` — [signature](#api-sig-678b3433c6b4c578)
+- `SkinBadgeProps` — [signature](#api-sig-6aa2f571da310fca)
+- `SkinButton` — [signature](#api-sig-826d42dfcbcda51f)
+- `SkinButtonProps` — [signature](#api-sig-f3acab6b45538b8a)
+- `SkinCard` — [signature](#api-sig-bb9c208a0397a7e5)
+- `SkinCardProps` — [signature](#api-sig-398e5327410dc128)
+- `SkinCheckbox` — [signature](#api-sig-cc786c5dace98356)
+- `SkinCheckboxProps` — [signature](#api-sig-901628a9f1560b98)
+- `SkinDialog` — [signature](#api-sig-b9a37b59e1a55b7c)
+- `SkinDialogProps` — [signature](#api-sig-1ebd5e96b36473b8)
+- `SkinEmptyState` — [signature](#api-sig-e30c81d56cd6e273)
+- `SkinEmptyStateProps` — [signature](#api-sig-1300f6f55020d215)
+- `SkinInput` — [signature](#api-sig-115b4f017e378906)
+- `SkinInputProps` — [signature](#api-sig-2057a41991d5d4a8)
+- `SkinListTile` — [signature](#api-sig-12d44599eda96bde)
+- `SkinListTileProps` — [signature](#api-sig-ec5947dc63c3f880)
+- `SkinMetric` — [signature](#api-sig-a5dcba3e35ddc2bc)
+- `SkinMetricProps` — [signature](#api-sig-46428b8ba26e66b4)
+- `SkinNavigationBar` — [signature](#api-sig-5268670b3c787513)
+- `SkinNavigationBarProps` — [signature](#api-sig-ad8d0a34d6e0bfd1)
+- `SkinParagraph` — [signature](#api-sig-862b9f0a7b304944)
+- `SkinParagraphProps` — [signature](#api-sig-298d8e8b13480058)
+- `SkinProgress` — [signature](#api-sig-218a793067a1f90d)
+- `SkinProgressProps` — [signature](#api-sig-b4887027b1326bb0)
+- `SkinRadioGroup` — [signature](#api-sig-d3791a563b85053f)
+- `SkinRadioGroupProps` — [signature](#api-sig-e2bc9fe5577d6f60)
+- `SkinRadioItem` — [signature](#api-sig-56156bbbfe213e9a)
+- `SkinScaffold` — [signature](#api-sig-f93bfaf58bc7d9a6)
+- `SkinScaffoldProps` — [signature](#api-sig-85b83a3a50c1a764)
+- `SkinSegmentedControl` — [signature](#api-sig-f3525bb2cbc3d841)
+- `SkinSegmentedControlProps` — [signature](#api-sig-bbae1838dbd9be69)
+- `SkinSegmentedItem` — [signature](#api-sig-f579c245ae76fc8f)
+- `SkinSheet` — [signature](#api-sig-29b19958e0deb993)
+- `SkinSheetAction` — [signature](#api-sig-bc308cab7db28640)
+- `SkinSheetProps` — [signature](#api-sig-a8a9ced9fbcdbbbc)
+- `SkinSlot` — [signature](#api-sig-f2696daeeadbcdc9)
+- `SkinStepper` — [signature](#api-sig-848fcab52c481d2b)
+- `SkinStepperProps` — [signature](#api-sig-54893455be007468)
+- `SkinSwitch` — [signature](#api-sig-6e6587a5bcebc65f)
+- `SkinSwitcherBar` — [signature](#api-sig-0c109542a57f6d17)
+- `SkinSwitchProps` — [signature](#api-sig-99fe051faec695b7)
+- `SkinTabs` — [signature](#api-sig-1f0808850504d029)
+- `SkinToast` — [signature](#api-sig-96f86725e8791986)
+- `SkinToastProps` — [signature](#api-sig-cee97496c8d929db)
 - `SkinVirtualList` — [signature](#api-sig-3cdb8ee544e607da)
 - `Slider` — [signature](#api-sig-054f31fd8a77f6ca)
 - `Sonner` — [signature](#api-sig-e0b794ee5ccde983)
@@ -7829,7 +8895,7 @@ Exports:
 - `STACK_QUERY_PARAM` — [signature](#api-sig-08697aebcb9082ab)
 - `StateCodec` — [signature](#api-sig-0be9081400ff7ccf)
 - `stateParam` — [signature](#api-sig-7274b2aacce2b5e8)
-- `StatusBar` — [signature](#api-sig-9c629873f02cb804)
+- `StatusBar` — [signature](#api-sig-ddf84742eafa2137)
 - `Stepper` — [signature](#api-sig-be3e300bcde97058)
 - `stepTab` — [signature](#api-sig-13072b68f9b3a2d2)
 - `stringifySearchRecord` — [signature](#api-sig-2867a1c5ab34187c)
@@ -7842,18 +8908,18 @@ Exports:
 - `SystemAppSurfaces` — [signature](#api-sig-18feaa9fd6e900b3)
 - `systemPresetsBridgeObject` — [signature](#api-sig-717861c513ebb2bf)
 - `SystemPresetsOptions` — [signature](#api-sig-305c4d607d779b3a)
-- `TabBar` — [signature](#api-sig-9f2036634bf06b8e)
-- `TabItem` — [signature](#api-sig-c58ee425f6a412ff)
+- `TabBar` — [signature](#api-sig-70ebc336bce213b7)
+- `TabItem` — [signature](#api-sig-e82c39ba36d4ab1c)
 - `Table` — [signature](#api-sig-783efffe4846c1b9)
-- `Tabs` — [signature](#api-sig-e7be3f5a33bd7cb2)
+- `Tabs` — [signature](#api-sig-1a1519b59f1c9aac)
 - `TabsBar` — [signature](#api-sig-da6f888c318bac23)
 - `TabsBarItem` — [signature](#api-sig-591189058b30ae1f)
 - `TabsBarProps` — [signature](#api-sig-5d76a92b960e5172)
 - `Tag` — [signature](#api-sig-0a2945036e1ca2f6)
 - `Textarea` — [signature](#api-sig-62bcce4b66ba609b)
 - `TextButton` — [signature](#api-sig-34aa6c5950078c3a)
-- `TextInputParams` — [signature](#api-sig-1db750ed881bdacc)
-- `TileGrid` — [signature](#api-sig-ea83629eccdffb24)
+- `TextInputParams` — [signature](#api-sig-b24efdb2fd584cb9)
+- `TileGrid` — [signature](#api-sig-ec333fa78a7d0f4b)
 - `Toast` — [signature](#api-sig-9f3ef057ce0c700f)
 - `ToastHost` — [signature](#api-sig-94443518ffd09a0b)
 - `ToastItem` — [signature](#api-sig-ccf386f13475da3b)
@@ -7874,18 +8940,18 @@ Exports:
 - `TreeProps` — [signature](#api-sig-a986bc3a9e1261db)
 - `TreeRow` — [signature](#api-sig-0b878c5a84b16daf)
 - `Typography` — [signature](#api-sig-f40f800c3bf50631)
-- `UiSkinAccent` — [signature](#api-sig-9bac3ef03473d1c2)
-- `UiSkinAdapter` — [signature](#api-sig-bcb307831a0ce94f)
-- `UiSkinButtonVariant` — [signature](#api-sig-c098277e7a3c84d5)
-- `UiSkinContextValue` — [signature](#api-sig-f36be29eb004426a)
+- `UiSkinAccent` — [signature](#api-sig-af19f3d879249a08)
+- `UiSkinAdapter` — [signature](#api-sig-a2ade8a880a3ed33)
+- `UiSkinButtonVariant` — [signature](#api-sig-720523cf9d26311b)
+- `UiSkinContextValue` — [signature](#api-sig-29bd70bf04460439)
 - `UiSkinId` — [signature](#api-sig-e259d07a728e8cbe)
-- `UiSkinKit` — [signature](#api-sig-c8fc9f699a5170fb)
-- `UiSkinProvider` — [signature](#api-sig-3d5fc4c19f225f25)
-- `UiSkinProviderSlotProps` — [signature](#api-sig-cb683b88ed480f83)
-- `UiSkinSurfaceVariant` — [signature](#api-sig-17f3aa7d4b98aa53)
-- `UiSkinThemeMode` — [signature](#api-sig-99e15004087843b6)
-- `UiSkinTokens` — [signature](#api-sig-a6ab6d60b35587ec)
-- `UiSkinTone` — [signature](#api-sig-e0936a3276f0e717)
+- `UiSkinKit` — [signature](#api-sig-3fa8bb6efee27e6c)
+- `UiSkinProvider` — [signature](#api-sig-fd3614becabd6310)
+- `UiSkinProviderSlotProps` — [signature](#api-sig-c10c253cc5f1ea98)
+- `UiSkinSurfaceVariant` — [signature](#api-sig-cdbed56577044f61)
+- `UiSkinThemeMode` — [signature](#api-sig-e66452b5535a6945)
+- `UiSkinTokens` — [signature](#api-sig-74323762b6191d68)
+- `UiSkinTone` — [signature](#api-sig-167bb7f4ba6cd334)
 - `UriNormalizeOptions` — [signature](#api-sig-c18636781db171d0)
 - `useAccessibilityPreferences` — [signature](#api-sig-1d81420e746942e3)
 - `useAnimatedNumber` — [signature](#api-sig-e79b2557495ed932)
@@ -7898,13 +8964,13 @@ Exports:
 - `usePresenceTransition` — [signature](#api-sig-f62f300c3964064a)
 - `useRouteActive` — [signature](#api-sig-af1aa62529d206be)
 - `useRouteParams` — [signature](#api-sig-0f4aef22ca5081f4)
-- `useScrollContourReserve` — [signature](#api-sig-464752fe3ad00417)
+- `useScrollContourReserve` — [signature](#api-sig-8782b85b4422c456)
 - `useSearchState` — [signature](#api-sig-165e0a75a6df314d)
 - `UseSearchStateOptions` — [signature](#api-sig-43b10231cc4eb276)
 - `useSearchStates` — [signature](#api-sig-59f84fa8ed9ba127)
 - `useStateTransition` — [signature](#api-sig-907b9bf50ae8a67f)
 - `useSystemPresets` — [signature](#api-sig-1fc7c96505bd5b1d)
-- `useUiSkin` — [signature](#api-sig-5c9014daa5f42a99)
+- `useUiSkin` — [signature](#api-sig-14bd218a862e3103)
 - `useWindowSizeClass` — [signature](#api-sig-461102610a1071a0)
 - `utf8ToBytes` — [signature](#api-sig-8cec1bf2b81cb212)
 - `Video` — [signature](#api-sig-0892e32b7a475d3c)
@@ -7916,7 +8982,7 @@ Exports:
 - `VideoProps` — [signature](#api-sig-08b82ac3b9e37986)
 - `VideoRequestMethod` — [signature](#api-sig-17fdb2dce5a5ca76)
 - `VideoSnapshot` — [signature](#api-sig-1c21a37fcb725141)
-- `ViewText` — [signature](#api-sig-ffc4de8852c3cbcf)
+- `ViewText` — [signature](#api-sig-492792b9b9c038ed)
 - `VirtualListHandle` → `unknown` — [signature](#api-sig-711be6f7bc3a021d)
 - `VirtualListProps` → `unknown` — [signature](#api-sig-51f970877568e276)
 - `visibleRows` — [signature](#api-sig-b065bda78c17c05f)
@@ -8016,14 +9082,14 @@ Source: [packages/pocket_ui/src/accessibility.ts](../packages/pocket_ui/src/acce
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5939)
 
-<a id="api-sig-fa1fdafa730205ee"></a>
+<a id="api-sig-76642dc0ba11b6a2"></a>
 ### `ActionButton`
 
 **Function** `ActionButton(props: ActionButtonProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L766)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L768)
 
-<a id="api-sig-9e7a6f19ec7f975b"></a>
+<a id="api-sig-fd66b20f3791d1de"></a>
 ### `ActionButtonProps`
 
 **Interface** `ActionButtonProps`
@@ -8035,7 +9101,7 @@ Members:
 - `label?: string`
 - `onPress?: () => void`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L757)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L759)
 
 <a id="api-sig-e8c0b088f5060b16"></a>
 ### `ActionSheet`
@@ -8300,12 +9366,12 @@ Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx
 
 Source: [packages/pocket_ui/src/responsive.ts](../packages/pocket_ui/src/responsive.ts#L217)
 
-<a id="api-sig-225d9b5acf4917f3"></a>
+<a id="api-sig-267613c99038b382"></a>
 ### `Badge`
 
 **Function** `Badge(props: { children?: JSX.Element; tone?: "cyan" | "green" | "amber" | "rose" }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L802)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L804)
 
 <a id="api-sig-3fd84f4d21355012"></a>
 ### `base64ToBytes`
@@ -8335,12 +9401,12 @@ Source: [packages/pocket_ui/src/router.tsx](../packages/pocket_ui/src/router.tsx
 
 Source: [packages/pocket_ui/src/responsive.ts](../packages/pocket_ui/src/responsive.ts#L520)
 
-<a id="api-sig-0e31b55c16fd7470"></a>
+<a id="api-sig-d7a77937a7a904b0"></a>
 ### `BottomNavigationBar`
 
 **Function value** `(props: NavigationBarProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1131)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1133)
 
 <a id="api-sig-a73cafe08d51c734"></a>
 ### `Breadcrumb`
@@ -8377,12 +9443,12 @@ Members:
 
 Source: [packages/pocket_ui/src/router.tsx](../packages/pocket_ui/src/router.tsx#L1022)
 
-<a id="api-sig-77b939f32da8ed24"></a>
+<a id="api-sig-d86fa6c9d7b9d30e"></a>
 ### `Button`
 
 **Function value** `(props: ActionButtonProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L800)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L802)
 
 <a id="api-sig-a15b90c26b2b2fd2"></a>
 ### `ButtonGroup`
@@ -8412,12 +9478,12 @@ Source: [packages/pocket_ui/src/bytes.ts](../packages/pocket_ui/src/bytes.ts#L60
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5961)
 
-<a id="api-sig-8bd23723161c69a9"></a>
+<a id="api-sig-bbf3faf83efc899c"></a>
 ### `Card`
 
 **Function** `Card(props: { children?: JSX.Element; class?: string }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2528)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2530)
 
 <a id="api-sig-6785e90789caab78"></a>
 ### `CardContent`
@@ -8510,12 +9576,12 @@ Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5959)
 
-<a id="api-sig-2e76a085d1684c55"></a>
+<a id="api-sig-fa6475b0af1c7d73"></a>
 ### `CommittedNodeRect`
 
 **Type** `CommittedNodeRect = TextInputRect`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1432)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1434)
 
 <a id="api-sig-54de62e040ccf4df"></a>
 ### `CompiledRoutePattern`
@@ -8691,19 +9757,19 @@ Source: [packages/pocket_ui/src/accessibility.ts](../packages/pocket_ui/src/acce
 
 Source: [packages/pocket_ui/src/host.ts](../packages/pocket_ui/src/host.ts#L80)
 
-<a id="api-sig-94b9654ab6347d10"></a>
+<a id="api-sig-84a6201f4ea6376d"></a>
 ### `defaultSkinAdapter`
 
 **Value** `defaultSkinAdapter: UiSkinAdapter`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L466)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L467)
 
-<a id="api-sig-9006563614651ae2"></a>
+<a id="api-sig-34d230f154f3a0d6"></a>
 ### `deliverTextInputEvent`
 
 **Function** `deliverTextInputEvent(method: string, params: TextInputParams): boolean`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1499)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1501)
 
 <a id="api-sig-fe68573bec851d9f"></a>
 ### `deriveDesignDensity`
@@ -8740,7 +9806,7 @@ Source: [packages/pocket_ui/src/responsive.ts](../packages/pocket_ui/src/respons
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L289)
 
-<a id="api-sig-6e987e9acf9793b7"></a>
+<a id="api-sig-bedb7f7460befd03"></a>
 ### `DesktopScrollPage`
 
 **Interface** `DesktopScrollPage`
@@ -8752,14 +9818,14 @@ Members:
 - `node: () => NodeMirror | undefined`
 - `rect: () => TextInputRect | undefined`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1297)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1299)
 
-<a id="api-sig-e035c490058db213"></a>
+<a id="api-sig-d02d1701ac6d7bed"></a>
 ### `DetailModal`
 
 **Function** `DetailModal(props: { open: boolean | (() => boolean); title: string; body: string; onClose: () => void; }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2541)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2543)
 
 <a id="api-sig-d40a91a8bbaef99a"></a>
 ### `Dialog`
@@ -9016,12 +10082,12 @@ Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx
 
 Source: [packages/pocket_ui/src/responsive.ts](../packages/pocket_ui/src/responsive.ts#L60)
 
-<a id="api-sig-f557b3f1ef788f3d"></a>
+<a id="api-sig-e0496307c7fe5660"></a>
 ### `EmptyState`
 
 **Function** `EmptyState(props: { title: string; body: string; action?: JSX.Element }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L822)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L824)
 
 <a id="api-sig-631ff1ebf3ad0fd1"></a>
 ### `encodeUriPart`
@@ -9170,12 +10236,12 @@ Members:
 
 Source: [packages/pocket_ui/src/fast.tsx](../packages/pocket_ui/src/fast.tsx#L391)
 
-<a id="api-sig-0e36cb7c59d446a9"></a>
+<a id="api-sig-320249ad7b897c5a"></a>
 ### `getActiveTextInputSession`
 
 **Function** `getActiveTextInputSession(): TextInputSession | undefined`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1494)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1496)
 
 <a id="api-sig-46a51cee5916788a"></a>
 ### `getSystemPresetsSnapshot`
@@ -9184,12 +10250,12 @@ Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1494)
 
 Source: [packages/pocket_ui/src/display.ts](../packages/pocket_ui/src/display.ts#L313)
 
-<a id="api-sig-a2b038efc0b1db81"></a>
+<a id="api-sig-e25fcb769123e01f"></a>
 ### `getUiSkin`
 
 **Function** `getUiSkin(id: UiSkinId): UiSkinAdapter`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L852)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L853)
 
 <a id="api-sig-40f804c2b08cf0de"></a>
 ### `GlassShape`
@@ -9233,14 +10299,14 @@ Source: [packages/pocket_ui/src/responsive.ts](../packages/pocket_ui/src/respons
 
 Source: [packages/pocket_ui/src/responsive.ts](../packages/pocket_ui/src/responsive.ts#L472)
 
-<a id="api-sig-8fef05555b31440f"></a>
+<a id="api-sig-d540fd6b7749ddf0"></a>
 ### `Header`
 
 **Function** `Header(props: HeaderProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L727)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L729)
 
-<a id="api-sig-76e13b7f107f42db"></a>
+<a id="api-sig-6649d1f3a7dbe007"></a>
 ### `HeaderProps`
 
 **Interface** `HeaderProps`
@@ -9251,7 +10317,7 @@ Members:
 - `subtitle?: string`
 - `title: string`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L720)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L722)
 
 <a id="api-sig-f8b9b2f2d0f11cc7"></a>
 ### `HostSystemPresetsSnapshot`
@@ -9424,14 +10490,14 @@ Members:
 
 Source: [packages/pocket_ui/src/inline-text.tsx](../packages/pocket_ui/src/inline-text.tsx#L16)
 
-<a id="api-sig-950d1ad3b4c8385a"></a>
+<a id="api-sig-e40a289052f8e9c8"></a>
 ### `InputField`
 
 **Function** ``InputField(props: { value: Accessor<string>; onInput: (value: string) => void; onSubmit?: (value: string) => void; placeholder?: string; appearance?: InputFieldAppearance; /** * Multi-line editing. Enter inserts a newline (keyboardType "multiline", * action "newline") and `onSubmit` is not raised by the keyboard. Omitted or * false keeps the single-line `maxLines: 1` payload byte-for-byte. */ multiline?: boolean; /** Multi-line only: visible line cap. `null`/omitted means unbounded growth. */ maxLines?: number | null; /** Multi-line only: minimum visible lines (>= 1, clamped to maxLines). */ minLines?: number; /** Open the editing session shortly after mount (a dialog whose first action is typing). Off by default. */ autoFocus?: boolean; }): JSX.Element``
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1533)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1535)
 
-<a id="api-sig-ade460d3d5d913e0"></a>
+<a id="api-sig-61d01bd5fae091aa"></a>
 ### `InputFieldAppearance`
 
 **Interface** `InputFieldAppearance`
@@ -9447,14 +10513,14 @@ Members:
 - `placeholderColor?: InputFieldColor`
 - `textColor?: InputFieldColor`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1243)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1245)
 
-<a id="api-sig-7c1923e2f5147f9a"></a>
+<a id="api-sig-e0ed6aa00f40f006"></a>
 ### `InputFieldColor`
 
 **Type** ``InputFieldColor = `#${string}` | "transparent"``
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1241)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1243)
 
 <a id="api-sig-9af0dffc47a8c131"></a>
 ### `InputGroup`
@@ -9560,14 +10626,14 @@ Members:
 
 Source: [packages/pocket_ui/src/legacy.ts](../packages/pocket_ui/src/legacy.ts#L70)
 
-<a id="api-sig-d464e86d7e8d18b0"></a>
+<a id="api-sig-da97d6cc32f7e92f"></a>
 ### `List`
 
 **Function** `List(props: { items: readonly ListItem[]; tone?: "light" | "dark" }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2507)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2509)
 
-<a id="api-sig-70c507f8b2782a13"></a>
+<a id="api-sig-9d0cd2122ac536d9"></a>
 ### `ListItem`
 
 **Interface** `ListItem`
@@ -9577,7 +10643,7 @@ Members:
 - `id: string`
 - `title: string`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2501)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2503)
 
 <a id="api-sig-96c61ec56461747d"></a>
 ### `ListTile`
@@ -9586,12 +10652,12 @@ Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2501)
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5927)
 
-<a id="api-sig-93d41938ce4e21bd"></a>
+<a id="api-sig-09ce662669ecdea1"></a>
 ### `listUiSkins`
 
 **Function** `listUiSkins(): readonly UiSkinAdapter[]`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L857)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L858)
 
 <a id="api-sig-29fb643bd668a055"></a>
 ### `MatchedRoute`
@@ -9721,12 +10787,12 @@ Source: [packages/pocket_ui/src/media.ts](../packages/pocket_ui/src/media.ts#L83
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5983)
 
-<a id="api-sig-ae0693e6a6320b2d"></a>
+<a id="api-sig-6cd253e7426da6e3"></a>
 ### `MetricCard`
 
 **Function** `MetricCard(props: { label: string; value: string; detail?: string; tone?: "blue" | "purple" | "green" }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L832)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L834)
 
 <a id="api-sig-35c0c899f80f4d4b"></a>
 ### `MINI_APP_HOST_ACTION_RESERVE`
@@ -9764,12 +10830,12 @@ Source: [packages/pocket_ui/src/host.ts](../packages/pocket_ui/src/host.ts#L62)
 
 Source: [packages/pocket_ui/src/host.ts](../packages/pocket_ui/src/host.ts#L64)
 
-<a id="api-sig-a606e89e9e94b797"></a>
+<a id="api-sig-553971b1fde743b9"></a>
 ### `MiniBarChart`
 
 **Function** `MiniBarChart(props: { values: readonly number[] }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2491)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2493)
 
 <a id="api-sig-3c7c8def5a48b599"></a>
 ### `MOBILE_MOTION`
@@ -9876,7 +10942,7 @@ Members:
 - `compact?: boolean`
 - `debugName?: string`
 - `disabled?: boolean`
-- `kind?: "danger" | "filled" | "tonal" | "outlined" | "text"`
+- `kind?: "danger" | "tonal" | "filled" | "outlined" | "text"`
 - `label: string`
 - `labelClass?: string`
 - `onPress?: () => void`
@@ -10153,21 +11219,21 @@ Source: [packages/pocket_ui/src/motion.ts](../packages/pocket_ui/src/motion.ts#L
 
 Source: [packages/pocket_ui/src/motion.ts](../packages/pocket_ui/src/motion.ts#L18)
 
-<a id="api-sig-41e26e964ab5210f"></a>
+<a id="api-sig-815931fba8583a8a"></a>
 ### `NamedUiSkinAccent`
 
 **Type** `NamedUiSkinAccent = | "blue" | "violet" | "teal" | "rose" | "coral" | "green" | "amber" | "orange" | "neutral"`
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L53)
 
-<a id="api-sig-74f01c0b78b9c0fa"></a>
+<a id="api-sig-43e0d5f1fb63641b"></a>
 ### `NavigationBar`
 
 **Function** `NavigationBar(props: NavigationBarProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1023)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1025)
 
-<a id="api-sig-bffe0c2b7bb203c2"></a>
+<a id="api-sig-4977072bbc1cc6fb"></a>
 ### `NavigationBarProps`
 
 **Interface** `NavigationBarProps`
@@ -10190,7 +11256,7 @@ Members:
 - `visible?: boolean`
 - `wide?: boolean | (() => boolean)`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L870)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L872)
 
 <a id="api-sig-e73162c8c49ddbb9"></a>
 ### `NavigationDestination`
@@ -10206,7 +11272,7 @@ Source: [packages/pocket_ui/src/flutter-widgets.tsx](../packages/pocket_ui/src/f
 
 Source: [packages/pocket_ui/src/router.tsx](../packages/pocket_ui/src/router.tsx#L1006)
 
-<a id="api-sig-e2bd2d6c7a75be86"></a>
+<a id="api-sig-a59f26db1b8a51ce"></a>
 ### `NavigationItem`
 
 **Interface** `NavigationItem`
@@ -10216,7 +11282,7 @@ Members:
 - `kind: "settings" | "home" | "gallery" | "host"`
 - `label: string`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L863)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L865)
 
 <a id="api-sig-c441de511ff4e4ad"></a>
 ### `NavigationMenu`
@@ -10225,12 +11291,12 @@ Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L863)
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5984)
 
-<a id="api-sig-9f5609da9c15d7fe"></a>
+<a id="api-sig-79bfddd0589b42c6"></a>
 ### `NavigationRoute`
 
 **Type** `NavigationRoute = "home" | "gallery" | "about" | "settings"`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L861)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L863)
 
 <a id="api-sig-abdf4b48c9ab2bd6"></a>
 ### `NodeLocalPoint`
@@ -10276,12 +11342,12 @@ Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx
 
 Source: [packages/pocket_ui/src/responsive.ts](../packages/pocket_ui/src/responsive.ts#L503)
 
-<a id="api-sig-17856b23c7b75ba6"></a>
+<a id="api-sig-25093ee9cc61a7e9"></a>
 ### `PageIntro`
 
 **Function** `PageIntro(props: { title: string; body: string }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L739)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L741)
 
 <a id="api-sig-24d58f28cabba55f"></a>
 ### `Pagination`
@@ -10350,12 +11416,12 @@ Source: [packages/pocket_ui/src/router.tsx](../packages/pocket_ui/src/router.tsx
 
 Source: [packages/pocket_ui/src/host.ts](../packages/pocket_ui/src/host.ts#L106)
 
-<a id="api-sig-27ab696726955654"></a>
+<a id="api-sig-5321db238b184580"></a>
 ### `parseTextInputParams`
 
 **Function** `parseTextInputParams(params: TextInputParams): { id?: string; editingSession?: string; revision?: number; jsRevision?: number; text?: string; selectionBase?: number; selectionExtent?: number; composingBase?: number; composingExtent?: number; }`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1181)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1183)
 
 <a id="api-sig-c5995cefd0a184c8"></a>
 ### `planPackageUpdate`
@@ -10894,26 +11960,26 @@ Source: [packages/pocket_ui/src/router.tsx](../packages/pocket_ui/src/router.tsx
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5935)
 
-<a id="api-sig-a4e5d768597f2453"></a>
+<a id="api-sig-737bd43fb3567046"></a>
 ### `readCommittedNodeRect`
 
 **Function** `readCommittedNodeRect(node: NodeMirror | undefined, allowZeroWidth: boolean = false): CommittedNodeRect | undefined`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1434)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1436)
 
-<a id="api-sig-47af34e01c4ca0e1"></a>
+<a id="api-sig-73b60126758d7ad8"></a>
 ### `registerDesktopScrollPage`
 
 **Function** `registerDesktopScrollPage(page: DesktopScrollPage): () => void`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1414)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1416)
 
-<a id="api-sig-516d553987b56c68"></a>
+<a id="api-sig-fb4ddee72aa304a1"></a>
 ### `registerUiSkin`
 
 **Function** `registerUiSkin(adapter: UiSkinAdapter): UiSkinAdapter`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L846)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L847)
 
 <a id="api-sig-125db5c4a1034735"></a>
 ### `reservedInsets`
@@ -10929,12 +11995,12 @@ Source: [packages/pocket_ui/src/responsive.ts](../packages/pocket_ui/src/respons
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5986)
 
-<a id="api-sig-ed54fe54ee4fb2ed"></a>
+<a id="api-sig-8d75a86ca854a296"></a>
 ### `resolveDefaultSkinTokens`
 
 **Function** `resolveDefaultSkinTokens(mode: UiSkinThemeMode = "light", accent: UiSkinAccent = "blue"): UiSkinTokens`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L378)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L379)
 
 <a id="api-sig-f26a4d5731a4d12d"></a>
 ### `resolveNodeLocalPoint`
@@ -11002,12 +12068,12 @@ Members:
 
 Source: [packages/pocket_ui/src/route.tsx](../packages/pocket_ui/src/route.tsx#L31)
 
-<a id="api-sig-a4cead477bf9dfda"></a>
+<a id="api-sig-bffa70f0ab49ff51"></a>
 ### `Row`
 
 **Function** `Row(props: { children?: JSX.Element; class?: string }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2532)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2534)
 
 <a id="api-sig-d3ffc625168dabea"></a>
 ### `SafeAreaEdge`
@@ -11087,16 +12153,16 @@ Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L82)
 <a id="api-sig-29f337b276bf84d0"></a>
 ### `Scaffold`
 
-**Function value** `(props: import("/Volumes/ORICO/Development/Github/pocket/sdk/packages/pocket_ui/src/ui").SafeAreaScaffoldProps): JSX.Element`
+**Function value** `(props: import("@pocket/ui/ui").SafeAreaScaffoldProps): JSX.Element`
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5920)
 
-<a id="api-sig-9ffb708d9c1135fa"></a>
+<a id="api-sig-31fd117e37ac790f"></a>
 ### `ScrollablePage`
 
 **Function** `ScrollablePage(props: { children?: JSX.Element; class?: string; style?: ViewProps["style"]; }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1992)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1994)
 
 <a id="api-sig-01a81c9cd06b9e6a"></a>
 ### `ScrollablePageContext`
@@ -11129,14 +12195,14 @@ Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L117)
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5967)
 
-<a id="api-sig-42c763c505ff2d8c"></a>
+<a id="api-sig-cacf3841ea683cc8"></a>
 ### `ScrollContourItem`
 
 **Function** `ScrollContourItem(props: ViewProps & { mode?: "margin" | "padding"; defaultInBand?: boolean; enabled?: boolean | (() => boolean); rampPx?: number; consumeChildren?: boolean; }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L627)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L629)
 
-<a id="api-sig-f1a871e41a9115a1"></a>
+<a id="api-sig-8ede20906fa0e00f"></a>
 ### `ScrollContourOptions`
 
 **Interface** `ScrollContourOptions`
@@ -11151,7 +12217,7 @@ Members:
 - `mode?: "margin" | "padding"`
 - `rampPx?: number`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L472)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L474)
 
 <a id="api-sig-5f6da08f0019b816"></a>
 ### `ScrollFade`
@@ -11179,12 +12245,12 @@ Members:
 
 Source: [packages/pocket_ui/src/router.tsx](../packages/pocket_ui/src/router.tsx#L645)
 
-<a id="api-sig-58e9a7b1e2cc5800"></a>
+<a id="api-sig-c428a1c04f56f1d6"></a>
 ### `SectionHeading`
 
 **Function** `SectionHeading(props: { title: string; detail?: string; dark?: boolean }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L748)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L750)
 
 <a id="api-sig-1679df7442af6586"></a>
 ### `SegmentedControl`
@@ -11590,14 +12656,14 @@ Source: [packages/pocket_ui/src/responsive.ts](../packages/pocket_ui/src/respons
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5940)
 
-<a id="api-sig-188e802be601cf6c"></a>
+<a id="api-sig-0d134aa3d30e0669"></a>
 ### `SkinAccordion`
 
 **Function** `SkinAccordion(props: SkinAccordionProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1282)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1292)
 
-<a id="api-sig-9ed48ab8acf043e1"></a>
+<a id="api-sig-bc22c8ac20dae155"></a>
 ### `SkinAccordionProps`
 
 **Interface** `SkinAccordionProps`
@@ -11612,14 +12678,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L315)
 
-<a id="api-sig-bb327f812590b5bc"></a>
+<a id="api-sig-4f9c43cbd4e99289"></a>
 ### `SkinAlert`
 
 **Function** `SkinAlert(props: SkinAlertProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1228)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1238)
 
-<a id="api-sig-d84d9446793764f7"></a>
+<a id="api-sig-3c1ffb6093607d26"></a>
 ### `SkinAlertProps`
 
 **Interface** `SkinAlertProps`
@@ -11634,14 +12700,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L253)
 
-<a id="api-sig-1bf6f45db9ede770"></a>
+<a id="api-sig-787f701bd7891bba"></a>
 ### `SkinAppBar`
 
 **Function** `SkinAppBar(props: SkinAppBarProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1105)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1115)
 
-<a id="api-sig-f41b5997da52d4f4"></a>
+<a id="api-sig-6318ba0914bff380"></a>
 ### `SkinAppBarProps`
 
 **Interface** `SkinAppBarProps`
@@ -11655,14 +12721,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L139)
 
-<a id="api-sig-5a088d7647acec4d"></a>
+<a id="api-sig-efdcbeb06e1d8260"></a>
 ### `SkinBackdrop`
 
 **Function** `SkinBackdrop(props: SkinBackdropProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1069)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1070)
 
-<a id="api-sig-9718e2521a3456b6"></a>
+<a id="api-sig-94c542154f6119e9"></a>
 ### `SkinBackdropProps`
 
 **Interface** `SkinBackdropProps`
@@ -11672,14 +12738,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L124)
 
-<a id="api-sig-e88eaaa15626e427"></a>
+<a id="api-sig-678b3433c6b4c578"></a>
 ### `SkinBadge`
 
 **Function** `SkinBadge(props: SkinBadgeProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1152)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1162)
 
-<a id="api-sig-82e589bbbd2c0664"></a>
+<a id="api-sig-6aa2f571da310fca"></a>
 ### `SkinBadgeProps`
 
 **Interface** `SkinBadgeProps`
@@ -11690,14 +12756,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L184)
 
-<a id="api-sig-2ba8f93e77eca95b"></a>
+<a id="api-sig-826d42dfcbcda51f"></a>
 ### `SkinButton`
 
 **Function** `SkinButton(props: SkinButtonProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1143)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1153)
 
-<a id="api-sig-44e44a89f6cca2a4"></a>
+<a id="api-sig-f3acab6b45538b8a"></a>
 ### `SkinButtonProps`
 
 **Interface** `SkinButtonProps`
@@ -11712,14 +12778,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L175)
 
-<a id="api-sig-b413b9f2f76c8058"></a>
+<a id="api-sig-bb9c208a0397a7e5"></a>
 ### `SkinCard`
 
 **Function** `SkinCard(props: SkinCardProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1125)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1135)
 
-<a id="api-sig-08274c069a98bd6d"></a>
+<a id="api-sig-398e5327410dc128"></a>
 ### `SkinCardProps`
 
 **Interface** `SkinCardProps`
@@ -11737,14 +12803,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L155)
 
-<a id="api-sig-e585af9a8a3d885a"></a>
+<a id="api-sig-cc786c5dace98356"></a>
 ### `SkinCheckbox`
 
 **Function** `SkinCheckbox(props: SkinCheckboxProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1183)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1193)
 
-<a id="api-sig-636a68ba5e530200"></a>
+<a id="api-sig-901628a9f1560b98"></a>
 ### `SkinCheckboxProps`
 
 **Interface** `SkinCheckboxProps`
@@ -11757,14 +12823,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L209)
 
-<a id="api-sig-dad8c0b539b2a519"></a>
+<a id="api-sig-b9a37b59e1a55b7c"></a>
 ### `SkinDialog`
 
 **Function** `SkinDialog(props: SkinDialogProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1246)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1256)
 
-<a id="api-sig-3750554f79de7a42"></a>
+<a id="api-sig-1ebd5e96b36473b8"></a>
 ### `SkinDialogProps`
 
 **Interface** `SkinDialogProps`
@@ -11782,14 +12848,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L272)
 
-<a id="api-sig-beef3bfd2f4e9114"></a>
+<a id="api-sig-e30c81d56cd6e273"></a>
 ### `SkinEmptyState`
 
 **Function** `SkinEmptyState(props: SkinEmptyStateProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1273)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1283)
 
-<a id="api-sig-3516f3342370deaf"></a>
+<a id="api-sig-1300f6f55020d215"></a>
 ### `SkinEmptyStateProps`
 
 **Interface** `SkinEmptyStateProps`
@@ -11802,14 +12868,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L308)
 
-<a id="api-sig-13aa57c3372d2ddd"></a>
+<a id="api-sig-115b4f017e378906"></a>
 ### `SkinInput`
 
 **Function** `SkinInput(props: SkinInputProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1201)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1211)
 
-<a id="api-sig-3cb50726a4a6dfa6"></a>
+<a id="api-sig-2057a41991d5d4a8"></a>
 ### `SkinInputProps`
 
 **Interface** `SkinInputProps`
@@ -11824,14 +12890,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L229)
 
-<a id="api-sig-2156103c91a61e86"></a>
+<a id="api-sig-12d44599eda96bde"></a>
 ### `SkinListTile`
 
 **Function** `SkinListTile(props: SkinListTileProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1134)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1144)
 
-<a id="api-sig-c4764aa38c0061fe"></a>
+<a id="api-sig-ec5947dc63c3f880"></a>
 ### `SkinListTileProps`
 
 **Interface** `SkinListTileProps`
@@ -11845,14 +12911,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L167)
 
-<a id="api-sig-de01e8c99f5229a8"></a>
+<a id="api-sig-a5dcba3e35ddc2bc"></a>
 ### `SkinMetric`
 
 **Function** `SkinMetric(props: SkinMetricProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1264)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1274)
 
-<a id="api-sig-54cfdde15042aa18"></a>
+<a id="api-sig-46428b8ba26e66b4"></a>
 ### `SkinMetricProps`
 
 **Interface** `SkinMetricProps`
@@ -11865,14 +12931,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L301)
 
-<a id="api-sig-6c7fd11fef62d170"></a>
+<a id="api-sig-5268670b3c787513"></a>
 ### `SkinNavigationBar`
 
 **Function** `SkinNavigationBar<T extends string = string>(props: SkinNavigationBarProps<T>): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1114)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1124)
 
-<a id="api-sig-e8d5590d52f3c606"></a>
+<a id="api-sig-ad8d0a34d6e0bfd1"></a>
 ### `SkinNavigationBarProps`
 
 **Interface** `SkinNavigationBarProps<T extends string = string>`
@@ -11886,14 +12952,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L147)
 
-<a id="api-sig-794e1a0a3028e95d"></a>
+<a id="api-sig-862b9f0a7b304944"></a>
 ### `SkinParagraph`
 
 **Function** `SkinParagraph(props: SkinParagraphProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1291)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1301)
 
-<a id="api-sig-57a8ca7bdc0765aa"></a>
+<a id="api-sig-298d8e8b13480058"></a>
 ### `SkinParagraphProps`
 
 **Interface** `SkinParagraphProps`
@@ -11906,14 +12972,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L324)
 
-<a id="api-sig-b991db1dc88845e2"></a>
+<a id="api-sig-218a793067a1f90d"></a>
 ### `SkinProgress`
 
 **Function** `SkinProgress(props: SkinProgressProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1210)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1220)
 
-<a id="api-sig-0a4282d75e90508d"></a>
+<a id="api-sig-b4887027b1326bb0"></a>
 ### `SkinProgressProps`
 
 **Interface** `SkinProgressProps`
@@ -11925,14 +12991,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L238)
 
-<a id="api-sig-04c32dd4ea4dedd6"></a>
+<a id="api-sig-d3791a563b85053f"></a>
 ### `SkinRadioGroup`
 
 **Function** `SkinRadioGroup(props: SkinRadioGroupProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1192)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1202)
 
-<a id="api-sig-02eae8f96633da9a"></a>
+<a id="api-sig-e2bc9fe5577d6f60"></a>
 ### `SkinRadioGroupProps`
 
 **Interface** `SkinRadioGroupProps`
@@ -11945,7 +13011,7 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L222)
 
-<a id="api-sig-f096346f8ef44af4"></a>
+<a id="api-sig-56156bbbfe213e9a"></a>
 ### `SkinRadioItem`
 
 **Interface** `SkinRadioItem`
@@ -11957,14 +13023,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L216)
 
-<a id="api-sig-d65718adad4cd9f4"></a>
+<a id="api-sig-f93bfaf58bc7d9a6"></a>
 ### `SkinScaffold`
 
 **Function** `SkinScaffold(props: SkinScaffoldProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1078)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1079)
 
-<a id="api-sig-77258d1759c0fed8"></a>
+<a id="api-sig-85b83a3a50c1a764"></a>
 ### `SkinScaffoldProps`
 
 **Interface** `SkinScaffoldProps`
@@ -11981,14 +13047,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L128)
 
-<a id="api-sig-27328841e268cc42"></a>
+<a id="api-sig-f3525bb2cbc3d841"></a>
 ### `SkinSegmentedControl`
 
 **Function** `SkinSegmentedControl<T extends string = string>(props: SkinSegmentedControlProps<T>): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1161)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1171)
 
-<a id="api-sig-0c74b1b712ba1dfe"></a>
+<a id="api-sig-bbae1838dbd9be69"></a>
 ### `SkinSegmentedControlProps`
 
 **Interface** `SkinSegmentedControlProps<T extends string = string>`
@@ -12001,7 +13067,7 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L194)
 
-<a id="api-sig-4d5b89374584b0f4"></a>
+<a id="api-sig-f579c245ae76fc8f"></a>
 ### `SkinSegmentedItem`
 
 **Interface** `SkinSegmentedItem<T extends string = string>`
@@ -12012,14 +13078,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L189)
 
-<a id="api-sig-a63f4de76c2ba19c"></a>
+<a id="api-sig-29b19958e0deb993"></a>
 ### `SkinSheet`
 
 **Function** `SkinSheet(props: SkinSheetProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1255)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1265)
 
-<a id="api-sig-08b4f8649477b080"></a>
+<a id="api-sig-bc308cab7db28640"></a>
 ### `SkinSheetAction`
 
 **Interface** `SkinSheetAction`
@@ -12032,7 +13098,7 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L284)
 
-<a id="api-sig-192408dcd7d3ca37"></a>
+<a id="api-sig-a8a9ced9fbcdbbbc"></a>
 ### `SkinSheetProps`
 
 **Interface** `SkinSheetProps`
@@ -12048,21 +13114,21 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L291)
 
-<a id="api-sig-ae34a7b5ec308029"></a>
+<a id="api-sig-f2696daeeadbcdc9"></a>
 ### `SkinSlot`
 
 **Function** `SkinSlot(props: { render: (kit: UiSkinKit, tokens: UiSkinTokens) => JSX.Element; }): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1058)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1059)
 
-<a id="api-sig-dbe6f1171001e4ce"></a>
+<a id="api-sig-848fcab52c481d2b"></a>
 ### `SkinStepper`
 
 **Function** `SkinStepper(props: SkinStepperProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1219)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1229)
 
-<a id="api-sig-db2494d979dd327a"></a>
+<a id="api-sig-54893455be007468"></a>
 ### `SkinStepperProps`
 
 **Interface** `SkinStepperProps`
@@ -12077,21 +13143,21 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L244)
 
-<a id="api-sig-6f12efc2e2710a9a"></a>
+<a id="api-sig-6e6587a5bcebc65f"></a>
 ### `SkinSwitch`
 
 **Function** `SkinSwitch(props: SkinSwitchProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1174)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1184)
 
-<a id="api-sig-967f2126763fa21a"></a>
+<a id="api-sig-0c109542a57f6d17"></a>
 ### `SkinSwitcherBar`
 
 **Function** `SkinSwitcherBar(props: { showThemeModes?: boolean; }): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1306)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1316)
 
-<a id="api-sig-a3cf6facc30bd61d"></a>
+<a id="api-sig-99fe051faec695b7"></a>
 ### `SkinSwitchProps`
 
 **Interface** `SkinSwitchProps`
@@ -12105,21 +13171,21 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L201)
 
-<a id="api-sig-9708d2ffb8f0e91f"></a>
+<a id="api-sig-1f0808850504d029"></a>
 ### `SkinTabs`
 
 **Function value** `<T extends string = string>(props: SkinSegmentedControlProps<T>): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1172)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1182)
 
-<a id="api-sig-a6bb1729b1dc03b1"></a>
+<a id="api-sig-96f86725e8791986"></a>
 ### `SkinToast`
 
 **Function** `SkinToast(props: SkinToastProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1237)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L1247)
 
-<a id="api-sig-2feab23cdc934de8"></a>
+<a id="api-sig-cee97496c8d929db"></a>
 ### `SkinToastProps`
 
 **Interface** `SkinToastProps`
@@ -12236,12 +13302,12 @@ Source: [packages/pocket_ui/src/router.tsx](../packages/pocket_ui/src/router.tsx
 
 Source: [packages/pocket_ui/src/router.tsx](../packages/pocket_ui/src/router.tsx#L747)
 
-<a id="api-sig-9c629873f02cb804"></a>
+<a id="api-sig-ddf84742eafa2137"></a>
 ### `StatusBar`
 
 **Function** `StatusBar(props: { label: string; detail: string; ok?: boolean }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L846)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L848)
 
 <a id="api-sig-be3e300bcde97058"></a>
 ### `Stepper`
@@ -12335,14 +13401,14 @@ Members:
 
 Source: [packages/pocket_ui/src/display.ts](../packages/pocket_ui/src/display.ts#L304)
 
-<a id="api-sig-9f2036634bf06b8e"></a>
+<a id="api-sig-70ebc336bce213b7"></a>
 ### `TabBar`
 
 **Function value** `(props: NavigationBarProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1130)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1132)
 
-<a id="api-sig-c58ee425f6a412ff"></a>
+<a id="api-sig-e82c39ba36d4ab1c"></a>
 ### `TabItem`
 
 **Interface** `TabItem`
@@ -12351,7 +13417,7 @@ Members:
 - `id: string`
 - `label: string`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1133)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1135)
 
 <a id="api-sig-783efffe4846c1b9"></a>
 ### `Table`
@@ -12360,12 +13426,12 @@ Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1133)
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5960)
 
-<a id="api-sig-e7be3f5a33bd7cb2"></a>
+<a id="api-sig-1a1519b59f1c9aac"></a>
 ### `Tabs`
 
 **Function** `Tabs(props: { items: readonly TabItem[]; active: string; onChange: (id: string) => void }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1138)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1140)
 
 <a id="api-sig-da6f888c318bac23"></a>
 ### `TabsBar`
@@ -12420,7 +13486,7 @@ Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5926)
 
-<a id="api-sig-1db750ed881bdacc"></a>
+<a id="api-sig-b24efdb2fd584cb9"></a>
 ### `TextInputParams`
 
 **Interface** `TextInputParams`
@@ -12439,14 +13505,14 @@ Members:
 - `source?: string`
 - `text?: string`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1164)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1166)
 
-<a id="api-sig-ea83629eccdffb24"></a>
+<a id="api-sig-ec333fa78a7d0f4b"></a>
 ### `TileGrid`
 
 **Function** `TileGrid(props: { children?: JSX.Element }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2536)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2538)
 
 <a id="api-sig-9f3ef057ce0c700f"></a>
 ### `Toast`
@@ -12625,14 +13691,14 @@ Source: [packages/pocket_ui/src/tree-model.ts](../packages/pocket_ui/src/tree-mo
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5991)
 
-<a id="api-sig-9bac3ef03473d1c2"></a>
+<a id="api-sig-af19f3d879249a08"></a>
 ### `UiSkinAccent`
 
 **Type** `` UiSkinAccent = NamedUiSkinAccent | `#${string}` ``
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L64)
 
-<a id="api-sig-bcb307831a0ce94f"></a>
+<a id="api-sig-a2ade8a880a3ed33"></a>
 ### `UiSkinAdapter`
 
 **Interface** `UiSkinAdapter`
@@ -12640,6 +13706,7 @@ Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L
 Members:
 - `Provider?: (props: UiSkinProviderSlotProps) => JSX.Element`
 - `readonly description: string`
+- `readonly floatingBottomBar?: boolean`
 - `readonly id: UiSkinId`
 - `readonly kit: UiSkinKit`
 - `readonly label: string`
@@ -12647,14 +13714,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L355)
 
-<a id="api-sig-c098277e7a3c84d5"></a>
+<a id="api-sig-720523cf9d26311b"></a>
 ### `UiSkinButtonVariant`
 
 **Type** `UiSkinButtonVariant = | "primary" | "secondary" | "tonal" | "outline" | "ghost" | "danger"`
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L75)
 
-<a id="api-sig-f36be29eb004426a"></a>
+<a id="api-sig-29bd70bf04460439"></a>
 ### `UiSkinContextValue`
 
 **Interface** `UiSkinContextValue`
@@ -12672,16 +13739,16 @@ Members:
 - `skinId: Accessor<UiSkinId>`
 - `tokens: Accessor<UiSkinTokens>`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L861)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L862)
 
 <a id="api-sig-e259d07a728e8cbe"></a>
 ### `UiSkinId`
 
-**Type** `UiSkinId = "default" | "looseleaf" | "arc" | (string & {})`
+**Type** `UiSkinId = "default" | "looseleaf" | "arc" | "liquid-glass" | (string & {})`
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L49)
 
-<a id="api-sig-c8fc9f699a5170fb"></a>
+<a id="api-sig-3fa8bb6efee27e6c"></a>
 ### `UiSkinKit`
 
 **Interface** `UiSkinKit`
@@ -12711,14 +13778,14 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L331)
 
-<a id="api-sig-3d5fc4c19f225f25"></a>
+<a id="api-sig-fd3614becabd6310"></a>
 ### `UiSkinProvider`
 
 **Function** `UiSkinProvider(props: { skin?: UiSkinId | Accessor<UiSkinId>; mode?: UiSkinThemeMode | Accessor<UiSkinThemeMode>; accent?: UiSkinAccent | Accessor<UiSkinAccent>; density?: DesignDensity | "auto" | Accessor<DesignDensity | "auto">; reducedMotion?: boolean | Accessor<boolean>; skins?: readonly UiSkinAdapter[]; onSkinChange?: (next: UiSkinId) => void; onModeChange?: (next: UiSkinThemeMode) => void; onAccentChange?: (next: UiSkinAccent) => void; children?: JSX.Element; }): JSX.Element`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L902)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L903)
 
-<a id="api-sig-cb683b88ed480f83"></a>
+<a id="api-sig-c10c253cc5f1ea98"></a>
 ### `UiSkinProviderSlotProps`
 
 **Interface** `UiSkinProviderSlotProps`
@@ -12732,21 +13799,21 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L116)
 
-<a id="api-sig-17f3aa7d4b98aa53"></a>
+<a id="api-sig-cdbed56577044f61"></a>
 ### `UiSkinSurfaceVariant`
 
 **Type** `UiSkinSurfaceVariant = | "default" | "raised" | "muted" | "accent" | "sticky"`
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L83)
 
-<a id="api-sig-99e15004087843b6"></a>
+<a id="api-sig-e66452b5535a6945"></a>
 ### `UiSkinThemeMode`
 
 **Type** `UiSkinThemeMode = "light" | "dark" | "amber-night"`
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L51)
 
-<a id="api-sig-a6ab6d60b35587ec"></a>
+<a id="api-sig-74323762b6191d68"></a>
 ### `UiSkinTokens`
 
 **Interface** `UiSkinTokens`
@@ -12778,7 +13845,7 @@ Members:
 
 Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L90)
 
-<a id="api-sig-e0936a3276f0e717"></a>
+<a id="api-sig-167bb7f4ba6cd334"></a>
 ### `UiSkinTone`
 
 **Type** `UiSkinTone = | "accent" | "info" | "success" | "warning" | "danger" | "neutral" | "outline"`
@@ -12876,12 +13943,12 @@ Source: [packages/pocket_ui/src/route.tsx](../packages/pocket_ui/src/route.tsx#L
 
 Source: [packages/pocket_ui/src/router.tsx](../packages/pocket_ui/src/router.tsx#L1862)
 
-<a id="api-sig-464752fe3ad00417"></a>
+<a id="api-sig-8782b85b4422c456"></a>
 ### `useScrollContourReserve`
 
 **Function** `useScrollContourReserve(options: ScrollContourOptions = {}): { leftReserve: Accessor<number>; nodeRef: (current: NodeMirror | undefined) => void; reserve: Accessor<number>; reserves: Accessor<DisplaySideContourReserves>; syncLayout: () => boolean; }`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L483)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L485)
 
 <a id="api-sig-165e0a75a6df314d"></a>
 ### `useSearchState`
@@ -12924,12 +13991,12 @@ Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx
 
 Source: [packages/pocket_ui/src/display.ts](../packages/pocket_ui/src/display.ts#L415)
 
-<a id="api-sig-5c9014daa5f42a99"></a>
+<a id="api-sig-14bd218a862e3103"></a>
 ### `useUiSkin`
 
 **Function** `useUiSkin(): UiSkinContextValue`
 
-Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L888)
+Source: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx#L889)
 
 <a id="api-sig-461102610a1071a0"></a>
 ### `useWindowSizeClass`
@@ -13043,12 +14110,12 @@ Members:
 
 Source: [packages/pocket_ui/src/media.ts](../packages/pocket_ui/src/media.ts#L16)
 
-<a id="api-sig-ffc4de8852c3cbcf"></a>
+<a id="api-sig-492792b9b9c038ed"></a>
 ### `ViewText`
 
 **Function** `ViewText(props: { title: string; body: string }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2524)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2526)
 
 <a id="api-sig-711be6f7bc3a021d"></a>
 ### `VirtualListHandle` (re-export alias of `unknown`)
@@ -16711,78 +17778,78 @@ Signatures:
 Entry: [packages/pocket_ui/src/skins.tsx](../packages/pocket_ui/src/skins.tsx)
 
 Exports:
-- `defaultSkinAdapter` — [signature](#api-sig-94b9654ab6347d10)
-- `getUiSkin` — [signature](#api-sig-a2b038efc0b1db81)
-- `listUiSkins` — [signature](#api-sig-93d41938ce4e21bd)
-- `NamedUiSkinAccent` — [signature](#api-sig-41e26e964ab5210f)
-- `registerUiSkin` — [signature](#api-sig-516d553987b56c68)
-- `resolveDefaultSkinTokens` — [signature](#api-sig-ed54fe54ee4fb2ed)
-- `SkinAccordion` — [signature](#api-sig-188e802be601cf6c)
-- `SkinAccordionProps` — [signature](#api-sig-9ed48ab8acf043e1)
-- `SkinAlert` — [signature](#api-sig-bb327f812590b5bc)
-- `SkinAlertProps` — [signature](#api-sig-d84d9446793764f7)
-- `SkinAppBar` — [signature](#api-sig-1bf6f45db9ede770)
-- `SkinAppBarProps` — [signature](#api-sig-f41b5997da52d4f4)
-- `SkinBackdrop` — [signature](#api-sig-5a088d7647acec4d)
-- `SkinBackdropProps` — [signature](#api-sig-9718e2521a3456b6)
-- `SkinBadge` — [signature](#api-sig-e88eaaa15626e427)
-- `SkinBadgeProps` — [signature](#api-sig-82e589bbbd2c0664)
-- `SkinButton` — [signature](#api-sig-2ba8f93e77eca95b)
-- `SkinButtonProps` — [signature](#api-sig-44e44a89f6cca2a4)
-- `SkinCard` — [signature](#api-sig-b413b9f2f76c8058)
-- `SkinCardProps` — [signature](#api-sig-08274c069a98bd6d)
-- `SkinCheckbox` — [signature](#api-sig-e585af9a8a3d885a)
-- `SkinCheckboxProps` — [signature](#api-sig-636a68ba5e530200)
-- `SkinDialog` — [signature](#api-sig-dad8c0b539b2a519)
-- `SkinDialogProps` — [signature](#api-sig-3750554f79de7a42)
-- `SkinEmptyState` — [signature](#api-sig-beef3bfd2f4e9114)
-- `SkinEmptyStateProps` — [signature](#api-sig-3516f3342370deaf)
-- `SkinInput` — [signature](#api-sig-13aa57c3372d2ddd)
-- `SkinInputProps` — [signature](#api-sig-3cb50726a4a6dfa6)
-- `SkinListTile` — [signature](#api-sig-2156103c91a61e86)
-- `SkinListTileProps` — [signature](#api-sig-c4764aa38c0061fe)
-- `SkinMetric` — [signature](#api-sig-de01e8c99f5229a8)
-- `SkinMetricProps` — [signature](#api-sig-54cfdde15042aa18)
-- `SkinNavigationBar` — [signature](#api-sig-6c7fd11fef62d170)
-- `SkinNavigationBarProps` — [signature](#api-sig-e8d5590d52f3c606)
-- `SkinParagraph` — [signature](#api-sig-794e1a0a3028e95d)
-- `SkinParagraphProps` — [signature](#api-sig-57a8ca7bdc0765aa)
-- `SkinProgress` — [signature](#api-sig-b991db1dc88845e2)
-- `SkinProgressProps` — [signature](#api-sig-0a4282d75e90508d)
-- `SkinRadioGroup` — [signature](#api-sig-04c32dd4ea4dedd6)
-- `SkinRadioGroupProps` — [signature](#api-sig-02eae8f96633da9a)
-- `SkinRadioItem` — [signature](#api-sig-f096346f8ef44af4)
-- `SkinScaffold` — [signature](#api-sig-d65718adad4cd9f4)
-- `SkinScaffoldProps` — [signature](#api-sig-77258d1759c0fed8)
-- `SkinSegmentedControl` — [signature](#api-sig-27328841e268cc42)
-- `SkinSegmentedControlProps` — [signature](#api-sig-0c74b1b712ba1dfe)
-- `SkinSegmentedItem` — [signature](#api-sig-4d5b89374584b0f4)
-- `SkinSheet` — [signature](#api-sig-a63f4de76c2ba19c)
-- `SkinSheetAction` — [signature](#api-sig-08b4f8649477b080)
-- `SkinSheetProps` — [signature](#api-sig-192408dcd7d3ca37)
-- `SkinSlot` — [signature](#api-sig-ae34a7b5ec308029)
-- `SkinStepper` — [signature](#api-sig-dbe6f1171001e4ce)
-- `SkinStepperProps` — [signature](#api-sig-db2494d979dd327a)
-- `SkinSwitch` — [signature](#api-sig-6f12efc2e2710a9a)
-- `SkinSwitcherBar` — [signature](#api-sig-967f2126763fa21a)
-- `SkinSwitchProps` — [signature](#api-sig-a3cf6facc30bd61d)
-- `SkinTabs` — [signature](#api-sig-9708d2ffb8f0e91f)
-- `SkinToast` — [signature](#api-sig-a6bb1729b1dc03b1)
-- `SkinToastProps` — [signature](#api-sig-2feab23cdc934de8)
+- `defaultSkinAdapter` — [signature](#api-sig-84a6201f4ea6376d)
+- `getUiSkin` — [signature](#api-sig-e25fcb769123e01f)
+- `listUiSkins` — [signature](#api-sig-09ce662669ecdea1)
+- `NamedUiSkinAccent` — [signature](#api-sig-815931fba8583a8a)
+- `registerUiSkin` — [signature](#api-sig-fb4ddee72aa304a1)
+- `resolveDefaultSkinTokens` — [signature](#api-sig-8d75a86ca854a296)
+- `SkinAccordion` — [signature](#api-sig-0d134aa3d30e0669)
+- `SkinAccordionProps` — [signature](#api-sig-bc22c8ac20dae155)
+- `SkinAlert` — [signature](#api-sig-4f9c43cbd4e99289)
+- `SkinAlertProps` — [signature](#api-sig-3c1ffb6093607d26)
+- `SkinAppBar` — [signature](#api-sig-787f701bd7891bba)
+- `SkinAppBarProps` — [signature](#api-sig-6318ba0914bff380)
+- `SkinBackdrop` — [signature](#api-sig-efdcbeb06e1d8260)
+- `SkinBackdropProps` — [signature](#api-sig-94c542154f6119e9)
+- `SkinBadge` — [signature](#api-sig-678b3433c6b4c578)
+- `SkinBadgeProps` — [signature](#api-sig-6aa2f571da310fca)
+- `SkinButton` — [signature](#api-sig-826d42dfcbcda51f)
+- `SkinButtonProps` — [signature](#api-sig-f3acab6b45538b8a)
+- `SkinCard` — [signature](#api-sig-bb9c208a0397a7e5)
+- `SkinCardProps` — [signature](#api-sig-398e5327410dc128)
+- `SkinCheckbox` — [signature](#api-sig-cc786c5dace98356)
+- `SkinCheckboxProps` — [signature](#api-sig-901628a9f1560b98)
+- `SkinDialog` — [signature](#api-sig-b9a37b59e1a55b7c)
+- `SkinDialogProps` — [signature](#api-sig-1ebd5e96b36473b8)
+- `SkinEmptyState` — [signature](#api-sig-e30c81d56cd6e273)
+- `SkinEmptyStateProps` — [signature](#api-sig-1300f6f55020d215)
+- `SkinInput` — [signature](#api-sig-115b4f017e378906)
+- `SkinInputProps` — [signature](#api-sig-2057a41991d5d4a8)
+- `SkinListTile` — [signature](#api-sig-12d44599eda96bde)
+- `SkinListTileProps` — [signature](#api-sig-ec5947dc63c3f880)
+- `SkinMetric` — [signature](#api-sig-a5dcba3e35ddc2bc)
+- `SkinMetricProps` — [signature](#api-sig-46428b8ba26e66b4)
+- `SkinNavigationBar` — [signature](#api-sig-5268670b3c787513)
+- `SkinNavigationBarProps` — [signature](#api-sig-ad8d0a34d6e0bfd1)
+- `SkinParagraph` — [signature](#api-sig-862b9f0a7b304944)
+- `SkinParagraphProps` — [signature](#api-sig-298d8e8b13480058)
+- `SkinProgress` — [signature](#api-sig-218a793067a1f90d)
+- `SkinProgressProps` — [signature](#api-sig-b4887027b1326bb0)
+- `SkinRadioGroup` — [signature](#api-sig-d3791a563b85053f)
+- `SkinRadioGroupProps` — [signature](#api-sig-e2bc9fe5577d6f60)
+- `SkinRadioItem` — [signature](#api-sig-56156bbbfe213e9a)
+- `SkinScaffold` — [signature](#api-sig-f93bfaf58bc7d9a6)
+- `SkinScaffoldProps` — [signature](#api-sig-85b83a3a50c1a764)
+- `SkinSegmentedControl` — [signature](#api-sig-f3525bb2cbc3d841)
+- `SkinSegmentedControlProps` — [signature](#api-sig-bbae1838dbd9be69)
+- `SkinSegmentedItem` — [signature](#api-sig-f579c245ae76fc8f)
+- `SkinSheet` — [signature](#api-sig-29b19958e0deb993)
+- `SkinSheetAction` — [signature](#api-sig-bc308cab7db28640)
+- `SkinSheetProps` — [signature](#api-sig-a8a9ced9fbcdbbbc)
+- `SkinSlot` — [signature](#api-sig-f2696daeeadbcdc9)
+- `SkinStepper` — [signature](#api-sig-848fcab52c481d2b)
+- `SkinStepperProps` — [signature](#api-sig-54893455be007468)
+- `SkinSwitch` — [signature](#api-sig-6e6587a5bcebc65f)
+- `SkinSwitcherBar` — [signature](#api-sig-0c109542a57f6d17)
+- `SkinSwitchProps` — [signature](#api-sig-99fe051faec695b7)
+- `SkinTabs` — [signature](#api-sig-1f0808850504d029)
+- `SkinToast` — [signature](#api-sig-96f86725e8791986)
+- `SkinToastProps` — [signature](#api-sig-cee97496c8d929db)
 - `toMobileColor` — [signature](#api-sig-c55e6b808c846047)
-- `UiSkinAccent` — [signature](#api-sig-9bac3ef03473d1c2)
-- `UiSkinAdapter` — [signature](#api-sig-bcb307831a0ce94f)
-- `UiSkinButtonVariant` — [signature](#api-sig-c098277e7a3c84d5)
-- `UiSkinContextValue` — [signature](#api-sig-f36be29eb004426a)
+- `UiSkinAccent` — [signature](#api-sig-af19f3d879249a08)
+- `UiSkinAdapter` — [signature](#api-sig-a2ade8a880a3ed33)
+- `UiSkinButtonVariant` — [signature](#api-sig-720523cf9d26311b)
+- `UiSkinContextValue` — [signature](#api-sig-29bd70bf04460439)
 - `UiSkinId` — [signature](#api-sig-e259d07a728e8cbe)
-- `UiSkinKit` — [signature](#api-sig-c8fc9f699a5170fb)
-- `UiSkinProvider` — [signature](#api-sig-3d5fc4c19f225f25)
-- `UiSkinProviderSlotProps` — [signature](#api-sig-cb683b88ed480f83)
-- `UiSkinSurfaceVariant` — [signature](#api-sig-17f3aa7d4b98aa53)
-- `UiSkinThemeMode` — [signature](#api-sig-99e15004087843b6)
-- `UiSkinTokens` — [signature](#api-sig-a6ab6d60b35587ec)
-- `UiSkinTone` — [signature](#api-sig-e0936a3276f0e717)
-- `useUiSkin` — [signature](#api-sig-5c9014daa5f42a99)
+- `UiSkinKit` — [signature](#api-sig-3fa8bb6efee27e6c)
+- `UiSkinProvider` — [signature](#api-sig-fd3614becabd6310)
+- `UiSkinProviderSlotProps` — [signature](#api-sig-c10c253cc5f1ea98)
+- `UiSkinSurfaceVariant` — [signature](#api-sig-cdbed56577044f61)
+- `UiSkinThemeMode` — [signature](#api-sig-e66452b5535a6945)
+- `UiSkinTokens` — [signature](#api-sig-74323762b6191d68)
+- `UiSkinTone` — [signature](#api-sig-167bb7f4ba6cd334)
+- `useUiSkin` — [signature](#api-sig-14bd218a862e3103)
 
 Signatures:
 
@@ -17282,24 +18349,29 @@ Exports:
 - `createWidgetSnapshotStore` — [signature](#api-sig-6367af3e0b2f6146)
 - `DEFAULT_SURFACE_ENVIRONMENT` — [signature](#api-sig-f45bbef85753808e)
 - `deriveSurfaceFormFactor` — [signature](#api-sig-84bc5292e6740fe2)
+- `drainPendingWidgetActions` — [signature](#api-sig-5caada40c602ee3e)
 - `ECOSYSTEM_SURFACE_PROFILES` — [signature](#api-sig-94afeb17e52b4065)
-- `EcosystemAdaptiveShell` — [signature](#api-sig-0c3da47a60951561)
-- `EcosystemAdaptiveShellProps` — [signature](#api-sig-c56d31db7c0edffc)
+- `EcosystemAdaptiveShell` — [signature](#api-sig-2e703dfaf91440ee)
+- `EcosystemAdaptiveShellProps` — [signature](#api-sig-1cab5e0f5ae64325)
 - `EcosystemFormFactor` — [signature](#api-sig-5b4bbcaca5c1b9f5)
 - `EcosystemId` — [signature](#api-sig-66f231ae87731c74)
 - `EcosystemSurfaceProfile` — [signature](#api-sig-beb35aebec676e14)
+- `endLiveActivity` — [signature](#api-sig-11720e125d9ee8ed)
 - `getSurfaceProfile` — [signature](#api-sig-8f05bb5f192764d1)
 - `inscribedRoundInset` — [signature](#api-sig-1a600d683769bedc)
 - `listSurfaceProfiles` — [signature](#api-sig-f170e6fddabbd4f2)
-- `LiveActivityBanner` — [signature](#api-sig-8ba6b838be04426a)
-- `LiveActivityBannerProps` — [signature](#api-sig-a5f1d66020ccaf4d)
-- `LockAccessoryWidget` — [signature](#api-sig-6576143ebdf1f5c4)
-- `LockAccessoryWidgetProps` — [signature](#api-sig-700466cbf951bff0)
+- `LiveActivityBanner` — [signature](#api-sig-8ed4df52a7a426cb)
+- `LiveActivityBannerProps` — [signature](#api-sig-53447d3ad7d47fde)
+- `LiveActivityUpsertPayload` — [signature](#api-sig-9bf085b68856204e)
+- `LockAccessoryWidget` — [signature](#api-sig-03db93ae16462c6a)
+- `LockAccessoryWidgetProps` — [signature](#api-sig-3df642b6c3600a97)
 - `MAX_WIDGET_HOTSPOTS` — [signature](#api-sig-a76e4f143de6eda8)
 - `parseSurfaceEnvironment` — [signature](#api-sig-099c471ea9fa0c5b)
-- `publishWidgetSnapshot` — [signature](#api-sig-6f85c6296849b9b0)
+- `publishWidgetSnapshot` — [signature](#api-sig-280ccc255d56484e)
+- `QueuedWidgetActionEvent` — [signature](#api-sig-95c2b3d04bf9f236)
 - `ResolvedSurfacePalette` — [signature](#api-sig-f4998d5ba7cd6654)
 - `resolveSurfacePalette` — [signature](#api-sig-5a8a09667f301590)
+- `RichWidgetSnapshotPayload` — [signature](#api-sig-8a24fb053575864b)
 - `SURFACE_CONTEXT_EVENT` — [signature](#api-sig-0622a77af4861584)
 - `SurfaceCatalogGroup` — [signature](#api-sig-218793e59614423e)
 - `SurfaceEnvironment` — [signature](#api-sig-9bfb8b6be61ed84e)
@@ -17316,29 +18388,30 @@ Exports:
 - `SurfaceShellSpec` — [signature](#api-sig-01085e4a65d3e056)
 - `SurfaceShellVariant` — [signature](#api-sig-b1c3c784a5fe3c05)
 - `SurfaceWallpaperBackdrop` — [signature](#api-sig-1aa06a01bd67d821)
-- `TodayWidgetAction` — [signature](#api-sig-419af50ebcf57e0f)
-- `TodayWidgetCard` — [signature](#api-sig-5b5a6fc19ed9b51b)
-- `TodayWidgetCardProps` — [signature](#api-sig-2937e928791a5491)
-- `TodayWidgetMetric` — [signature](#api-sig-7681886985b9bdf6)
+- `TodayWidgetAction` — [signature](#api-sig-35e4c562cf2a2144)
+- `TodayWidgetCard` — [signature](#api-sig-22c8b437000966ce)
+- `TodayWidgetCardProps` — [signature](#api-sig-4fa101a5583afc78)
+- `TodayWidgetMetric` — [signature](#api-sig-532dbd1e7fc13ea0)
+- `upsertLiveActivity` — [signature](#api-sig-4d5dc6e89e05273a)
 - `useSurfaceEnvironment` — [signature](#api-sig-e878b4272069e425)
-- `useWidgetSnapshots` — [signature](#api-sig-b26b2b6c7b991ed7)
-- `WearTileSurface` — [signature](#api-sig-39eba3c8e4304607)
-- `WearTileSurfaceProps` — [signature](#api-sig-33a417ad05d9ebfb)
+- `useWidgetSnapshots` — [signature](#api-sig-4f2801f31fda2e55)
+- `WearTileSurface` — [signature](#api-sig-9cceb6e871410bcb)
+- `WearTileSurfaceProps` — [signature](#api-sig-22b3b613640fecca)
 - `WIDGET_ACTION_EVENT` — [signature](#api-sig-c7f16ea315440152)
 - `WIDGET_SNAPSHOT_EVENT` — [signature](#api-sig-449d505dc3268eaa)
-- `WidgetActionLink` — [signature](#api-sig-db45a1f2b5286935)
-- `WidgetActionLinkProps` — [signature](#api-sig-0ac5891de23b0f51)
+- `WidgetActionLink` — [signature](#api-sig-444487a24ca1e511)
+- `WidgetActionLinkProps` — [signature](#api-sig-b88eb95cc591eafa)
 - `WidgetHotspot` — [signature](#api-sig-89d8c074eaca1153)
 - `WidgetHotspotRect` — [signature](#api-sig-a43a438af911a8c6)
 - `WidgetHotspotRegistration` — [signature](#api-sig-f91f66a2e72e22dc)
 - `WidgetSnapshotBridge` — [signature](#api-sig-19876ab894a714ee)
 - `WidgetSnapshotManifest` — [signature](#api-sig-d12dfa573d3861b3)
-- `WidgetSnapshotProvider` — [signature](#api-sig-16d43ec0c3755942)
-- `WidgetSnapshotProviderProps` — [signature](#api-sig-f018f6207d5c57ac)
+- `WidgetSnapshotProvider` — [signature](#api-sig-54cbb1f75a5946eb)
+- `WidgetSnapshotProviderProps` — [signature](#api-sig-9f5c3f33f7cc7f73)
 - `WidgetSnapshotStore` — [signature](#api-sig-45987c6d0f5b37c0)
 - `WidgetSnapshotStoreOptions` — [signature](#api-sig-12b89f0270b4fd53)
-- `WidgetSurface` — [signature](#api-sig-33b000bada0cc756)
-- `WidgetSurfaceProps` — [signature](#api-sig-3e74f57df48e3b3b)
+- `WidgetSurface` — [signature](#api-sig-83f8f8045676e5aa)
+- `WidgetSurfaceProps` — [signature](#api-sig-96c820a2887a0fe9)
 
 Signatures:
 <a id="api-sig-f708defacc0dd93d"></a>
@@ -17355,14 +18428,21 @@ Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces
 
 Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L440)
 
-<a id="api-sig-0c3da47a60951561"></a>
+<a id="api-sig-5caada40c602ee3e"></a>
+### `drainPendingWidgetActions`
+
+**Function** `drainPendingWidgetActions(host: Pick<HostBridge, "request">): Promise<readonly QueuedWidgetActionEvent[]>`
+
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L729)
+
+<a id="api-sig-2e703dfaf91440ee"></a>
 ### `EcosystemAdaptiveShell`
 
 **Function** `EcosystemAdaptiveShell(props: EcosystemAdaptiveShellProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1351)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1432)
 
-<a id="api-sig-c56d31db7c0edffc"></a>
+<a id="api-sig-1cab5e0f5ae64325"></a>
 ### `EcosystemAdaptiveShellProps`
 
 **Interface** `EcosystemAdaptiveShellProps`
@@ -17375,16 +18455,23 @@ Members:
 - `readonly renderWatch?: (env: SurfaceEnvironment) => JSX.Element`
 - `readonly secondaryPane?: JSX.Element | (() => JSX.Element)`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1332)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1413)
 
-<a id="api-sig-8ba6b838be04426a"></a>
+<a id="api-sig-11720e125d9ee8ed"></a>
+### `endLiveActivity`
+
+**Function** `endLiveActivity(host: Pick<HostBridge, "request">, activityId?: string): Promise<BridgeObject>`
+
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L719)
+
+<a id="api-sig-8ed4df52a7a426cb"></a>
 ### `LiveActivityBanner`
 
 **Function** `LiveActivityBanner(props: LiveActivityBannerProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1076)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1157)
 
-<a id="api-sig-a5f1d66020ccaf4d"></a>
+<a id="api-sig-53447d3ad7d47fde"></a>
 ### `LiveActivityBannerProps`
 
 **Interface** `LiveActivityBannerProps`
@@ -17401,16 +18488,35 @@ Members:
 - `readonly title: string`
 - `readonly trailingMetric: string`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1057)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1138)
 
-<a id="api-sig-6576143ebdf1f5c4"></a>
+<a id="api-sig-9bf085b68856204e"></a>
+### `LiveActivityUpsertPayload`
+
+**Interface** `LiveActivityUpsertPayload`
+
+Members:
+- `readonly activityId?: string`
+- `readonly leadingBadge?: string`
+- `readonly primaryActionLabel?: string`
+- `readonly primaryHref?: string`
+- `readonly progress?: number`
+- `readonly secondaryActionLabel?: string`
+- `readonly secondaryHref?: string`
+- `readonly subtitle?: string`
+- `readonly title: string`
+- `readonly trailingMetric?: string`
+
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L657)
+
+<a id="api-sig-03db93ae16462c6a"></a>
 ### `LockAccessoryWidget`
 
 **Function** `LockAccessoryWidget(props: LockAccessoryWidgetProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L969)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1050)
 
-<a id="api-sig-700466cbf951bff0"></a>
+<a id="api-sig-3df642b6c3600a97"></a>
 ### `LockAccessoryWidgetProps`
 
 **Interface** `LockAccessoryWidgetProps`
@@ -17425,14 +18531,27 @@ Members:
 - `readonly shortValue: string`
 - `readonly title: string`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L954)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1035)
 
-<a id="api-sig-6f85c6296849b9b0"></a>
+<a id="api-sig-280ccc255d56484e"></a>
 ### `publishWidgetSnapshot`
 
-**Function** `publishWidgetSnapshot(host: Pick<HostBridge, "request">, manifest: WidgetSnapshotManifest): Promise<BridgeObject>`
+**Function** `publishWidgetSnapshot(host: Pick<HostBridge, "request">, manifest: RichWidgetSnapshotPayload): Promise<BridgeObject>`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L641)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L677)
+
+<a id="api-sig-95c2b3d04bf9f236"></a>
+### `QueuedWidgetActionEvent`
+
+**Interface** `QueuedWidgetActionEvent`
+
+Members:
+- `readonly href: string`
+- `readonly id: string`
+- `readonly source?: string`
+- `readonly timestampMs?: number`
+
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L670)
 
 <a id="api-sig-f4998d5ba7cd6654"></a>
 ### `ResolvedSurfacePalette`
@@ -17461,6 +18580,28 @@ Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces
 **Function** `resolveSurfacePalette(tokens: UiSkinTokens, renderMode: SurfaceRenderMode): ResolvedSurfacePalette`
 
 Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L182)
+
+<a id="api-sig-8a24fb053575864b"></a>
+### `RichWidgetSnapshotPayload`
+
+**Interface** `RichWidgetSnapshotPayload`
+
+Members:
+- `readonly actions?: readonly TodayWidgetAction[]`
+- `readonly badge?: string`
+- `readonly eyebrow?: string`
+- `readonly generation?: number`
+- `readonly hotspots?: readonly WidgetHotspot[]`
+- `readonly metrics?: readonly TodayWidgetMetric[]`
+- `readonly primaryHref?: string`
+- `readonly primaryValue?: string`
+- `readonly profileId?: string`
+- `readonly progress?: number`
+- `readonly renderMode?: SurfaceRenderMode`
+- `readonly subtitle?: string`
+- `readonly title?: string`
+
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L641)
 
 <a id="api-sig-e4750357207288cc"></a>
 ### `SurfaceEnvironmentOptions`
@@ -17495,7 +18636,7 @@ Members:
 
 Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L150)
 
-<a id="api-sig-419af50ebcf57e0f"></a>
+<a id="api-sig-35e4c562cf2a2144"></a>
 ### `TodayWidgetAction`
 
 **Interface** `TodayWidgetAction`
@@ -17505,16 +18646,16 @@ Members:
 - `readonly id: string`
 - `readonly label: string`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L806)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L887)
 
-<a id="api-sig-5b5a6fc19ed9b51b"></a>
+<a id="api-sig-22c8b437000966ce"></a>
 ### `TodayWidgetCard`
 
 **Function** `TodayWidgetCard(props: TodayWidgetCardProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L829)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L910)
 
-<a id="api-sig-2937e928791a5491"></a>
+<a id="api-sig-4fa101a5583afc78"></a>
 ### `TodayWidgetCardProps`
 
 **Interface** `TodayWidgetCardProps`
@@ -17531,9 +18672,9 @@ Members:
 - `readonly subtitle: string`
 - `readonly title: string`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L812)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L893)
 
-<a id="api-sig-7681886985b9bdf6"></a>
+<a id="api-sig-532dbd1e7fc13ea0"></a>
 ### `TodayWidgetMetric`
 
 **Interface** `TodayWidgetMetric`
@@ -17544,7 +18685,14 @@ Members:
 - `readonly label: string`
 - `readonly value: string`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L799)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L880)
+
+<a id="api-sig-4d5dc6e89e05273a"></a>
+### `upsertLiveActivity`
+
+**Function** `upsertLiveActivity(host: Pick<HostBridge, "request">, payload: LiveActivityUpsertPayload): Promise<BridgeObject>`
+
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L709)
 
 <a id="api-sig-e878b4272069e425"></a>
 ### `useSurfaceEnvironment`
@@ -17553,21 +18701,21 @@ Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces
 
 Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L169)
 
-<a id="api-sig-b26b2b6c7b991ed7"></a>
+<a id="api-sig-4f2801f31fda2e55"></a>
 ### `useWidgetSnapshots`
 
 **Function** `useWidgetSnapshots(): WidgetSnapshotStore | undefined`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L692)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L773)
 
-<a id="api-sig-39eba3c8e4304607"></a>
+<a id="api-sig-9cceb6e871410bcb"></a>
 ### `WearTileSurface`
 
 **Function** `WearTileSurface(props: WearTileSurfaceProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1278)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1359)
 
-<a id="api-sig-33a417ad05d9ebfb"></a>
+<a id="api-sig-22b3b613640fecca"></a>
 ### `WearTileSurfaceProps`
 
 **Interface** `WearTileSurfaceProps`
@@ -17581,16 +18729,16 @@ Members:
 - `readonly onAction?: (href: string) => void`
 - `readonly unit: string`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1264)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L1345)
 
-<a id="api-sig-db45a1f2b5286935"></a>
+<a id="api-sig-444487a24ca1e511"></a>
 ### `WidgetActionLink`
 
 **Function** `WidgetActionLink(props: WidgetActionLinkProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L718)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L799)
 
-<a id="api-sig-0ac5891de23b0f51"></a>
+<a id="api-sig-b88eb95cc591eafa"></a>
 ### `WidgetActionLinkProps`
 
 **Interface** `WidgetActionLinkProps`
@@ -17606,7 +18754,7 @@ Members:
 - `readonly role?: "link" | "button"`
 - `readonly style?: Record<string, unknown>`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L698)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L779)
 
 <a id="api-sig-89d8c074eaca1153"></a>
 ### `WidgetHotspot`
@@ -17675,14 +18823,14 @@ Members:
 
 Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L268)
 
-<a id="api-sig-16d43ec0c3755942"></a>
+<a id="api-sig-54cbb1f75a5946eb"></a>
 ### `WidgetSnapshotProvider`
 
 **Function** `WidgetSnapshotProvider(props: WidgetSnapshotProviderProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L667)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L748)
 
-<a id="api-sig-f018f6207d5c57ac"></a>
+<a id="api-sig-9f5c3f33f7cc7f73"></a>
 ### `WidgetSnapshotProviderProps`
 
 **Interface** `WidgetSnapshotProviderProps`
@@ -17694,7 +18842,7 @@ Members:
 - `readonly maxHotspots?: number`
 - `readonly store?: WidgetSnapshotStore`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L662)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L743)
 
 <a id="api-sig-45987c6d0f5b37c0"></a>
 ### `WidgetSnapshotStore`
@@ -17724,14 +18872,14 @@ Members:
 
 Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L434)
 
-<a id="api-sig-33b000bada0cc756"></a>
+<a id="api-sig-83f8f8045676e5aa"></a>
 ### `WidgetSurface`
 
 **Function** `WidgetSurface(props: WidgetSurfaceProps): JSX.Element`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L765)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L846)
 
-<a id="api-sig-3e74f57df48e3b3b"></a>
+<a id="api-sig-96c820a2887a0fe9"></a>
 ### `WidgetSurfaceProps`
 
 **Interface** `WidgetSurfaceProps`
@@ -17745,7 +18893,7 @@ Members:
 - `readonly roundSafe?: boolean`
 - `readonly style?: Record<string, unknown>`
 
-Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L755)
+Source: [packages/pocket_ui/src/surfaces.tsx](../packages/pocket_ui/src/surfaces.tsx#L836)
 
 
 ### Import `@pocket/ui/system`
@@ -18165,21 +19313,21 @@ Entry: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx)
 
 Exports:
 - `Accordion` — [signature](#api-sig-cb9db8bc1482ee81)
-- `ActionButton` — [signature](#api-sig-fa1fdafa730205ee)
-- `ActionButtonProps` — [signature](#api-sig-9e7a6f19ec7f975b)
+- `ActionButton` — [signature](#api-sig-76642dc0ba11b6a2)
+- `ActionButtonProps` — [signature](#api-sig-fd66b20f3791d1de)
 - `ActionSheet` — [signature](#api-sig-e8c0b088f5060b16)
 - `Alert` — [signature](#api-sig-586a5a03852c6b55)
 - `AlertDialog` — [signature](#api-sig-0e6ec3fc0251d1e4)
 - `AppBar` — [signature](#api-sig-e899e875055d1551)
 - `AspectRatio` — [signature](#api-sig-131d6f037b220851)
 - `Avatar` — [signature](#api-sig-87ad56c2636546c4)
-- `Badge` — [signature](#api-sig-225d9b5acf4917f3)
-- `BottomNavigationBar` — [signature](#api-sig-0e31b55c16fd7470)
+- `Badge` — [signature](#api-sig-267613c99038b382)
+- `BottomNavigationBar` — [signature](#api-sig-d7a77937a7a904b0)
 - `Breadcrumb` — [signature](#api-sig-a73cafe08d51c734)
-- `Button` — [signature](#api-sig-77b939f32da8ed24)
+- `Button` — [signature](#api-sig-d86fa6c9d7b9d30e)
 - `ButtonGroup` — [signature](#api-sig-a15b90c26b2b2fd2)
 - `Calendar` — [signature](#api-sig-e7be3f989fe6b67b)
-- `Card` — [signature](#api-sig-8bd23723161c69a9)
+- `Card` — [signature](#api-sig-bbf3faf83efc899c)
 - `CardContent` — [signature](#api-sig-6785e90789caab78)
 - `CardDescription` — [signature](#api-sig-db3e6eea387a6e91)
 - `CardFooter` — [signature](#api-sig-732c93c2b37467eb)
@@ -18191,45 +19339,45 @@ Exports:
 - `Collapsible` — [signature](#api-sig-887c78cbd4eef032)
 - `Combobox` — [signature](#api-sig-ba53bbf7df339e80)
 - `Command` — [signature](#api-sig-d043a9359e72bb40)
-- `CommittedNodeRect` — [signature](#api-sig-2e76a085d1684c55)
+- `CommittedNodeRect` — [signature](#api-sig-fa6475b0af1c7d73)
 - `ContextMenu` — [signature](#api-sig-d5b475606b4fe916)
 - `ContourConsumedContext` — [signature](#api-sig-397a579f22f66316)
 - `createMobileTheme` — [signature](#api-sig-381963abf331bcdd)
 - `DataTable` — [signature](#api-sig-917ef7284d02aaa2)
 - `DatePicker` — [signature](#api-sig-a3ff23c6c5e9b5ad)
-- `deliverTextInputEvent` — [signature](#api-sig-9006563614651ae2)
+- `deliverTextInputEvent` — [signature](#api-sig-34d230f154f3a0d6)
 - `DesignDensityProvider` — [signature](#api-sig-7b8929a5f3c474a8)
-- `DesktopScrollPage` — [signature](#api-sig-6e987e9acf9793b7)
-- `DetailModal` — [signature](#api-sig-e035c490058db213)
+- `DesktopScrollPage` — [signature](#api-sig-bedb7f7460befd03)
+- `DetailModal` — [signature](#api-sig-d02d1701ac6d7bed)
 - `Dialog` — [signature](#api-sig-d40a91a8bbaef99a)
 - `Drawer` — [signature](#api-sig-ebd01216589ed0b2)
 - `DropdownMenu` — [signature](#api-sig-ddae509f0a50c65a)
 - `ElevatedButton` — [signature](#api-sig-9469f5952ea2ae13)
 - `Empty` — [signature](#api-sig-da0877c690d87fed)
-- `EmptyState` — [signature](#api-sig-f557b3f1ef788f3d)
+- `EmptyState` — [signature](#api-sig-e0496307c7fe5660)
 - `FilledButton` — [signature](#api-sig-8facdb9660440bf6)
 - `FormField` — [signature](#api-sig-0996cb4e8be98bab)
-- `getActiveTextInputSession` — [signature](#api-sig-0e36cb7c59d446a9)
+- `getActiveTextInputSession` — [signature](#api-sig-320249ad7b897c5a)
 - `GlassSurface` — [signature](#api-sig-72921e15e4719d07)
-- `Header` — [signature](#api-sig-8fef05555b31440f)
-- `HeaderProps` — [signature](#api-sig-76e13b7f107f42db)
+- `Header` — [signature](#api-sig-d540fd6b7749ddf0)
+- `HeaderProps` — [signature](#api-sig-6649d1f3a7dbe007)
 - `HoverCard` — [signature](#api-sig-5054b027f87b12ae)
 - `inferFontSlotFromClass` — [signature](#api-sig-2fa10c97b3c669a5)
-- `InputField` — [signature](#api-sig-950d1ad3b4c8385a)
-- `InputFieldAppearance` — [signature](#api-sig-ade460d3d5d913e0)
-- `InputFieldColor` — [signature](#api-sig-7c1923e2f5147f9a)
+- `InputField` — [signature](#api-sig-e40a289052f8e9c8)
+- `InputFieldAppearance` — [signature](#api-sig-61d01bd5fae091aa)
+- `InputFieldColor` — [signature](#api-sig-e0ed6aa00f40f006)
 - `InputGroup` — [signature](#api-sig-9af0dffc47a8c131)
 - `InputOTP` — [signature](#api-sig-9e0a08b3d07f997c)
 - `Item` — [signature](#api-sig-90d5cf4e982c6fbd)
 - `Kbd` — [signature](#api-sig-5c3558584a185cd3)
 - `Label` — [signature](#api-sig-f6bfe0bb60e3c27b)
-- `List` — [signature](#api-sig-d464e86d7e8d18b0)
-- `ListItem` — [signature](#api-sig-70c507f8b2782a13)
+- `List` — [signature](#api-sig-da97d6cc32f7e92f)
+- `ListItem` — [signature](#api-sig-9d0cd2122ac536d9)
 - `ListTile` — [signature](#api-sig-96c61ec56461747d)
 - `Menubar` — [signature](#api-sig-e38c15586f929e93)
-- `MetricCard` — [signature](#api-sig-ae0693e6a6320b2d)
+- `MetricCard` — [signature](#api-sig-6cd253e7426da6e3)
 - `MINI_APP_HOST_ACTION_RESERVE` — [signature](#api-sig-35c0c899f80f4d4b)
-- `MiniBarChart` — [signature](#api-sig-a606e89e9e94b797)
+- `MiniBarChart` — [signature](#api-sig-553971b1fde743b9)
 - `MOBILE_MOTION` — [signature](#api-sig-3c7c8def5a48b599)
 - `MOBILE_THEME_DARK` — [signature](#api-sig-4dd6c1894d25a845)
 - `MOBILE_THEME_LIGHT` — [signature](#api-sig-796f1f05584bf5b9)
@@ -18272,24 +19420,24 @@ Exports:
 - `MobileTonalButton` — [signature](#api-sig-2434564e7f049e3a)
 - `motionEaseInOut` — [signature](#api-sig-c502a90bee6c9e54)
 - `motionEaseOut` — [signature](#api-sig-d4236ab891c736e2)
-- `NavigationBar` — [signature](#api-sig-74f01c0b78b9c0fa)
-- `NavigationBarProps` — [signature](#api-sig-bffe0c2b7bb203c2)
-- `NavigationItem` — [signature](#api-sig-e2bd2d6c7a75be86)
+- `NavigationBar` — [signature](#api-sig-43e0d5f1fb63641b)
+- `NavigationBarProps` — [signature](#api-sig-4977072bbc1cc6fb)
+- `NavigationItem` — [signature](#api-sig-a59f26db1b8a51ce)
 - `NavigationMenu` — [signature](#api-sig-c441de511ff4e4ad)
-- `NavigationRoute` — [signature](#api-sig-9f5609da9c15d7fe)
+- `NavigationRoute` — [signature](#api-sig-79bfddd0589b42c6)
 - `OutlinedButton` — [signature](#api-sig-4033c635d8c76fb9)
-- `PageIntro` — [signature](#api-sig-17856b23c7b75ba6)
+- `PageIntro` — [signature](#api-sig-25093ee9cc61a7e9)
 - `Pagination` — [signature](#api-sig-24d58f28cabba55f)
-- `parseTextInputParams` — [signature](#api-sig-27ab696726955654)
+- `parseTextInputParams` — [signature](#api-sig-5321db238b184580)
 - `PlatformTextureSurface` — [signature](#api-sig-4c07937f27a19243)
 - `Popover` — [signature](#api-sig-b3acce16cc8409fd)
 - `Popup` — [signature](#api-sig-ff8c511c2c444661)
 - `ProgressBar` — [signature](#api-sig-0f690b4e0428267a)
 - `RadioGroup` — [signature](#api-sig-fb16dc2b0eac4e10)
-- `readCommittedNodeRect` — [signature](#api-sig-a4e5d768597f2453)
-- `registerDesktopScrollPage` — [signature](#api-sig-47af34e01c4ca0e1)
+- `readCommittedNodeRect` — [signature](#api-sig-737bd43fb3567046)
+- `registerDesktopScrollPage` — [signature](#api-sig-73b60126758d7ad8)
 - `Resizable` — [signature](#api-sig-608725b8486d090f)
-- `Row` — [signature](#api-sig-a4cead477bf9dfda)
+- `Row` — [signature](#api-sig-bffa70f0ab49ff51)
 - `SafeAreaEdge` — [signature](#api-sig-d3ffc625168dabea)
 - `SafeAreaEdges` — [signature](#api-sig-32a54957dbcadef8)
 - `SafeAreaReservedActions` — [signature](#api-sig-9961f74f93132e1b)
@@ -18299,14 +19447,14 @@ Exports:
 - `SafeAreaScaffoldProps` — [signature](#api-sig-eb7699ea1f76b652)
 - `SafeAreaSlot` — [signature](#api-sig-ea9fab48c3795d18)
 - `Scaffold` — [signature](#api-sig-29f337b276bf84d0)
-- `ScrollablePage` — [signature](#api-sig-9ffb708d9c1135fa)
+- `ScrollablePage` — [signature](#api-sig-31fd117e37ac790f)
 - `ScrollablePageContext` — [signature](#api-sig-01a81c9cd06b9e6a)
 - `ScrollablePageContextValue` — [signature](#api-sig-eb16f1eff819a628)
 - `ScrollArea` — [signature](#api-sig-08e7738e2b4ba909)
-- `ScrollContourItem` — [signature](#api-sig-42c763c505ff2d8c)
-- `ScrollContourOptions` — [signature](#api-sig-f1a871e41a9115a1)
+- `ScrollContourItem` — [signature](#api-sig-cacf3841ea683cc8)
+- `ScrollContourOptions` — [signature](#api-sig-8ede20906fa0e00f)
 - `ScrollFade` — [signature](#api-sig-5f6da08f0019b816)
-- `SectionHeading` — [signature](#api-sig-58e9a7b1e2cc5800)
+- `SectionHeading` — [signature](#api-sig-c428a1c04f56f1d6)
 - `SegmentedControl` — [signature](#api-sig-1679df7442af6586)
 - `Select` — [signature](#api-sig-876289cd2f6d8b00)
 - `SemanticTone` — [signature](#api-sig-c21ff953a3af8606)
@@ -18363,18 +19511,18 @@ Exports:
 - `Slider` — [signature](#api-sig-054f31fd8a77f6ca)
 - `Sonner` — [signature](#api-sig-e0b794ee5ccde983)
 - `Spinner` — [signature](#api-sig-03a71eca0adeaf86)
-- `StatusBar` — [signature](#api-sig-9c629873f02cb804)
+- `StatusBar` — [signature](#api-sig-ddf84742eafa2137)
 - `Stepper` — [signature](#api-sig-be3e300bcde97058)
 - `Switch` — [signature](#api-sig-bcc14fa91d8b0d95)
-- `TabBar` — [signature](#api-sig-9f2036634bf06b8e)
-- `TabItem` — [signature](#api-sig-c58ee425f6a412ff)
+- `TabBar` — [signature](#api-sig-70ebc336bce213b7)
+- `TabItem` — [signature](#api-sig-e82c39ba36d4ab1c)
 - `Table` — [signature](#api-sig-783efffe4846c1b9)
-- `Tabs` — [signature](#api-sig-e7be3f5a33bd7cb2)
+- `Tabs` — [signature](#api-sig-1a1519b59f1c9aac)
 - `Tag` — [signature](#api-sig-0a2945036e1ca2f6)
 - `Textarea` — [signature](#api-sig-62bcce4b66ba609b)
 - `TextButton` — [signature](#api-sig-34aa6c5950078c3a)
-- `TextInputParams` — [signature](#api-sig-1db750ed881bdacc)
-- `TileGrid` — [signature](#api-sig-ea83629eccdffb24)
+- `TextInputParams` — [signature](#api-sig-b24efdb2fd584cb9)
+- `TileGrid` — [signature](#api-sig-ec333fa78a7d0f4b)
 - `Toast` — [signature](#api-sig-9f3ef057ce0c700f)
 - `ToggleGroup` — [signature](#api-sig-4d6fee2d6fc4d0cd)
 - `toMobileColor` — [signature](#api-sig-c55e6b808c846047)
@@ -18385,10 +19533,10 @@ Exports:
 - `useDesignDensity` — [signature](#api-sig-4e5fbce14953d8c7)
 - `useMobileTheme` — [signature](#api-sig-5fb1f25b3c660422)
 - `usePresenceTransition` — [signature](#api-sig-f62f300c3964064a)
-- `useScrollContourReserve` — [signature](#api-sig-464752fe3ad00417)
+- `useScrollContourReserve` — [signature](#api-sig-8782b85b4422c456)
 - `useStateTransition` — [signature](#api-sig-907b9bf50ae8a67f)
 - `useWindowSizeClass` — [signature](#api-sig-461102610a1071a0)
-- `ViewText` — [signature](#api-sig-ffc4de8852c3cbcf)
+- `ViewText` — [signature](#api-sig-492792b9b9c038ed)
 - `wrapTextLines` — [signature](#api-sig-78bcce299dcf8b95)
 
 Signatures:
@@ -22616,6 +23764,17 @@ The following markers cover all inventoried declaration sources and package mani
 <!-- api-source: packages/pocket_diagnostics/src/node.ts 614dd5b4292dc030770c1825c9cb8774b2b4ccc7a5a0e0f20f640b138d4e21bf -->
 <!-- api-source: packages/pocket_diagnostics/src/normalize.ts 414f83facbd203757721fc22d62820960e9e30c50bb76a31539b6c10000ded68 -->
 <!-- api-source: packages/pocket_diagnostics/src/types.ts 217d69664534ff232b0727f33d9d699e629f5136a1e173c49bc8dcd719160be6 -->
+<!-- api-source: packages/pocket_liquid_glass/package.json 3f106ec3eb8481d8795258ab2ee5edac4a96075b4d3ea52e0ed361eb5afff00c -->
+<!-- api-source: packages/pocket_liquid_glass/src/controls.tsx ac938defb32e15ecd661e3cd35eb1bece0fe0c6263d22509c12726ff9c6fc5ba -->
+<!-- api-source: packages/pocket_liquid_glass/src/governor.ts d73f2db2242ab9ff1c192974a5522a0450a5db1d97f0efd13738df20207db5e9 -->
+<!-- api-source: packages/pocket_liquid_glass/src/index.ts c247c04f3c7626b401c618f244b61d3f767850571fe6ac5d9c3d3e9675fcb6d3 -->
+<!-- api-source: packages/pocket_liquid_glass/src/kit.tsx 85ebfdd64068419d41ce7d94fa42aad9472adfe1ae7104649b6e26c20c1c97d1 -->
+<!-- api-source: packages/pocket_liquid_glass/src/menus.tsx 0d0bb1938d129d62c7add1298c13564e59aae79aba8c71e7486a8a9541ca1f1a -->
+<!-- api-source: packages/pocket_liquid_glass/src/motion.ts 2f83606c0c3fd7c72de5400b8e2bd788c146db002fb9177b4843a629ee339d0a -->
+<!-- api-source: packages/pocket_liquid_glass/src/navigation.tsx 8b42844d38a34ee4472b98c4e4a99b25e8714d8c6ec21ad74c5a8cce3b502125 -->
+<!-- api-source: packages/pocket_liquid_glass/src/overlays.tsx 5312c463fa4cf124079f1ee3d6ff4b51b33626cad20067605d6567e4e221ad6a -->
+<!-- api-source: packages/pocket_liquid_glass/src/surfaces.tsx b1cbe0142c73618855160d7c8dc4a4d61b4cbf6bdd07dc209309d876f5247de4 -->
+<!-- api-source: packages/pocket_liquid_glass/src/tokens.ts f5c9d9391a56e14712c09a0d7ccc795c3819c1ab5d3aa42d17fc719ed0caead2 -->
 <!-- api-source: packages/pocket_live2d/package.json 755007bc2731066aea86d8e381581949d872d4bbf7858fdb50e5b4e18f2d16bb -->
 <!-- api-source: packages/pocket_live2d/src/index.ts fa89eff37dd17348431d7f89f238707938f0d90e85b026f183754bf6eb0fe3c6 -->
 <!-- api-source: packages/pocket_live2d/src/interaction.ts 83fcf8f6d018bf854f73c030a6ca44d0047989602a0bd79675d41eaadb0a6bf2 -->
@@ -22699,12 +23858,12 @@ The following markers cover all inventoried declaration sources and package mani
 <!-- api-source: packages/pocket_ui/src/route.tsx 344911a783f04977d5da31c86798b3a4c911f43df1ad29e850c0e0970c7d5d43 -->
 <!-- api-source: packages/pocket_ui/src/router.tsx 555d63a14346efb696249f5944f6f7baeecd1b7743c9eadc934ce7914ea396f5 -->
 <!-- api-source: packages/pocket_ui/src/semantics.ts 78f8f3c730d20ff683baa1a07c0f9d40236ddfcfc1d7246124101a015e050f7e -->
-<!-- api-source: packages/pocket_ui/src/skins.tsx d73d6ca3432e3977def83d563c4249887f0de5bba74a9e1edc0feb78ba7b3b37 -->
+<!-- api-source: packages/pocket_ui/src/skins.tsx 6907ece347f2d917db855bbcdb2451c6a5f10d8607e8992ac9c03994983b4fcb -->
 <!-- api-source: packages/pocket_ui/src/split-pane-model.ts cd821b8f35ae9af382a5f9883f3eee828279b365ccd3f6b2df8bfe12dbffd789 -->
 <!-- api-source: packages/pocket_ui/src/split-pane.tsx 1c4915ef616b682a33e7fa12e36b0a737a57b2314abb36b8c373b9276c25baed -->
 <!-- api-source: packages/pocket_ui/src/streams.ts 1fabc56709ed255e4bcc0e7af937ca747b5fe4a96d07a1934416c25e588b398e -->
 <!-- api-source: packages/pocket_ui/src/surface-catalog.ts aac7f762c8178c9d61c650ec9d1b62499110b0c1fbf0a1ce9bebe119c181912a -->
-<!-- api-source: packages/pocket_ui/src/surfaces.tsx da089c313150e9004c8e64127a94c3079d5da7915292870d1f546b1465deba90 -->
+<!-- api-source: packages/pocket_ui/src/surfaces.tsx 46dc966b0fbaffdbb83f29dd3592bc6555afea444ff1d4fb695ce959001ac202 -->
 <!-- api-source: packages/pocket_ui/src/system-memory.ts 6caaf6d3e4f4209d0dc9c7551dbd435cdbb1c4a17dc41d9e3e6d66940a1dbcfe -->
 <!-- api-source: packages/pocket_ui/src/system-surfaces.tsx fa0d6348dcf6cbc1743af3e3cd360a11b5754657797d53b4df2b9aaf259c5dc8 -->
 <!-- api-source: packages/pocket_ui/src/system.ts 3f00bd5e5fc1dfec0241514f1d56b363643cef906b26dcc332377d986c575c53 -->
@@ -22713,7 +23872,7 @@ The following markers cover all inventoried declaration sources and package mani
 <!-- api-source: packages/pocket_ui/src/toast-host.tsx b0a60b99968ba50a295815720d1f7a1834e9cde2b7e80c704693df58b45078ee -->
 <!-- api-source: packages/pocket_ui/src/tree-model.ts b29e79f56d8b6e48bba4306595fc65b9b480712788098fcfadcae740e2fc0a63 -->
 <!-- api-source: packages/pocket_ui/src/tree.tsx b907cffc933b4187f99a10bcaa04ff2ab7704034ee8e0ccd42ec63e4e37445a3 -->
-<!-- api-source: packages/pocket_ui/src/ui.tsx ed0ef8f92d507676023a717dd791d0d3fe06253040b7251d4e7c8e78b3d3abab -->
+<!-- api-source: packages/pocket_ui/src/ui.tsx 562bc9a9b4f41aa64815961eb38329cced95d06f2b0dbc2590957684f87e4bea -->
 <!-- api-source: packages/pocket_ui/src/update_state.ts a2e92a7a238615752ce82b00cc882b50384fd0f04ccd9c88b5923bae103b4e7d -->
 <!-- api-source: packages/pocket_ui/src/updates.ts 2fa515161383ab5227f02a3022b2813ec3db84119e0234022256c16ebd2ef3a8 -->
 <!-- api-source: packages/pocket_ui/src/video.tsx 823d26a75a45e0ebaca063544a2d32e614c1ffe782d712b18d5d63c17e4fbdb9 -->

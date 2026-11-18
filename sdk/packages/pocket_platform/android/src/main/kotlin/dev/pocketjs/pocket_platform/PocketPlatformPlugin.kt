@@ -1,10 +1,21 @@
 package dev.pocketjs.pocket_platform
 
 import android.app.Activity
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -12,10 +23,133 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.Locale
 
 /**
- * Native half of the opt-in links provider.
+ * Shared persistence & event helper callable by scaffolded consumer
+ * `AppWidgetProvider`, `BroadcastReceiver`, and Wear OS companion services.
+ */
+object PocketSurfaceBridgeStore {
+    const val PREFS_NAME = "dev.pocketjs.surfaces"
+    const val SNAPSHOT_KEY = "snapshot_v1"
+    const val PENDING_ACTIONS_KEY = "pending_actions_v1"
+    private const val MAX_QUEUED_ACTIONS = 32
+
+    @Volatile
+    internal var liveSurfaceChannel: MethodChannel? = null
+
+    @JvmStatic
+    fun readLatestSnapshotJson(context: Context): String? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(SNAPSHOT_KEY, null)
+    }
+
+    @JvmStatic
+    fun enqueueWidgetAction(
+        context: Context,
+        id: String,
+        href: String,
+        source: String = "android-widget",
+    ) {
+        if (id.isBlank() || href.isBlank()) return
+        val timestampMs = System.currentTimeMillis()
+        val applicationContext = context.applicationContext
+        val deliver = Runnable {
+            val channel = liveSurfaceChannel
+            if (channel == null) {
+                queueAction(applicationContext, id, href, source, timestampMs)
+                return@Runnable
+            }
+            channel.invokeMethod(
+                "onWidgetAction",
+                mapOf(
+                    "id" to id,
+                    "href" to href,
+                    "source" to source,
+                    "timestampMs" to timestampMs,
+                ),
+                object : MethodChannel.Result {
+                    override fun success(result: Any?) {
+                        if (result != true) queueAction(applicationContext, id, href, source, timestampMs)
+                    }
+
+                    override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+                        queueAction(applicationContext, id, href, source, timestampMs)
+                    }
+
+                    override fun notImplemented() {
+                        queueAction(applicationContext, id, href, source, timestampMs)
+                    }
+                },
+            )
+            Uri.parse(href)?.let { PocketPlatformPlugin.handleIncomingUri(it) }
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            deliver.run()
+        } else {
+            Handler(Looper.getMainLooper()).post(deliver)
+        }
+    }
+
+    @Synchronized
+    private fun queueAction(context: Context, id: String, href: String, source: String, timestampMs: Long) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val raw = prefs.getString(PENDING_ACTIONS_KEY, "[]") ?: "[]"
+        val arr = try {
+            JSONArray(raw)
+        } catch (_: Exception) {
+            JSONArray()
+        }
+        val nextArr = JSONArray()
+        val startIdx = (arr.length() - (MAX_QUEUED_ACTIONS - 1)).coerceAtLeast(0)
+        for (i in startIdx until arr.length()) {
+            nextArr.put(arr.optJSONObject(i))
+        }
+        nextArr.put(
+            JSONObject().apply {
+                put("id", id)
+                put("href", href)
+                put("source", source)
+                put("timestampMs", timestampMs)
+            },
+        )
+        prefs.edit().putString(PENDING_ACTIONS_KEY, nextArr.toString()).apply()
+    }
+
+    @JvmStatic
+    @Synchronized
+    fun drainPendingActions(context: Context): List<Map<String, Any>> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val raw = prefs.getString(PENDING_ACTIONS_KEY, null) ?: return emptyList()
+        prefs.edit().remove(PENDING_ACTIONS_KEY).apply()
+        val arr = try {
+            JSONArray(raw)
+        } catch (_: Exception) {
+            return emptyList()
+        }
+        val list = mutableListOf<Map<String, Any>>()
+        for (i in 0 until arr.length()) {
+            val obj = arr.optJSONObject(i) ?: continue
+            val id = obj.optString("id", "").trim()
+            val href = obj.optString("href", "").trim()
+            if (id.isEmpty() || href.isEmpty()) continue
+            list.add(
+                mapOf(
+                    "id" to id,
+                    "href" to href,
+                    "source" to obj.optString("source", "android-widget"),
+                    "timestampMs" to obj.optLong("timestampMs", System.currentTimeMillis()),
+                ),
+            )
+        }
+        return list
+    }
+}
+
+/**
+ * Native half of the opt-in links and ecosystem surfaces provider.
  *
  * This plugin does not add an intent filter. The trusted consumer owns its
  * scheme declaration and forwards explicit intents through the standard
@@ -26,8 +160,11 @@ class PocketPlatformPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
 
     companion object {
         private const val CHANNEL_NAME = "com.pocketnexus.host/platform"
+        private const val SURFACES_CHANNEL_NAME = "com.pocketnexus.host/surfaces"
         private const val ENABLED_KEY = "dev.pocketjs.platform.DEEP_LINKS_ENABLED"
         private const val SCHEMES_KEY = "dev.pocketjs.platform.DEEP_LINK_SCHEMES"
+        private const val LIVE_UPDATE_CHANNEL_ID = "pocket_live_updates"
+        private const val LIVE_UPDATE_NOTIFICATION_ID = 48192
 
         @Volatile
         private var shared: PocketPlatformPlugin? = null
@@ -43,6 +180,7 @@ class PocketPlatformPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
     private var activity: Activity? = null
     private var activityBinding: ActivityPluginBinding? = null
     private var channel: MethodChannel? = null
+    private var surfacesChannel: MethodChannel? = null
     private var linksEnabled = false
     private var configuredScheme: String? = null
     private var initialLink: String? = null
@@ -60,11 +198,18 @@ class PocketPlatformPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         applicationContext = binding.applicationContext
         channel = MethodChannel(binding.binaryMessenger, CHANNEL_NAME)
         channel?.setMethodCallHandler(this)
+        surfacesChannel = MethodChannel(binding.binaryMessenger, SURFACES_CHANNEL_NAME)
+        surfacesChannel?.setMethodCallHandler(::onSurfaceMethodCall)
         shared = this
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         disableDeepLinks()
+        if (PocketSurfaceBridgeStore.liveSurfaceChannel === surfacesChannel) {
+            PocketSurfaceBridgeStore.liveSurfaceChannel = null
+        }
+        surfacesChannel?.setMethodCallHandler(null)
+        surfacesChannel = null
         channel?.setMethodCallHandler(null)
         channel = null
         applicationContext = null
@@ -105,6 +250,211 @@ class PocketPlatformPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
             }
             else -> result.notImplemented()
         }
+    }
+
+    private fun onSurfaceMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        val context = applicationContext
+        if (context == null) {
+            result.error("surface_no_context", "Application context is unavailable", null)
+            return
+        }
+        when (call.method) {
+            "configureSurfaces" -> {
+                PocketSurfaceBridgeStore.liveSurfaceChannel = surfacesChannel
+                result.success(mapOf("configured" to true, "ecosystem" to "android"))
+            }
+            "disableSurfaces" -> {
+                if (PocketSurfaceBridgeStore.liveSurfaceChannel === surfacesChannel) {
+                    PocketSurfaceBridgeStore.liveSurfaceChannel = null
+                }
+                result.success(null)
+            }
+            "getSurfaceStatus" -> {
+                val prefs = context.getSharedPreferences(
+                    PocketSurfaceBridgeStore.PREFS_NAME,
+                    Context.MODE_PRIVATE,
+                )
+                val rawPending = prefs.getString(PocketSurfaceBridgeStore.PENDING_ACTIONS_KEY, null)
+                val count = try {
+                    if (rawPending == null) 0 else JSONArray(rawPending).length()
+                } catch (_: Exception) {
+                    0
+                }
+                val notifications = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                val widgets = AppWidgetManager.getInstance(context)
+                result.success(
+                    mapOf(
+                        "available" to true,
+                        "ecosystem" to "android",
+                        "appGroupId" to null,
+                        "supportsWidgets" to (widgets != null && hostWidgetProviders(context, widgets).isNotEmpty()),
+                        "supportsLiveActivities" to (ongoingNotificationUnavailableReason(notifications) == null),
+                        "watchPaired" to false,
+                        "pendingActionCount" to count,
+                    ),
+                )
+            }
+            "publishSnapshot" -> {
+                val args = call.arguments as? Map<*, *>
+                val snapshotJson = args?.get("snapshotJson") as? String
+                if (snapshotJson.isNullOrBlank()) {
+                    result.success(mapOf("published" to false, "reloadedWidgets" to false))
+                    return
+                }
+                val prefs = context.getSharedPreferences(
+                    PocketSurfaceBridgeStore.PREFS_NAME,
+                    Context.MODE_PRIVATE,
+                )
+                prefs.edit().putString(PocketSurfaceBridgeStore.SNAPSHOT_KEY, snapshotJson).apply()
+                val reloaded = reloadHostAppWidgets(context)
+                result.success(
+                    mapOf(
+                        "published" to true,
+                        "reloadedWidgets" to reloaded,
+                        "pushedWatchContext" to false,
+                    ),
+                )
+            }
+            "upsertLiveActivity" -> {
+                val args = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
+                val reason = postOngoingNotification(context, args)
+                if (reason == null) {
+                    result.success(mapOf("active" to true, "activityId" to (args["activityId"] ?: "default")))
+                } else {
+                    result.success(mapOf("active" to false, "reason" to reason))
+                }
+            }
+            "endLiveActivity" -> {
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                nm?.cancel(LIVE_UPDATE_NOTIFICATION_ID)
+                result.success(mapOf("active" to false))
+            }
+            "drainPendingActions" -> {
+                val drained = PocketSurfaceBridgeStore.drainPendingActions(context)
+                result.success(mapOf("actions" to drained))
+            }
+            else -> result.notImplemented()
+        }
+    }
+
+    private fun hostWidgetProviders(
+        context: Context,
+        manager: AppWidgetManager,
+    ): List<AppWidgetProviderInfo> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        manager.getInstalledProvidersForPackage(context.packageName, null)
+    } else {
+        manager.installedProviders.filter { it.provider.packageName == context.packageName }
+    }
+
+    private fun reloadHostAppWidgets(context: Context): Boolean {
+        val manager = AppWidgetManager.getInstance(context) ?: return false
+        var updatedAny = false
+        for (info in hostWidgetProviders(context, manager)) {
+            val component: ComponentName = info.provider
+            val ids = manager.getAppWidgetIds(component)
+            if (ids.isNotEmpty()) {
+                val updateIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
+                    setComponent(component)
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+                }
+                context.sendBroadcast(updateIntent)
+                updatedAny = true
+            }
+        }
+        return updatedAny
+    }
+
+    private fun ongoingNotificationUnavailableReason(notifications: NotificationManager?): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || notifications == null) {
+            return "ongoing_notifications_unavailable"
+        }
+        if (!notifications.areNotificationsEnabled()) return "notifications_disabled"
+        if (notifications.getNotificationChannel(LIVE_UPDATE_CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE) {
+            return "notification_channel_disabled"
+        }
+        return null
+    }
+
+    private fun postOngoingNotification(context: Context, args: Map<*, *>): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return "ongoing_notifications_unavailable"
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            ?: return "ongoing_notifications_unavailable"
+        ongoingNotificationUnavailableReason(nm)?.let { return it }
+        val channel = NotificationChannel(
+            LIVE_UPDATE_CHANNEL_ID,
+            "Live Surface Updates",
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            setShowBadge(false)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
+        nm.createNotificationChannel(channel)
+
+        val title = (args["title"] as? String)?.trim().orEmpty()
+        if (title.isEmpty()) return "invalid_title"
+        val badge = (args["leadingBadge"] as? String)?.trim().orEmpty()
+        val metric = (args["trailingMetric"] as? String)?.trim().orEmpty()
+        val subtitle = (args["subtitle"] as? String)?.trim().orEmpty()
+        val progressRatio = ((args["progress"] as? Number)?.toDouble() ?: 0.0).coerceIn(0.0, 1.0)
+        val primaryHref = (args["primaryHref"] as? String)?.trim().orEmpty()
+        val primaryLabel = (args["primaryActionLabel"] as? String)?.trim().orEmpty()
+        val secondaryHref = (args["secondaryHref"] as? String)?.trim().orEmpty()
+        val secondaryLabel = (args["secondaryActionLabel"] as? String)?.trim().orEmpty()
+
+        val displayTitle = listOf(badge, title, metric).filter { it.isNotEmpty() }.joinToString(" · ")
+        val builder = Notification.Builder(context, LIVE_UPDATE_CHANNEL_ID)
+            .setSmallIcon(context.applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info)
+            .setContentTitle(displayTitle)
+            .setContentText(subtitle)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setProgress(1000, (progressRatio * 1000.0).toInt(), false)
+            .addExtras(Bundle().apply { putBoolean("android.support.ongoing", true) })
+
+        if (primaryHref.isNotEmpty()) {
+            val contentIntent = buildDeepLinkPendingIntent(context, primaryHref, 101)
+            if (contentIntent != null) {
+                builder.setContentIntent(contentIntent)
+                if (primaryLabel.isNotEmpty()) {
+                    builder.addAction(
+                        Notification.Action.Builder(null, primaryLabel, contentIntent).build(),
+                    )
+                }
+            }
+        }
+        if (secondaryHref.isNotEmpty() && secondaryLabel.isNotEmpty()) {
+            val secIntent = buildDeepLinkPendingIntent(context, secondaryHref, 102)
+            if (secIntent != null) {
+                builder.addAction(
+                    Notification.Action.Builder(null, secondaryLabel, secIntent).build(),
+                )
+            }
+        }
+        return try {
+            nm.notify(LIVE_UPDATE_NOTIFICATION_ID, builder.build())
+            ongoingNotificationUnavailableReason(nm)
+        } catch (_: SecurityException) {
+            "notifications_disabled"
+        }
+    }
+
+    private fun buildDeepLinkPendingIntent(
+        context: Context,
+        href: String,
+        requestCode: Int,
+    ): PendingIntent? {
+        val uri = try {
+            Uri.parse(href)
+        } catch (_: Exception) {
+            return null
+        }
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            setPackage(context.packageName)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        return PendingIntent.getActivity(context, requestCode, intent, flags)
     }
 
     private fun configureDeepLinks(rawArguments: Any?, result: MethodChannel.Result) {

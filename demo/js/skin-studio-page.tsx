@@ -1,5 +1,5 @@
 /**
- * Unified Multi-Skin Live Studio (`Default UI` · `Looseleaf` · `Arc`)
+ * Unified Multi-Skin Live Studio (`Default UI` · `Looseleaf` · `Arc` · `Liquid Glass`)
  * with full URL + State Deep-Linking (`@pocket/ui/router`).
  *
  * Every tab (`/skins/:tab?`), active skin (`skin`), palette mode (`mode`),
@@ -47,6 +47,19 @@ import {
 } from "@pocket/ui";
 import { looseleafSkinAdapter } from "@pocket/looseleaf";
 import { arcSkinAdapter } from "@pocket/arc";
+import { Text } from "@pocketjs/framework/solid/components";
+import {
+  LiquidGlassButton,
+  LiquidGlassFpsHud,
+  LiquidGlassGroup,
+  LiquidGlassIconButton,
+  LiquidGlassSlider,
+  LiquidGlassSurface,
+  LiquidGlassSwitch,
+  liquidGlassSkinAdapter,
+  useLiquidGlass,
+  type LiquidGlassQualityTier,
+} from "@pocket/liquid_glass";
 import type { DemoEvent, DemoState, ShowcaseSkin } from "./state.ts";
 
 type StudioTab = "workspace" | "controls" | "overlays";
@@ -64,6 +77,144 @@ const STUDIO_TABS: readonly NavigationItem[] = [
 
 function isStudioTab(value: string | undefined): value is StudioTab {
   return value === "workspace" || value === "controls" || value === "overlays";
+}
+
+function LiquidGlassStudioTelemetry(props: {
+  quota: number;
+  onQuotaChange: (next: number) => void;
+  autoNight: boolean;
+  onAutoNightChange: (next: boolean) => void;
+}): JSX.Element {
+  const lg = useLiquidGlass();
+  const [lensPulse, setLensPulse] = createSignal(false);
+  return (
+    <SkinCard
+      title="@pocket/liquid_glass >=60 FPS Optical Stage"
+      detail="Live Snell bevel refraction, shared UIGlassContainerEffect toolbar & droplet controls."
+      variant="raised"
+      badge="60-120 FPS"
+    >
+      <LiquidGlassFpsHud active={() => true} />
+
+      {/* High-contrast chromatic stage so Snell edge refraction & magnification are immediately visible */}
+      <View
+        class="relative w-full h-[142] overflow-hidden p-3 flex-col justify-between"
+        style={{
+          posType: 0,
+          height: 142,
+          overflow: 1,
+          bgColor: lg.palette().dark ? "#101B33" : "#E6EEFF",
+          radius: 18,
+        }}
+      >
+        <View
+          class="absolute left-[-20] top-[10] w-[190] h-[96]"
+          style={{
+            posType: 1,
+            insetL: -20,
+            insetT: 10,
+            width: 190,
+            height: 96,
+            bgColor: "#007AFF",
+            opacity: 0.92,
+            radius: 48,
+            rotate: -14,
+            hitPass: 1,
+          }}
+        />
+        <View
+          class="absolute right-[-16] top-[8] w-[170] h-[94]"
+          style={{
+            posType: 1,
+            insetR: -16,
+            insetT: 8,
+            width: 170,
+            height: 94,
+            bgColor: "#FF5E4D",
+            opacity: 0.90,
+            radius: 48,
+            rotate: 15,
+            hitPass: 1,
+          }}
+        />
+        <View
+          class="absolute left-[84] bottom-[-22] w-[200] h-[92]"
+          style={{
+            posType: 1,
+            insetL: 84,
+            insetB: -22,
+            width: 200,
+            height: 92,
+            bgColor: "#28C864",
+            opacity: 0.90,
+            radius: 46,
+            rotate: -6,
+            hitPass: 1,
+          }}
+        />
+
+        <View class="relative flex-row items-center justify-between gap-2 w-full">
+          <LiquidGlassGroup material="clear" priority="high">
+            <LiquidGlassIconButton glyph="✦" compact onPress={() => setLensPulse((v) => !v)} active={lensPulse()} />
+            <LiquidGlassButton
+              label="Shared Group"
+              variant="glass"
+              compact
+              onPress={() => setLensPulse((v) => !v)}
+            />
+          </LiquidGlassGroup>
+          <LiquidGlassButton
+            label="Clear Pill"
+            variant="glass"
+            compact
+            onPress={() => setLensPulse((v) => !v)}
+          />
+        </View>
+
+        <LiquidGlassSurface
+          material="clear"
+          priority="high"
+          shape="pill"
+          radius={999}
+          magnification={() => (lensPulse() ? 1.24 : 1.08)}
+          class="relative w-full"
+          contentClass="relative flex-row items-center justify-between px-4 py-2.5 w-full"
+        >
+          <Text class="text-xs font-bold" style={{ textColor: "#FFFFFF" }}>
+            Snell Refraction Lens (1/1.520)
+          </Text>
+          <Text class="text-xs font-mono font-bold" style={{ textColor: "#FFFFFF" }}>
+            {lensPulse() ? "MAG 1.24x" : "MAG 1.08x"}
+          </Text>
+        </LiquidGlassSurface>
+      </View>
+
+      <SkinSegmentedControl
+        items={[
+          { id: "ultra", label: "Ultra (8)" },
+          { id: "balanced", label: "Bal (5)" },
+          { id: "performance", label: "Perf (2)" },
+          { id: "vector", label: "Vec (0)" },
+        ]}
+        active={lg.governor.tier()}
+        onChange={(next) => lg.governor.setTier(next as LiquidGlassQualityTier)}
+      />
+      <LiquidGlassSlider
+        label="Refractive droplet slider (drag for live lens)"
+        value={props.quota}
+        min={10}
+        max={100}
+        step={1}
+        onChange={props.onQuotaChange}
+      />
+      <LiquidGlassSwitch
+        value={props.autoNight}
+        onChange={props.onAutoNightChange}
+        label="Liquid Glass droplet switch"
+        detail="Hold or drag for clear magnifying droplet lens."
+      />
+    </SkinCard>
+  );
 }
 
 function SkinStudioContent(props: {
@@ -191,16 +342,17 @@ function SkinStudioContent(props: {
 
           <SkinCard
             title="Live Skin & Palette Switcher"
-            detail="Switch between Default UI, Looseleaf, and Arc without losing input text, counters, or open panels."
+            detail="Switch between Default UI, Looseleaf, Arc, and Liquid Glass without losing input text, counters, or open panels."
             variant="raised"
-            badge="3 SKINS"
+            badge="4 SKINS"
           >
             <SkinSegmentedControl
               accentActive
               items={[
-                { id: "default", label: "Default UI" },
+                { id: "default", label: "Default" },
                 { id: "looseleaf", label: "Looseleaf" },
                 { id: "arc", label: "Arc" },
+                { id: "liquid-glass", label: "Glass" },
               ]}
               active={props.state().uiSkin}
               onChange={(id) =>
@@ -248,9 +400,18 @@ function SkinStudioContent(props: {
               />
             </View>
 
+            <Show when={skin.skinId() === "liquid-glass"}>
+              <LiquidGlassStudioTelemetry
+                quota={quota()}
+                onQuotaChange={(val) => setQuota(val)}
+                autoNight={autoNight()}
+                onAutoNightChange={(val) => setAutoNight(val)}
+              />
+            </Show>
+
             <SkinCard
               title="Shared Task & IME State"
-              detail="Edit or toggle here, then flip Default / Looseleaf / Arc above."
+              detail="Edit or toggle here, then flip Default / Looseleaf / Arc / Glass above."
             >
               <SkinInput
                 label="Milestone title"
@@ -267,7 +428,7 @@ function SkinStudioContent(props: {
               <SkinCheckbox
                 checked={shipped()}
                 onChange={(val) => setShipped(val)}
-                label="Unify Default, Looseleaf, and Arc behind one UiSkinKit contract"
+                label="Unify Default, Looseleaf, Arc, and Liquid Glass behind one UiSkinKit contract"
               />
               <SkinCheckbox
                 checked={strictClasses()}
@@ -405,44 +566,46 @@ function SkinStudioContent(props: {
             </SkinCard>
           </Show>
 
-          <SkinToast
-            open={toastOpen()}
-            tone="success"
-            title={`${skin.adapter().label} Toast`}
-            body="Skin-aware notification rendered without remounting."
-            onDismiss={() => setToastOpen(false)}
-          />
-
-          <SkinDialog
-            open={dialogOpen()}
-            title={`Confirm in ${skin.adapter().label}?`}
-            body="Modal focus scope, backdrop dismissal, and button grammar are inherited from the active UiSkinAdapter."
-            confirmLabel="Confirm"
-            cancelLabel="Cancel"
-            onConfirm={() => {
-              setLastFeedback(`Confirmed dialog in ${skin.adapter().label}`);
-              setDialogOpen(false);
-            }}
-            onClose={() => setDialogOpen(false)}
-          />
-
-          <SkinSheet
-            open={sheetOpen()}
-            title="Switch Workspace Preset"
-            subtitle="Rendered by SkinSheet across Default Popup, Looseleaf Drawer, and Arc BottomSheet."
-            actions={[
-              { id: "default", label: "Use Default UI", detail: "Option C / Shadcn system tokens" },
-              { id: "looseleaf", label: "Use Looseleaf", detail: "Hand-drawn paper, ink & masking tape" },
-              { id: "arc", label: "Use Arc", detail: "Concentric radii & calm physical springs" },
-            ]}
-            onSelectAction={(id) => {
-              props.dispatch({ type: "setUiSkin", value: id as ShowcaseSkin });
-              setLastFeedback(`Selected ${id} from SkinSheet`);
-            }}
-            onClose={() => setSheetOpen(false)}
-          />
         </View>
       </ScrollablePage>
+
+      <SkinToast
+        open={toastOpen()}
+        tone="success"
+        title={`${skin.adapter().label} Toast`}
+        body="Skin-aware notification rendered without remounting."
+        onDismiss={() => setToastOpen(false)}
+      />
+
+      <SkinDialog
+        open={dialogOpen()}
+        title={`Confirm in ${skin.adapter().label}?`}
+        body="Modal focus scope, backdrop dismissal, and button grammar are inherited from the active UiSkinAdapter."
+        confirmLabel="Confirm"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          setLastFeedback(`Confirmed dialog in ${skin.adapter().label}`);
+          setDialogOpen(false);
+        }}
+        onClose={() => setDialogOpen(false)}
+      />
+
+      <SkinSheet
+        open={sheetOpen()}
+        title="Switch Workspace Preset"
+        subtitle="Rendered by SkinSheet across Default Popup, Looseleaf Drawer, Arc BottomSheet, and LiquidGlassSheet."
+        actions={[
+          { id: "default", label: "Use Default UI", detail: "Option C / Shadcn system tokens" },
+          { id: "looseleaf", label: "Use Looseleaf", detail: "Hand-drawn paper, ink & masking tape" },
+          { id: "arc", label: "Use Arc", detail: "Concentric radii & calm physical springs" },
+          { id: "liquid-glass", label: "Use Liquid Glass", detail: ">=60 FPS GPU-governed optical glass + vector fallback" },
+        ]}
+        onSelectAction={(id) => {
+          props.dispatch({ type: "setUiSkin", value: id as ShowcaseSkin });
+          setLastFeedback(`Selected ${id} from SkinSheet`);
+        }}
+        onClose={() => setSheetOpen(false)}
+      />
     </SkinScaffold>
   );
 }
@@ -500,7 +663,7 @@ export function SkinStudioPage(props: {
       mode={effectiveMode}
       accent={urlAccent}
       density={() => props.state().interfaceDensity}
-      skins={[defaultSkinAdapter, looseleafSkinAdapter, arcSkinAdapter]}
+      skins={[defaultSkinAdapter, looseleafSkinAdapter, arcSkinAdapter, liquidGlassSkinAdapter]}
       onSkinChange={(next) =>
         props.dispatch({ type: "setUiSkin", value: next as ShowcaseSkin })
       }

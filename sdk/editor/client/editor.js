@@ -568,6 +568,12 @@ function persistBrowserDiagnostic(kind, error, unhandled = false) {
   }).catch((failure) => console.warn("Diagnostic record could not be persisted", failure));
 }
 
+const initialStudioParams = new URLSearchParams(window.location.search);
+let pendingInitialOpenPath = initialStudioParams.get("open") || "";
+let pendingInitialProjectId = initialStudioParams.get("project") || "";
+let pendingInitialFile = initialStudioParams.get("file") || "";
+let pendingInitialOpenUri = initialStudioParams.get("uri") || "";
+
 window.addEventListener("error", (event) => {
   if (event.error || event.message) persistBrowserDiagnostic("crash", event.error || event.message, true);
 });
@@ -2888,7 +2894,9 @@ async function selectProject(id, options = {}) {
     }
     const fileList = files.files || files;
     renderFilePicker(fileList);
-    await loadFile(projectFiles.includes(config.entry) ? config.entry : projectFiles.includes("app.tsx") ? "app.tsx" : projectFiles[0]);
+    const requestedInitialFile = pendingInitialFile && projectFiles.includes(pendingInitialFile) ? pendingInitialFile : "";
+    if (requestedInitialFile) pendingInitialFile = "";
+    await loadFile(requestedInitialFile || (projectFiles.includes(config.entry) ? config.entry : projectFiles.includes("app.tsx") ? "app.tsx" : projectFiles[0]));
     if (currentId !== id || selectionGeneration !== wechatGeneration) return;
     resourcesLoading = false;
     setResourceInventory(resources);
@@ -2948,8 +2956,32 @@ async function loadProjects(preferred) {
   } catch {
     // The editor credential still lets local development continue.
   }
-  const response = await api("/api/projects");
+  let response = await api("/api/projects");
   projects = Array.isArray(response) ? response : response.projects || [];
+  if (pendingInitialOpenPath) {
+    const openTarget = pendingInitialOpenPath;
+    pendingInitialOpenPath = "";
+    const existing = projects.find((project) => project.directory === openTarget);
+    if (existing) {
+      if (!preferred && !pendingInitialProjectId) preferred = existing.id;
+    } else {
+      try {
+        const opened = await api("/api/projects/open", {
+          method: "POST",
+          body: JSON.stringify({ path: openTarget }),
+        });
+        response = await api("/api/projects");
+        projects = Array.isArray(response) ? response : response.projects || [];
+        if (!preferred && !pendingInitialProjectId && opened?.id) preferred = opened.id;
+      } catch (openError) {
+        showNotice(openError);
+      }
+    }
+  }
+  if (pendingInitialProjectId) {
+    if (!preferred) preferred = pendingInitialProjectId;
+    pendingInitialProjectId = "";
+  }
   renderProjects();
   let recent;
   try { recent = localStorage.getItem(projectSelectionStorageKey); } catch {}
@@ -3775,7 +3807,9 @@ window.addEventListener("message", (event) => {
   if (data.type === "preview.ready") {
     previewReady = false;
     previewHasFrame = false;
-    resizePreviewRuntime();
+    const initialOpenUri = pendingInitialOpenUri;
+    if (initialOpenUri) pendingInitialOpenUri = "";
+    resizePreviewRuntime(initialOpenUri ? { openUri: initialOpenUri } : {});
     sendPreviewRegions();
     sendPreviewPlugins();
     setPreviewState("启动中", "loading");
