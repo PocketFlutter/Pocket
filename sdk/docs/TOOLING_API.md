@@ -126,6 +126,8 @@ On macOS with `studio/` (`../studio/pubspec.yaml`), defaults to desktop Pocket S
 
 This CLI runs foreground Editor. `npm start` uses the `editor_service.mjs` manager for daemon, state, logs, and port ownership on 8791. See [EDITOR_STUDIO.md](EDITOR_STUDIO.md), [STUDIO_PROVIDER.md](STUDIO_PROVIDER.md), and [Editor project identity and configuration](EDITOR_PROJECT_CONFIGURATION.md).
 
+During a Windows SDK upgrade, the service manager checks process creation time and command or executable identity before signaling the old Studio processes. If ownership or identity cannot be confirmed, the upgrade reports a retirement failure. See [Studio upgrades](STUDIO_UPGRADE.md).
+
 ## Guest and Web build options and outputs
 
 ### `build:guest`

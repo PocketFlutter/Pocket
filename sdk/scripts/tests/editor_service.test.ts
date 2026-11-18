@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync, mkdtempSync, rmSync, symlinkSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -21,6 +20,7 @@ import {
   editorToolEnvironment,
   isEntrypoint,
   protectedRetirementPlan,
+  retirementProcessSnapshot,
   terminateProcessSet,
   commandIncludesPath,
   upgradeApply,
@@ -32,7 +32,6 @@ import {
 
 const fixture = (name: string) => resolve(tmpdir(), name);
 const SCRIPT_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "..", "editor_service.mjs");
-const findProcess = createRequire(import.meta.url)("find-process").default;
 const SOURCE_UPSTREAM = "c".repeat(40);
 const SOURCE_ABI = "fixture-qjbc-v1";
 
@@ -547,6 +546,26 @@ test("upgrade retirement excludes the updater ancestry while retaining worker tr
   expect(protectedRetirementPlan([{ pid: 1, ppid: 2 }, { pid: 2, ppid: 1 }], 100, 1)).toBeNull();
 });
 
+test("Windows retirement ignores a reused ancestor PID only when creation time proves the edge impossible", () => {
+  const processes = [
+    { pid: 200, ppid: 1, creationTicks: "0000000000000000100" },
+    { pid: 800, ppid: 200, creationTicks: "0000000000000000110" },
+    { pid: 100, ppid: 800, creationTicks: "0000000000000000050" },
+    { pid: 101, ppid: 100, creationTicks: "0000000000000000060" },
+  ];
+  expect(protectedRetirementPlan(processes, 100, 200)).toEqual({ pids: [101, 100] });
+  const [updater, intermediary, studio, worker] = processes;
+  expect(protectedRetirementPlan([
+    updater, intermediary, { ...studio, creationTicks: "0000000000000000120" }, worker,
+  ], 100, 200)).toBeNull();
+  expect(protectedRetirementPlan([
+    updater, intermediary, { ...studio, creationTicks: "0000000000000000110" }, worker,
+  ], 100, 200)).toBeNull();
+  expect(protectedRetirementPlan([
+    updater, intermediary, { ...studio, creationTicks: undefined }, worker,
+  ], 100, 200)).toBeNull();
+});
+
 test("protected retirement identifies malformed rows and unsafe ancestry without exposing commands", () => {
   let rejection: unknown;
   expect(protectedRetirementPlan([
@@ -654,7 +673,7 @@ test("upgrade retirement kills the real server tree but preserves its detached u
       expect(updaterPpid.status).toBe(0);
       expect(Number(updaterPpid.stdout.trim())).toBe(server.pid);
     }
-    const processes = await findProcess("name", "");
+    const processes = await retirementProcessSnapshot();
     const retirementPlan = protectedRetirementPlan(processes, server.pid!, childPids.updaterPid);
     expect(retirementPlan).not.toBeNull();
     expect(retirementPlan!.pids).toContain(childPids.workerPid);
@@ -725,13 +744,20 @@ test("upgrade retirement refuses TERM when the live PID no longer matches its sn
       });
     });
 
-    const found = await findProcess("pid", pid);
+    const found = await retirementProcessSnapshot(pid);
     const snapshot = Array.isArray(found) ? found.find(info => Number(info?.pid) === pid) : undefined;
     expect(snapshot?.cmd).toBeTruthy();
     await expect(terminateProcessSet([{
       ...snapshot!,
       cmd: `${snapshot!.cmd} changed-after-snapshot`,
     }], { timeoutMs: 50, killTimeoutMs: 50 })).rejects.toThrow(/拒绝发送 SIGTERM/);
+    if (process.platform === "win32") {
+      expect(snapshot!.creationTicks).toMatch(/^\d{19}$/);
+      await expect(terminateProcessSet([{
+        ...snapshot!,
+        creationTicks: "0000000000000000001",
+      }], { timeoutMs: 50, killTimeoutMs: 50 })).rejects.toThrow(/拒绝发送 SIGTERM/);
+    }
 
     await new Promise(resolveDelay => setTimeout(resolveDelay, 75));
     let alive = true;
