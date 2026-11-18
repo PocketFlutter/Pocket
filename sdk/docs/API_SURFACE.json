@@ -5139,7 +5139,7 @@
         },
         {
           "file": "editor/server.ts",
-          "sourceSha256": "c077c1e3640eab5a7b7d0f90d9df14fdc90e491634e5b335cf1cc68fa3c1e9d9"
+          "sourceSha256": "993b79896228a88291655db05dc5a0e9b501f5aac2c7729b714a778650d7b3ce"
         },
         {
           "file": "editor/test/editor_live_probe.ts",

@@ -47,6 +47,7 @@ let csrfToken = "";
 let previewPath = "";
 let previewReady = false;
 let previewHasFrame = false;
+let previewHostNoticeProject = "";
 let previewStarted = false;
 let previewRevision = null;
 let previewGeneration = null;
@@ -3828,6 +3829,12 @@ window.addEventListener("message", (event) => {
   }
   if (data.type === "preview.status") {
     const status = typeof data.status === "string" ? data.status : data.status?.state;
+    if (data.status?.hostConfig === "invalid" && previewHostNoticeProject !== currentId) {
+      previewHostNoticeProject = currentId;
+      showNotice("本机预览配置不可用，预览将使用默认环境。", "info");
+    } else if (data.status?.hostConfig === "ready" || data.status?.hostConfig === "disabled") {
+      previewHostNoticeProject = "";
+    }
     if (status === "error" || status === "stopped") {
       previewReady = false;
       setPreviewState(status === "error" ? "预览错误" : "已停止", "loading");

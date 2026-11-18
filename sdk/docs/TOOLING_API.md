@@ -217,6 +217,8 @@ Studio routes are defined in [editor/server.ts](../editor/server.ts#L4285) and P
 | `GET /api/projects/:id/preview/status`, `snapshot`, `stream`. `POST /api/projects/:id/preview/input` | Preview state, snapshot, SSE frames, and input. `GET /media` and `GET /resource` read restricted resources. |
 | `GET\|HEAD /updates/*`, `/pocket/*`, `/test/pocket/*`, `/stable/pocket/*`. `GET /releases/*` | Studio published and update artifacts. Other remote hosting requires a suitable server. |
 
+An opted-in project can load a machine-local Preview adapter from the Studio workspace. Its `GET /api/projects/<id>/preview/status` response includes `hostConfig` with the values `disabled`, `ready`, and `invalid`. Preview routes and project mutations for configured projects require loopback access. See [Project-local Preview host adapter](EDITOR_PROJECT_CONFIGURATION.md#project-local-preview-host-adapter) for the opt-in, private profile schema, and startup precedence.
+
 Editor routes enforce loopback/LAN, Origin, CSRF, and request validation. Keep this service local and retain private tokens, keys, and credentials. Linked source defines full behavior. Stabilizing the service API would require an explicit version and compatibility commitment.
 
 ## Versioning and documentation maintenance
