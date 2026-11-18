@@ -2348,7 +2348,7 @@ Exports:
 - `concentricGlassRadius` — [signature](#api-sig-c870f0e2f254ce02)
 - `createGlassFrameProfiler` — [signature](#api-sig-b4ad1763a2d1f2d4)
 - `createGlassSpring` — [signature](#api-sig-a82c67b826de7861)
-- `createImperativeSpring` — [signature](#api-sig-26535b44312656fb)
+- `createImperativeSpring` — [signature](#api-sig-882b1f87fc779b17)
 - `createLiquidGlassGovernor` — [signature](#api-sig-42cb0be5614db3d5)
 - `GLASS_SPRINGS` — [signature](#api-sig-a1bfb5badc147e44)
 - `GlassFrameProfiler` — [signature](#api-sig-7ab44fc018798d6f)
@@ -2357,7 +2357,7 @@ Exports:
 - `GlassSpringPreset` — [signature](#api-sig-86d11f041542e9b8)
 - `GlassSpringState` — [signature](#api-sig-7c17955ca48aaa3c)
 - `hexToArgb` — [signature](#api-sig-91e7d978ae26db92)
-- `ImperativeSpringHandle` — [signature](#api-sig-3ae42cafc9cd95b0)
+- `ImperativeSpringHandle` — [signature](#api-sig-1a072e15b9b31816)
 - `LIQUID_GLASS_ACCENTS` — [signature](#api-sig-f3cd71e8494c0fe2)
 - `LiquidGlassAccent` — [signature](#api-sig-cfa253cc87336a74)
 - `LiquidGlassAccordion` — [signature](#api-sig-58ee3fd59650e7b9)
@@ -2455,16 +2455,16 @@ Source: [packages/pocket_liquid_glass/src/governor.ts](../packages/pocket_liquid
 <a id="api-sig-a82c67b826de7861"></a>
 ### `createGlassSpring`
 
-**Function** `createGlassSpring(target: Accessor<number>, options: { preset?: GlassSpringPreset; reducedMotion?: Accessor<boolean>; quantizeStep?: number; } = {}): Accessor<number>`
+**Function** ``createGlassSpring(target: Accessor<number>, options: { preset?: GlassSpringPreset; /** Explicit spring constants; takes precedence over `preset`. */ config?: GlassSpringConfig; reducedMotion?: Accessor<boolean>; quantizeStep?: number; } = {}): Accessor<number>``
 
 Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L120)
 
-<a id="api-sig-26535b44312656fb"></a>
+<a id="api-sig-882b1f87fc779b17"></a>
 ### `createImperativeSpring`
 
 **Function** `createImperativeSpring(target: Accessor<number>, prop: JumpProp, options: { preset?: GlassSpringPreset; reducedMotion?: Accessor<boolean>; map?: (raw: number) => number; } = {}): ImperativeSpringHandle`
 
-Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L204)
+Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L206)
 
 <a id="api-sig-42cb0be5614db3d5"></a>
 ### `createLiquidGlassGovernor`
@@ -2550,7 +2550,7 @@ Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_g
 
 Source: [packages/pocket_liquid_glass/src/tokens.ts](../packages/pocket_liquid_glass/src/tokens.ts#L258)
 
-<a id="api-sig-3ae42cafc9cd95b0"></a>
+<a id="api-sig-1a072e15b9b31816"></a>
 ### `ImperativeSpringHandle`
 
 **Interface** `ImperativeSpringHandle`
@@ -2562,7 +2562,7 @@ Members:
 - `readonly settled: Accessor<boolean>`
 - `readonly snap: (nextValue: number) => void`
 
-Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L187)
+Source: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_glass/src/motion.ts#L189)
 
 <a id="api-sig-f3cd71e8494c0fe2"></a>
 ### `LIQUID_GLASS_ACCENTS`
@@ -3343,12 +3343,12 @@ Entry: [packages/pocket_liquid_glass/src/motion.ts](../packages/pocket_liquid_gl
 
 Exports:
 - `createGlassSpring` — [signature](#api-sig-a82c67b826de7861)
-- `createImperativeSpring` — [signature](#api-sig-26535b44312656fb)
+- `createImperativeSpring` — [signature](#api-sig-882b1f87fc779b17)
 - `GLASS_SPRINGS` — [signature](#api-sig-a1bfb5badc147e44)
 - `GlassSpringConfig` — [signature](#api-sig-90d21c138f154273)
 - `GlassSpringPreset` — [signature](#api-sig-86d11f041542e9b8)
 - `GlassSpringState` — [signature](#api-sig-7c17955ca48aaa3c)
-- `ImperativeSpringHandle` — [signature](#api-sig-3ae42cafc9cd95b0)
+- `ImperativeSpringHandle` — [signature](#api-sig-1a072e15b9b31816)
 - `quantizeOptical` — [signature](#api-sig-ae8ee5fd65413499)
 - `stepGlassSpring` — [signature](#api-sig-298936f267f581f0)
 
@@ -23795,7 +23795,7 @@ The following markers cover all inventoried declaration sources and package mani
 <!-- api-source: packages/pocket_liquid_glass/src/index.ts c247c04f3c7626b401c618f244b61d3f767850571fe6ac5d9c3d3e9675fcb6d3 -->
 <!-- api-source: packages/pocket_liquid_glass/src/kit.tsx 85ebfdd64068419d41ce7d94fa42aad9472adfe1ae7104649b6e26c20c1c97d1 -->
 <!-- api-source: packages/pocket_liquid_glass/src/menus.tsx d24621b052a73282a90bef48801ac7b4d4022614abc5112f7711e309d1563020 -->
-<!-- api-source: packages/pocket_liquid_glass/src/motion.ts 2f83606c0c3fd7c72de5400b8e2bd788c146db002fb9177b4843a629ee339d0a -->
+<!-- api-source: packages/pocket_liquid_glass/src/motion.ts d95b6dfee2f86f00898ed10358462a8965caa1ea17eb75dafc343bb30eda7ae3 -->
 <!-- api-source: packages/pocket_liquid_glass/src/navigation.tsx 8b42844d38a34ee4472b98c4e4a99b25e8714d8c6ec21ad74c5a8cce3b502125 -->
 <!-- api-source: packages/pocket_liquid_glass/src/overlays.tsx 5312c463fa4cf124079f1ee3d6ff4b51b33626cad20067605d6567e4e221ad6a -->
 <!-- api-source: packages/pocket_liquid_glass/src/surfaces.tsx d94afb8728ab51a89ed1b5aa64cc9973903e19a6c46955b6fe7fc3cbb4bb79b7 -->

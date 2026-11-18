@@ -121,6 +121,8 @@ export function createGlassSpring(
   target: Accessor<number>,
   options: {
     preset?: GlassSpringPreset;
+    /** Explicit spring constants; takes precedence over `preset`. */
+    config?: GlassSpringConfig;
     reducedMotion?: Accessor<boolean>;
     quantizeStep?: number;
   } = {},
@@ -155,7 +157,7 @@ export function createGlassSpring(
       () => {
         if (settled()) return;
         const rm = options.reducedMotion?.() ?? false;
-        const cfg = GLASS_SPRINGS[options.preset ?? "fluid"];
+        const cfg = options.config ?? GLASS_SPRINGS[options.preset ?? "fluid"];
         const goal = target();
         const next = stepGlassSpring(
           { value: current, velocity, settled: false },

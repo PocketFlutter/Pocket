@@ -33,14 +33,15 @@ import {
   MobileParagraph,
   ScrollablePage,
   ScrollablePageContext,
+  useAccessibilityPreferences,
   useRouteParams,
   useRouteActive,
   useSearchState,
   stateParam,
-  computeTransitionDescriptor,
   type DisplayGeometry,
 } from "@pocket/ui";
 import {
+  createGlassSpring,
   LiquidGlassActivityIndicator,
   LiquidGlassAlertModal,
   LiquidGlassBadge,
@@ -66,6 +67,12 @@ import {
   type LiquidGlassMenuEntry,
   type LiquidGlassMaterial,
 } from "@pocket/liquid_glass";
+
+// Critically damped springs fitted to uikit.even.how frame captures (omega = sqrt(stiffness / mass)).
+/** Push/pop: omega = 22 rad/s, settles in ~430 ms. */
+const PAGE_PUSH_SPRING = { stiffness: 484, damping: 44, mass: 1, precision: 0.001 };
+/** Large-title collapse and bar backdrop: omega = 16 rad/s, ~450 ms. */
+const BAR_COLLAPSE_SPRING = { stiffness: 256, damping: 32, mass: 1, precision: 0.002 };
 import type { DemoEvent, DemoState } from "./state.ts";
 
 export type GalleryWallpaperId =
@@ -330,6 +337,7 @@ export function UIKitGalleryReplicaPage(props: {
 }): JSX.Element {
   const routeActive = useRouteActive();
   const routeParams = useRouteParams<{ component?: string }>({ routeId: "uikit-gallery" });
+  const accessibility = useAccessibilityPreferences();
 
   const [componentParam, setComponentParam] = useSearchState(
     "component",
@@ -364,53 +372,46 @@ export function UIKitGalleryReplicaPage(props: {
     }
   };
 
-  // --- ScrollEdgeEffect: nav bar glass fades in as content scrolls under it ---
-  const [scrollY, setScrollY] = createSignal(0);
-  const navGlassAlpha = createMemo(() => Math.min(1, Math.max(0, scrollY() / 72)));
+  // Measured on uikit.even.how (sdk/docs/LIQUID_GLASS_PACKAGE.md, "Gallery motion").
+  // Scroll edge: past ~45pt the bar runs a timed collapse instead of a scroll-linked ramp.
+  const [catalogScrollY, setCatalogScrollY] = createSignal(0);
+  const [detailScrollY, setDetailScrollY] = createSignal(0);
+  createEffect(() => {
+    activeSlug();
+    setDetailScrollY(0);
+  });
+  const onCatalog = () => activeSlug() === null;
+  const barCollapsed = createMemo(() => (onCatalog() ? catalogScrollY() > 44 : detailScrollY() > 4));
+  const barProgress = createGlassSpring(() => (barCollapsed() ? 1 : 0), {
+    config: BAR_COLLAPSE_SPRING,
+    quantizeStep: 0.01,
+    reducedMotion: () => accessibility().reduceMotion,
+  });
 
-  // --- Page transition: retained IOS_SPRING_PARALLAX descriptor (legacy rate dt*3.6) ---
+  // Push/pop: critically damped spring, -30% catalog parallax and a 12% black dim.
   const [prevSlug, setPrevSlug] = createSignal<GalleryComponentSlug | null>(null);
   createEffect(() => {
     const slug = activeSlug();
     if (slug !== null) setPrevSlug(slug);
   });
-  const pushTarget = createMemo(() => (activeSlug() !== null ? 1 : 0));
-  // 1 = detail fully presented. Advances 3.6/s at the guest's fixed 60 Hz tick.
-  const [pushPosition, setPushPosition] = createSignal(pushTarget());
-  const pushAnimating = () => pushPosition() !== pushTarget();
-  try {
-    onFrame(
-      () => {
-        const target = pushTarget();
-        setPushPosition((value) =>
-          target > value ? Math.min(target, value + 0.06) : Math.max(target, value - 0.06),
-        );
-      },
-      { active: () => routeActive() && pushAnimating(), continuous: () => routeActive() && pushAnimating() },
-    );
-  } catch {}
-  const pushDescriptor = createMemo(() => {
-    const forward = pushTarget() === 1;
-    const width = props.geometry().width || 390;
-    const position = pushPosition();
-    const d = computeTransitionDescriptor("IOS_SPRING_PARALLAX", forward ? position : 1 - position, !forward, width);
-    return forward
-      ? { detailTx: d.inTx, catalogTx: d.outTx, catalogCover: d.easedT }
-      : { detailTx: d.outTx, catalogTx: d.inTx, catalogCover: 1 - d.easedT };
+  const pushProgress = createGlassSpring(() => (activeSlug() !== null ? 1 : 0), {
+    config: PAGE_PUSH_SPRING,
+    reducedMotion: () => accessibility().reduceMotion,
   });
-  const showDetail = createMemo(() => pushPosition() > 0);
-  const showCatalog = createMemo(() => pushPosition() < 1);
+  const pageWidth = () => props.geometry().width || 390;
+  const showDetail = createMemo(() => pushProgress() > 0);
+  const showCatalog = createMemo(() => pushProgress() < 1);
 
   // Siri IntelligentLight animated phase (demand-driven: runs ONLY while `siriActive()` is true!)
   const [siriPhase, setSiriPhase] = createSignal(0);
   try {
     onFrame(
       () => {
-        setSiriPhase((p) => (p + 0.045) % (Math.PI * 2));
+        setSiriPhase((p) => (p + 0.012) % (Math.PI * 2));
       },
       {
-        active: () => routeActive() && siriActive(),
-        continuous: () => routeActive() && siriActive(),
+        active: () => routeActive() && siriActive() && !accessibility().reduceMotion,
+        continuous: () => routeActive() && siriActive() && !accessibility().reduceMotion,
       },
     );
   } catch {}
@@ -587,6 +588,7 @@ export function UIKitGalleryReplicaPage(props: {
       density={() =>
         props.state().interfaceDensity === "desktop" ? "compact" : "comfortable"
       }
+      reducedMotion={() => accessibility().reduceMotion}
       gpuBudget={8}
     >
       <View
@@ -641,18 +643,40 @@ export function UIKitGalleryReplicaPage(props: {
                 insetR: 0,
                 insetB: 0,
                 insetL: 0,
-                // Transparent pages share one wallpaper, so the covered page dims out under the incoming one.
-                opacity: 1 - pushDescriptor().catalogCover,
-                translateX: pushDescriptor().catalogTx,
-                hitPass: pushPosition() > 0.5 ? 1 : 0,
+                translateX: -0.3 * pageWidth() * pushProgress(),
+                hitPass: pushProgress() > 0.5 ? 1 : 0,
               }}
             >
               <GalleryCatalogList
                 isDark={isDark}
                 onSelectComponent={(slug) => openComponent(slug)}
                 fpsHudOpen={fpsHudOpen}
-                onScroll={setScrollY}
+                onScroll={setCatalogScrollY}
               />
+              {/* Pinned large title; content scrolls under it until the bar collapses. */}
+              <View
+                class="absolute left-0 right-0 px-4"
+                style={{ posType: 1, insetL: 0, insetR: 0, insetT: 92, opacity: 1 - barProgress(), hitPass: 1 }}
+              >
+                <Text class="text-4xl font-bold" style={{ textColor: fgColor(), hitPass: 1 }}>
+                  UIKit Gallery
+                </Text>
+              </View>
+              <Show when={pushProgress() > 0}>
+                <View
+                  class="absolute inset-0 w-full h-full"
+                  style={{
+                    posType: 1,
+                    insetT: 0,
+                    insetR: 0,
+                    insetB: 0,
+                    insetL: 0,
+                    bgColor: "#000000",
+                    opacity: 0.12 * pushProgress(),
+                    hitPass: 1,
+                  }}
+                />
+              </Show>
             </View>
           </Show>
           {/* Detail page (slides in from right, fades in) */}
@@ -665,12 +689,30 @@ export function UIKitGalleryReplicaPage(props: {
                 insetR: 0,
                 insetB: 0,
                 insetL: 0,
-                translateX: pushDescriptor().detailTx,
-                hitPass: pushPosition() < 0.5 ? 1 : 0,
+                translateX: pageWidth() * (1 - pushProgress()),
+                hitPass: pushProgress() < 0.5 ? 1 : 0,
               }}
             >
+              {/* The pushed page is opaque: it carries its own backdrop and covers the catalog. */}
+              <View
+                class="absolute inset-0 w-full h-full"
+                style={{ posType: 1, insetT: 0, insetR: 0, insetB: 0, insetL: 0, bgColor: plainBg(), hitPass: 1 }}
+              />
+              <Show when={wpSrc() !== null}>
+                <Image
+                  src={wpSrc()!}
+                  class="absolute inset-0 w-full h-full"
+                  style={{ posType: 1, insetT: 0, insetL: 0, width: pageWidth(), height: props.geometry().height || 844, hitPass: 1 }}
+                />
+              </Show>
+              <Show when={isDark()}>
+                <View
+                  class="absolute inset-0 w-full h-full"
+                  style={{ posType: 1, insetT: 0, insetR: 0, insetB: 0, insetL: 0, bgColor: "#0206172E", hitPass: 1 }}
+                />
+              </Show>
               <ScrollablePage>
-                <ScrollOffsetTracker onScroll={setScrollY} />
+                <ScrollOffsetTracker onScroll={setDetailScrollY} />
                 <View class="flex-col gap-3.5 px-4 pt-[104] pb-[96] w-full" style={{ minW: 0 }}>
                   <Show when={fpsHudOpen()}>
                     <LiquidGlassFpsHud active={fpsHudOpen} />
@@ -712,7 +754,7 @@ export function UIKitGalleryReplicaPage(props: {
             elevated={false}
             class="absolute inset-0 w-full h-full"
             contentClass="p-0"
-            opacity={navGlassAlpha()}
+            opacity={barProgress()}
             style={{
               posType: 1,
               insetT: 0,
@@ -733,7 +775,7 @@ export function UIKitGalleryReplicaPage(props: {
               bgColor: isDark() ? "#090D16B8" : "#F8FAFCC4",
               borderColor: isDark() ? "#FFFFFF1E" : "#0F172A14",
               borderWidth: 0.5,
-              opacity: navGlassAlpha(),
+              opacity: barProgress(),
               hitPass: 1,
             }}
           />
@@ -806,12 +848,11 @@ export function UIKitGalleryReplicaPage(props: {
                       </Text>
                     </LiquidGlassSurface>
                   </Focusable>
-                  <Text
-                    class="text-lg font-bold"
-                    style={{ textColor: fgColor() }}
-                  >
-                    UIKit Gallery
-                  </Text>
+                  <View class="flex-1 items-center justify-center" style={{ minW: 0, opacity: barProgress() }}>
+                    <Text class="text-sm font-bold" style={{ textColor: fgColor() }}>
+                      UIKit Gallery
+                    </Text>
+                  </View>
                 </View>
               }
             >
@@ -879,7 +920,11 @@ export function UIKitGalleryReplicaPage(props: {
 
         {/* 4. Persistent App-Wide SiriSideButtonOverlay (`IntelligentLight` + `EdgeLightMask`) */}
         <Show when={siriActive()}>
-          <SiriEdgeGlowOverlay phase={siriPhase} />
+          <SiriEdgeGlowOverlay
+            phase={siriPhase}
+            width={() => props.geometry().width || 390}
+            height={() => props.geometry().height || 844}
+          />
         </Show>
 
         {/* 5. HomeGrabberView (`LumaDodgePillView`) */}
@@ -922,93 +967,116 @@ function ScrollOffsetTracker(props: { onScroll?: (y: number) => void }): JSX.Ele
   return null as unknown as JSX.Element;
 }
 
-function mixHex(from: string, to: string, t: number): string {
-  const channel = (hex: string, at: number) => parseInt(hex.slice(at, at + 2), 16);
-  let out = "#";
-  for (const at of [1, 3, 5]) {
-    const value = Math.round(channel(from, at) + (channel(to, at) - channel(from, at)) * t);
-    out += value.toString(16).padStart(2, "0").toUpperCase();
-  }
+// IntelligentLight palette from the reference shader (kLightBase/Purple/Pink/Orange).
+const SIRI_PALETTE: ReadonlyArray<readonly [number, number, number]> = [
+  [0, 150, 255],
+  [187, 100, 255],
+  [255, 45, 85],
+  [255, 147, 0],
+];
+
+function siriColor(h: number, alpha: number): string {
+  const x = (((h % 1) + 1) % 1) * SIRI_PALETTE.length;
+  const k = Math.floor(x);
+  const t = x - k;
+  const a = SIRI_PALETTE[k]!;
+  const b = SIRI_PALETTE[(k + 1) % SIRI_PALETTE.length]!;
+  const hex = (v: number) => Math.round(v).toString(16).padStart(2, "0");
+  return `#${hex(a[0] + (b[0] - a[0]) * t)}${hex(a[1] + (b[1] - a[1]) * t)}${hex(a[2] + (b[2] - a[2]) * t)}${hex(alpha * 255)}`;
+}
+
+type GlowSegmentRect = {
+  posType: 1;
+  insetL: number;
+  insetT: number;
+  width: number;
+  height: number;
+  hitPass: 1;
+};
+
+type GlowSegment = {
+  u: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  side: "t" | "r" | "b" | "l";
+  outer: GlowSegmentRect;
+  inner: GlowSegmentRect;
+};
+
+function glowSegments(width: number, height: number): GlowSegment[] {
+  const out: GlowSegment[] = [];
+  const perimeter = 2 * (width + height);
+  const makeRect = (
+    side: GlowSegment["side"],
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    depth: number,
+  ): GlowSegmentRect => {
+    const horizontal = side === "t" || side === "b";
+    return {
+      posType: 1,
+      insetL: side === "r" ? x - depth : x,
+      insetT: side === "b" ? y - depth : y,
+      width: horizontal ? w : depth,
+      height: horizontal ? depth : h,
+      hitPass: 1,
+    };
+  };
+  const run = (side: GlowSegment["side"], count: number, length: number, offset: number) => {
+    for (let i = 0; i < count; i += 1) {
+      const a = (length * i) / count;
+      const b = (length * (i + 1)) / count;
+      const u = (offset + (a + b) / 2) / perimeter;
+      const x = side === "t" ? a : side === "r" ? width : side === "b" ? width - b : 0;
+      const y = side === "t" ? 0 : side === "r" ? a : side === "b" ? height : height - b;
+      const w = side === "t" || side === "b" ? b - a : 0;
+      const h = side === "r" || side === "l" ? b - a : 0;
+      out.push({
+        u,
+        side,
+        x,
+        y,
+        w,
+        h,
+        outer: makeRect(side, x, y, w, h, 4),
+        inner: makeRect(side, x, y, w, h, 12),
+      });
+    }
+  };
+  run("t", 6, width, 0);
+  run("r", 10, height, width);
+  run("b", 6, width, width + height);
+  run("l", 10, height, 2 * width + height);
   return out;
 }
 
-function SiriEdgeGlowOverlay(props: { phase: () => number }): JSX.Element {
-  const TAU = Math.PI * 2;
-  const W = 4;
-
+/** Perimeter edge light measured on uikit.even.how: bright outer ~4pt, faded by ~12pt, colors drifting along the edge. */
+function SiriEdgeGlowOverlay(props: { phase: () => number; width: () => number; height: () => number }): JSX.Element {
+  const segments = createMemo(() => glowSegments(props.width(), props.height()));
+  const hue = (u: number) => {
+    const turn = props.phase() / (Math.PI * 2);
+    return u * 2 + turn + 0.12 * Math.sin(Math.PI * 2 * u * 3 + props.phase());
+  };
   return (
     <View
       class="absolute inset-0 w-full h-full"
       style={{ posType: 1, insetT: 0, insetR: 0, insetB: 0, insetL: 0, hitPass: 1 }}
     >
-      {/* Top edge */}
-      <View class="absolute" style={{
-        posType: 1, insetT: 0, insetL: 0, insetR: 0, height: W,
-        bgColor: (() => {
-          const wave = (Math.sin(props.phase() - 0 * TAU) + 1) / 2;
-          return mixHex("#38BDF8", "#EC4899", wave);
-        })(),
-        opacity: (() => {
-          const wave = (Math.sin(props.phase() - 0 * TAU) + 1) / 2;
-          return 0.1 + 0.7 * wave;
-        })(),
-        radius: 2,
-        hitPass: 1,
-      }} />
-      {/* Right edge */}
-      <View class="absolute" style={{
-        posType: 1, insetT: 0, insetR: 0, insetB: 0, width: W,
-        bgColor: (() => {
-          const wave = (Math.sin(props.phase() - 0.25 * TAU) + 1) / 2;
-          return mixHex("#A855F7", "#38BDF8", wave);
-        })(),
-        opacity: (() => {
-          const wave = (Math.sin(props.phase() - 0.25 * TAU) + 1) / 2;
-          return 0.1 + 0.7 * wave;
-        })(),
-        radius: 2,
-        hitPass: 1,
-      }} />
-      {/* Bottom edge */}
-      <View class="absolute" style={{
-        posType: 1, insetB: 0, insetL: 0, insetR: 0, height: W,
-        bgColor: (() => {
-          const wave = (Math.sin(props.phase() - 0.5 * TAU) + 1) / 2;
-          return mixHex("#EC4899", "#A855F7", wave);
-        })(),
-        opacity: (() => {
-          const wave = (Math.sin(props.phase() - 0.5 * TAU) + 1) / 2;
-          return 0.1 + 0.7 * wave;
-        })(),
-        radius: 2,
-        hitPass: 1,
-      }} />
-      {/* Left edge */}
-      <View class="absolute" style={{
-        posType: 1, insetT: 0, insetL: 0, insetB: 0, width: W,
-        bgColor: (() => {
-          const wave = (Math.sin(props.phase() - 0.75 * TAU) + 1) / 2;
-          return mixHex("#22D3EE", "#F472B6", wave);
-        })(),
-        opacity: (() => {
-          const wave = (Math.sin(props.phase() - 0.75 * TAU) + 1) / 2;
-          return 0.1 + 0.7 * wave;
-        })(),
-        radius: 2,
-        hitPass: 1,
-      }} />
-      {/* Inner softer halo (offset 6px, thinner, lower opacity) */}
-      <View class="absolute" style={{
-        posType: 1, insetT: 6, insetL: 6, insetR: 6, insetB: 6,
-        borderColor: (() => {
-          const wave = (Math.sin(props.phase() * 0.7) + 1) / 2;
-          return mixHex("#38BDF8", "#C084FC", wave) + "44";
-        })(),
-        borderWidth: 2,
-        radius: 30,
-        opacity: 0.4 + 0.3 * Math.sin(props.phase() * 1.3),
-        hitPass: 1,
-      }} />
+      <For each={segments()}>
+        {(segment) => {
+          const h = createMemo(() => hue(segment.u));
+          return (
+            <>
+              <View class="absolute" style={{ ...segment.inner, bgColor: siriColor(h(), 0.28) }} />
+              <View class="absolute" style={{ ...segment.outer, bgColor: siriColor(h(), 0.9) }} />
+            </>
+          );
+        }}
+      </For>
     </View>
   );
 }
@@ -1029,7 +1097,7 @@ function GalleryCatalogList(props: {
   return (
     <ScrollablePage>
       <ScrollOffsetTracker onScroll={props.onScroll} />
-      <View class="flex-col gap-4 px-4 pt-[100] pb-[48] w-full" style={{ minW: 0 }}>
+      <View class="flex-col gap-4 px-4 pt-[144] pb-[48] w-full" style={{ minW: 0 }}>
         <Show when={props.fpsHudOpen()}>
           <LiquidGlassFpsHud active={props.fpsHudOpen} />
         </Show>

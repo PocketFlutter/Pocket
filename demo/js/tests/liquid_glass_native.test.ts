@@ -28,8 +28,8 @@ test("the Showcase UIKit Gallery supports native pointer navigation, controls, a
     assert.match(textOf(frame), /Format: Convert to Most Compatible/);
     assert.equal(textOps(frame, "Choose a Format").length, 0);
 
-    // The pop transition runs ~17 frames at the guest's 60 Hz tick.
-    frame = await session.settle(await session.tap("UIKit Gallery", frame), 30);
+    // The pop spring settles in ~35 frames at the guest's 60 Hz tick.
+    frame = await session.settle(await session.tap("UIKit Gallery", frame), 45);
     textOp(frame, "BARS & PRESENTATION");
     assert.equal(textOps(frame, "Configurations").length, 0);
 
@@ -152,26 +152,39 @@ test("Liquid Glass overlays crossfade and morph glass geometry, commit press-dra
   }
 }, 30_000);
 
-test("UIKit Gallery push/pop follows IOS_SPRING_PARALLAX and the nav bar glass tracks scroll", async () => {
+test("UIKit Gallery motion matches the uikit.even.how reference captures", async () => {
+  // Reference numbers: sdk/docs/LIQUID_GLASS_PACKAGE.md, "Gallery motion".
   const session = new NativeSession(readNativeArtifacts("POCKET_LIQUID_GLASS"), { width: 390, height: 844 });
   const navGlass = (frame: { ops?: Array<Record<string, unknown>> }) =>
     glassSurfaces(frame).filter((surface) => surface.y <= 0.5 && surface.w >= 380);
   const xOf = (frame: Parameters<typeof textOps>[0], label: string) => textOps(frame, label)[0]?.x;
+  const titleAlpha = (frame: Parameters<typeof textOps>[0], size: number) =>
+    ((Number(textOps(frame, "UIKit Gallery").find((op) => Number(op.size) === size)?.color ?? 0) >>> 24) & 255) / 255;
   try {
     await session.boot();
     session.sendEvent("demo.navigate", { route: "uikit-gallery" });
     let frame = await session.settle(await session.frame());
-    assert.equal(navGlass(frame).length, 0, "nav glass is clear at the scroll top");
-    frame = await session.settle(await session.drag({ x: 200, y: 600 }, { x: 200, y: 450 }, 6), 30);
-    assert.equal(navGlass(frame)[0]?.opacity, 1, "nav glass is opaque once content is under it");
-    frame = await session.settle(await session.drag({ x: 200, y: 400 }, { x: 200, y: 700 }, 6), 60);
-    assert.equal(navGlass(frame).length, 0, "nav glass clears again at the top");
+    assert.equal(navGlass(frame).length, 0, "bar backdrop is clear at the scroll top");
+    assert.equal(titleAlpha(frame, 36), 1, "large title is shown at rest");
 
+    // Scroll edge: crossing ~45pt starts a timed collapse that keeps running while input is idle.
+    frame = await session.drag({ x: 200, y: 600 }, { x: 200, y: 520 }, 6);
+    const early = titleAlpha(frame, 14);
+    frame = await session.settle(frame, 30);
+    assert.ok(early < 0.6, `inline title starts faded (${early})`);
+    assert.equal(titleAlpha(frame, 14), 1, "inline title fades in after the drag ends");
+    assert.ok(titleAlpha(frame, 36) < 0.02, "large title fades out");
+    assert.equal(navGlass(frame)[0]?.opacity, 1, "bar backdrop is opaque once collapsed");
+    frame = await session.settle(await session.drag({ x: 200, y: 400 }, { x: 200, y: 700 }, 6), 60);
+    assert.equal(navGlass(frame).length, 0, "bar backdrop clears again at the top");
+    assert.equal(titleAlpha(frame, 36), 1, "large title returns");
+
+    // Push: critically damped spring (omega = 22), catalog parallax -30% width.
     const catalogRest = xOf(frame, "BARS & PRESENTATION")!;
     frame = await session.tap("Button", frame);
     const detailXs: number[] = [];
     let catalogMin = catalogRest;
-    for (let index = 0; index < 24; index += 1) {
+    for (let index = 0; index < 40; index += 1) {
       const detail = xOf(frame, "Configurations");
       const catalog = xOf(frame, "BARS & PRESENTATION");
       if (detail !== undefined) detailXs.push(detail);
@@ -181,10 +194,13 @@ test("UIKit Gallery push/pop follows IOS_SPRING_PARALLAX and the nav bar glass t
     const detailRest = detailXs.at(-1)!;
     assert.ok(detailXs[0]! > detailRest + 200, `detail enters from the trailing edge (${detailXs[0]})`);
     for (let index = 1; index < detailXs.length; index += 1) assert.ok(detailXs[index]! <= detailXs[index - 1]!);
-    assert.ok(catalogRest - catalogMin > 70, `catalog parallaxes toward -28% width (${catalogMin})`);
+    // At 100 ms (frame 6) the reference spring is 64.5% of the way; allow one frame of layout lag.
+    const progressAt100ms = 1 - (detailXs[6]! - detailRest) / 390;
+    assert.ok(progressAt100ms > 0.5 && progressAt100ms < 0.8, `spring progress at 100 ms (${progressAt100ms})`);
+    assert.ok(Math.abs(catalogRest - catalogMin - 117) < 2, `catalog parallax is -30% width (${catalogMin - catalogRest})`);
     assert.equal(textOps(frame, "BARS & PRESENTATION").length, 0, "covered catalog unmounts after push");
 
-    frame = await session.settle(await session.tap("UIKit Gallery", frame), 30);
+    frame = await session.settle(await session.tap("UIKit Gallery", frame), 45);
     assert.equal(textOps(frame, "Configurations").length, 0);
     assert.ok(Math.abs(xOf(frame, "BARS & PRESENTATION")! - catalogRest) < 0.5, "catalog returns to rest");
   } finally {
