@@ -13,6 +13,108 @@ double _surfaceNumber(
       : fallback;
 }
 
+/// Assigns one shared backdrop capture ([BackdropKey]) to consecutive glass
+/// surfaces whose sampling region is untouched since that capture.
+///
+/// Without a key, every `BackdropFilter` ends the render pass and snapshots
+/// the scene again, so N glass controls cost N full backdrop copies per frame.
+/// A shared key lets the engine capture once for the group. A member may join
+/// only when nothing painted after the group's capture (canvas ops, other
+/// surfaces, or earlier members) intersects the area it samples; otherwise it
+/// starts a new group, so the output is identical to unshared capture.
+final class _PocketBackdropGrouper {
+  _PocketBackdropGrouper(this._keys, this._viewport);
+
+  /// Retained across frames so stable groups keep stable keys.
+  final List<BackdropKey> _keys;
+  final Rect _viewport;
+  final List<Rect> _dirty = <Rect>[];
+  int _group = -1;
+
+  int get groupCount => _group + 1;
+
+  /// Record pixels painted in draw order after the open group's capture.
+  void paint(PocketOp op) {
+    if (_group < 0) return;
+    _dirty.add(_paintBounds(op));
+  }
+
+  BackdropKey glass(PocketHostSurfaceOp op) {
+    final sample = _sampleRegion(op);
+    final reuse =
+        _group >= 0 && !_dirty.any((painted) => painted.overlaps(sample));
+    if (!reuse) {
+      _group += 1;
+      if (_group == _keys.length) _keys.add(BackdropKey());
+      _dirty.clear();
+    }
+    // This member's own output is part of later members' backdrop.
+    _dirty.add(_paintBounds(op));
+    return _keys[_group];
+  }
+
+  Rect _paintBounds(PocketOp op) {
+    final bounded =
+        op is PocketRectOp ||
+        op is PocketRoundedOp ||
+        op is PocketArcOp ||
+        op is PocketGradientOp ||
+        op is PocketRoundedGradientOp ||
+        op is PocketTextOp ||
+        op is PocketImageOp ||
+        op is PocketVideoOp ||
+        op is PocketHostSurfaceOp;
+    if (!bounded || !(op.width > 0) || !(op.height > 0)) return _viewport;
+    // Anti-aliasing, borders and glyph overhang can bleed past the box.
+    var rect = Rect.fromLTWH(op.x, op.y, op.width, op.height).inflate(4);
+    final clip = op.clip;
+    if (clip != null) {
+      rect = rect.intersect(
+        Rect.fromLTWH(clip.x, clip.y, clip.width, clip.height),
+      );
+    }
+    return rect;
+  }
+
+  /// The furthest the optical shader reads from its quad: refracted ray
+  /// length, frost radius, local pull, warp and ripple. Mirrors the Web
+  /// Preview's capture ROI so both hosts reason about the same samples.
+  Rect _sampleRegion(PocketHostSurfaceOp op) {
+    final p = op.parameters;
+    final bounds = Rect.fromLTWH(op.x, op.y, op.width, op.height);
+    if (p['effect'] == 'blur') {
+      return bounds.inflate(_surfaceNumber(p, 'blur', 5, 0, 20) * 3 + 2);
+    }
+    final edge = _surfaceNumber(p, 'edgeIntensity', .015, 0, .2);
+    final rim = _surfaceNumber(p, 'rimIntensity', .05, 0, .3);
+    final base = _surfaceNumber(p, 'baseIntensity', .01, 0, .1);
+    final corner = _surfaceNumber(p, 'cornerBoost', .02, 0, .5);
+    final ripple = _surfaceNumber(p, 'rippleEffect', .08, 0, 1);
+    final blur = _surfaceNumber(p, 'blur', 5, 0, 20);
+    final variant = switch (p['material']) {
+      'regular' => 1,
+      'clear' => 2,
+      _ => 0,
+    };
+    final press = p['pressed'] == true ? 1.18 : 1.0;
+    final thickness = variant == 0
+        ? (24 + edge * 340 + rim * 130) * (1 + corner * 2) * press
+        : ((variant == 2 ? 5 : 8) + edge * 80 + rim * 36) *
+              (1 + corner * .8) *
+              (variant == 2 ? .78 : 1) *
+              press;
+    final extent = math.max(op.width, op.height);
+    final halo =
+        thickness +
+        blur * 3 +
+        (variant == 0 ? 0 : 16) +
+        extent * (p['warp'] == true ? .045 + base * 1.8 : 0) / 2 +
+        math.max(_viewport.width, _viewport.height) * ripple * .004 +
+        2;
+    return bounds.inflate(halo);
+  }
+}
+
 /// One generic optical compositor surface. Recipes and geometry live in JS;
 /// Flutter supplies backdrop sampling and the original optical shader math.
 final class _PocketGlassFilter extends StatefulWidget {
@@ -22,8 +124,12 @@ final class _PocketGlassFilter extends StatefulWidget {
     required this.geometry,
     required this.surfaceSize,
     required this.scale,
+    this.backdropKey,
   });
   final Map<String, dynamic> parameters;
+
+  /// Shared capture assigned by [_PocketBackdropGrouper]; `null` captures alone.
+  final BackdropKey? backdropKey;
   final Rect geometry;
   final Size surfaceSize;
   final double scale;
@@ -241,6 +347,7 @@ final class _PocketGlassFilterState extends State<_PocketGlassFilter> {
         final opticalInset = _surfaceNumber(p, 'opticalInset', 0, 0, 64);
         final backdrop = BackdropFilter(
           key: ValueKey('pocket-glass-$mode'),
+          backdropGroupKey: widget.backdropKey,
           filter: filter,
           child: DecoratedBox(
             // An unavailable shader retains real frost at the original shape.

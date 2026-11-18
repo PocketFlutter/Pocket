@@ -595,7 +595,7 @@
                 "PocketViewCapture",
                 "PocketViewController"
               ],
-              "sourceSha256": "4b5f1ac9e0548bab45f9c8602177ee2cca644796ea6e0ad76d88dd570ae45227"
+              "sourceSha256": "cbb945672a2a38bf68f71f1e19e36f0966b3ad4e460c908eaee96a7999140d29"
             },
             {
               "from": "packages/pocket_flutter/lib/pocket_flutter.dart",
