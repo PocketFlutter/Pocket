@@ -9,6 +9,11 @@ rust-version = "1.93"
 # probe binary can exercise the same Rust runtime without dlopening a dylib.
 crate-type = ["cdylib", "staticlib", "rlib"]
 
+[features]
+default = []
+# Retains standalone legacy JSON / raw-channel C ABI exports when explicitly requested.
+legacy-c-abi = []
+
 [dependencies]
 base64 = "0.22.1"
 pocket-runtime = { path = "../.cache/pocketjs/engine/runtime" }
@@ -20,8 +25,6 @@ pocket-draw-ops = { path = "../.cache/pocketjs/engine/render/draw-ops" }
 rquickjs = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
-ureq = { version = "2.12.1", default-features = false, features = ["tls"] }
-url = "2.5"
 
 [build-dependencies]
 cc = "1"
@@ -35,6 +38,7 @@ rquickjs = { version = "0.12", features = ["bindgen"] }
 [workspace]
 
 [profile.release]
-lto = "thin"
+opt-level = "z"
+lto = "fat"
 codegen-units = 1
 panic = "unwind"

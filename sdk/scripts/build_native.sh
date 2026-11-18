@@ -3,38 +3,84 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PACKAGE_ROOT="$ROOT/packages/pocket_flutter"
+APPLE_SYMBOLS="$ROOT/native/exported_symbols_apple.txt"
+GNU_VERSION_SCRIPT="$ROOT/native/exported_symbols_gnu.lds"
 
 python3 "$ROOT/scripts/prepare_upstream.py"
 
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT/native/target}"
+
 build() {
   local target="$1"
-  cargo build --locked --release --manifest-path "$ROOT/native/Cargo.toml" --target "$target" --lib
+  cargo build --locked --offline --release --manifest-path "$ROOT/native/Cargo.toml" --target "$target" --lib
+}
+
+# Pre-links a Rust static archive (`ld -r`) against the exact 50-symbol FFI
+# allowlist and strips local/debug symbol strings (`strip -S -x`). This drops
+# all unreferenced `.rlib` object members (`gimli`, `addr2line`, `object`,
+# `rustc_demangle`, unused `std`/`pocket_present`/`pocket_raster` objects)
+# directly from `libpocket_flutter.a` on disk.
+slim_apple_staticlib() {
+  local sdk_name="$1"
+  local platform_name="$2"
+  local min_version="$3"
+  local arch="$4"
+  local archive_path="$5"
+
+  local sysroot
+  sysroot="$(xcrun --sdk "$sdk_name" --show-sdk-path)"
+  local sdk_version
+  sdk_version="$(xcrun --sdk "$sdk_name" --show-sdk-version)"
+  local tmp_obj="${archive_path%.a}.slim.$$.o"
+  local tmp_lib="${archive_path%.a}.slim.$$.a"
+
+  local undef_args=()
+  while IFS= read -r sym; do
+    [ -n "$sym" ] && undef_args+=("-u" "$sym")
+  done < "$APPLE_SYMBOLS"
+
+  rm -f "$tmp_obj" "$tmp_lib"
+  xcrun --sdk "$sdk_name" ld -r \
+    -arch "$arch" \
+    -platform_version "$platform_name" "$min_version" "$sdk_version" \
+    -syslibroot "$sysroot" \
+    -exported_symbols_list "$APPLE_SYMBOLS" \
+    "${undef_args[@]}" \
+    "$archive_path" \
+    -o "$tmp_obj"
+  xcrun --sdk "$sdk_name" strip -S -x "$tmp_obj"
+  xcrun --sdk "$sdk_name" libtool -static -o "$tmp_lib" "$tmp_obj"
+  mv -f "$tmp_lib" "$archive_path"
+  rm -f "$tmp_obj"
 }
 
 build_ios_slice() {
   local target="$1"
   local sdk_name="$2"
   local clang_target="$3"
-  export LIBCLANG_PATH="${LIBCLANG_PATH:-$(dirname "$(xcrun --find clang)")/../lib}"
-  export BINDGEN_EXTRA_CLANG_ARGS="--target=$clang_target -isysroot $(xcrun --sdk "$sdk_name" --show-sdk-path)"
-  export IPHONEOS_DEPLOYMENT_TARGET=15.0
-  build "$target"
+  local platform_name="$4"
+  (
+    export LIBCLANG_PATH="${LIBCLANG_PATH:-$(dirname "$(xcrun --find clang)")/../lib}"
+    export BINDGEN_EXTRA_CLANG_ARGS="--target=$clang_target -isysroot $(xcrun --sdk "$sdk_name" --show-sdk-path)"
+    export IPHONEOS_DEPLOYMENT_TARGET=15.0
+    build "$target"
+  )
+  slim_apple_staticlib \
+    "$sdk_name" \
+    "$platform_name" \
+    "15.0" \
+    "arm64" \
+    "$CARGO_TARGET_DIR/$target/release/libpocket_flutter.a"
 }
 
 package_ios_xcframework() {
-  local device="$ROOT/native/target/aarch64-apple-ios/release/libpocket_flutter.a"
-  local simulator="$ROOT/native/target/aarch64-apple-ios-sim/release/libpocket_flutter.a"
+  local device="$CARGO_TARGET_DIR/aarch64-apple-ios/release/libpocket_flutter.a"
+  local simulator="$CARGO_TARGET_DIR/aarch64-apple-ios-sim/release/libpocket_flutter.a"
   local output="$PACKAGE_ROOT/ios/pocket_flutter/Frameworks/PocketFlutter.xcframework"
   local lock="$PACKAGE_ROOT/ios/pocket_flutter/Frameworks/.PocketFlutter.xcframework.lock"
   # xcodebuild requires the output argument itself to end in .xcframework.
   local temporary="${output%.xcframework}.tmp.$$.xcframework"
   test -f "$device" && test -f "$simulator"
-  # A shared SDK checkout can be prepared by two Flutter consumers at once.
-  # Serialize the package step so one process cannot remove the final bundle
-  # while another is linking against it.  The lock is deliberately exclusive:
-  # the caller can retry after the active producer finishes, rather than
-  # observing a mixed bundle.  The final bundle is retained until the complete
-  # temporary bundle has been produced.
   if ! mkdir "$lock" 2>/dev/null; then
     echo "PocketFlutter.xcframework packaging is already in progress: $lock" >&2
     exit 73
@@ -45,16 +91,10 @@ package_ios_xcframework() {
   }
   trap cleanup_xcframework_lock EXIT
   rm -rf "$temporary"
-  xcrun strip -S "$device" "$simulator"
   xcodebuild -create-xcframework \
     -library "$device" \
     -library "$simulator" \
     -output "$temporary"
-  # Install the complete bundle only after xcodebuild has finished. When a
-  # previous bundle exists, renameatx_np(RENAME_SWAP) exchanges the directory
-  # entries atomically, so readers see either the previous complete bundle or
-  # the new complete bundle (never a missing/partial directory). The old bundle
-  # is then removed from its temporary name.
   python3 - "$temporary" "$output" <<'PY'
 import ctypes
 import os
@@ -90,8 +130,6 @@ PY
   if [ -e "$temporary" ]; then
     rm -rf "$temporary"
   fi
-  # Remove the old single-architecture location. Leaving it in place makes a
-  # later Flutter build silently select whichever target was built last.
   rm -f "$PACKAGE_ROOT/ios/pocket_flutter/Frameworks/libpocket_flutter.a"
   trap - EXIT
   cleanup_xcframework_lock
@@ -99,47 +137,58 @@ PY
 
 case "${1:-}" in
   macos)
-    # Keep target objects aligned with the Flutter/Xcode deployment target
-    # without polluting host proc-macros (which breaks libserde_derive on Xcode 27.2).
-    # cc-rs dependencies (QuickJS/ring) also need the deployment fact: Rust
-    # link arguments alone do not lower the minimum recorded in C objects.
-    export MACOSX_DEPLOYMENT_TARGET=12.0
-    export CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS="-C link-arg=-mmacosx-version-min=12.0"
-    export CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C link-arg=-mmacosx-version-min=12.0"
-    build aarch64-apple-darwin
-    # Build the host-side static probe separately.  It is intentionally not
-    # part of iOS/Android cross builds because those targets ship the library,
-    # not a desktop stdin/stdout executable.
-    cargo build --locked --release --manifest-path "$ROOT/native/Cargo.toml" \
-      --target aarch64-apple-darwin --bin pocket_probe
+    # Pass deployment target only to target C compilations (`CFLAGS_*`) and the
+    # final target crate (`cargo rustc -- -C link-arg=...`) so host proc-macros
+    # (`libserde_derive.dylib`) are never linked with `-mmacosx-version-min=12.0`
+    # on Xcode 27.2+.
+    (
+      unset MACOSX_DEPLOYMENT_TARGET
+      unset CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS
+      export CFLAGS_aarch64_apple_darwin="-mmacosx-version-min=12.0"
+      cargo rustc --locked --offline --release \
+        --manifest-path "$ROOT/native/Cargo.toml" \
+        --target aarch64-apple-darwin \
+        --lib -- -C link-arg=-mmacosx-version-min=12.0
+      cargo rustc --locked --offline --release \
+        --manifest-path "$ROOT/native/Cargo.toml" \
+        --target aarch64-apple-darwin \
+        --bin pocket_probe -- -C link-arg=-mmacosx-version-min=12.0
+    )
     mkdir -p "$PACKAGE_ROOT/macos/Frameworks"
-    # macOS links the static archive into Runner and resolves FFI symbols from
-    # the process. Keep the dylib in native/target for standalone Rust checks;
-    # embedding it would trigger Xcode27 LINKEDIT alignment failures.
-    # Strip debug sections (-S) so stdlib DWARF/LLVM bitcode metadata does not
-    # bloat the archive when LTO is enabled.
-    xcrun strip -S "$ROOT/native/target/aarch64-apple-darwin/release/libpocket_flutter.a"
-    cp "$ROOT/native/target/aarch64-apple-darwin/release/libpocket_flutter.a" \
+    cp "$CARGO_TARGET_DIR/aarch64-apple-darwin/release/libpocket_flutter.a" \
+      "$PACKAGE_ROOT/macos/Frameworks/libpocket_flutter.a"
+    slim_apple_staticlib \
+      "macosx" \
+      "macos" \
+      "12.0" \
+      "arm64" \
       "$PACKAGE_ROOT/macos/Frameworks/libpocket_flutter.a"
     ;;
   ios-sim)
-    build_ios_slice aarch64-apple-ios-sim iphonesimulator arm64-apple-ios15.0-simulator
-    build_ios_slice aarch64-apple-ios iphoneos arm64-apple-ios15.0
+    build_ios_slice aarch64-apple-ios-sim iphonesimulator arm64-apple-ios15.0-simulator ios-simulator
+    build_ios_slice aarch64-apple-ios iphoneos arm64-apple-ios15.0 ios
     mkdir -p "$PACKAGE_ROOT/ios/pocket_flutter/Frameworks"
     package_ios_xcframework
     ;;
   ios)
-    build_ios_slice aarch64-apple-ios iphoneos arm64-apple-ios15.0
-    build_ios_slice aarch64-apple-ios-sim iphonesimulator arm64-apple-ios15.0-simulator
+    build_ios_slice aarch64-apple-ios iphoneos arm64-apple-ios15.0 ios
+    build_ios_slice aarch64-apple-ios-sim iphonesimulator arm64-apple-ios15.0-simulator ios-simulator
     mkdir -p "$PACKAGE_ROOT/ios/pocket_flutter/Frameworks"
     package_ios_xcframework
     ;;
   android)
     sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$(python3 -c 'import os; print(os.path.expanduser("~/Library/Android/sdk"))')}}"
     ndk="${POCKET_ANDROID_NDK:-$sdk/ndk/28.1.13356709}"
-    case "$(uname -s)" in
-      Darwin) host_tag="darwin-x86_64" ;;
-      Linux) host_tag="linux-x86_64" ;;
+    case "$(uname -s)-$(uname -m)" in
+      Darwin-arm64)
+        if [ -d "$ndk/toolchains/llvm/prebuilt/darwin-arm64" ]; then
+          host_tag="darwin-arm64"
+        else
+          host_tag="darwin-x86_64"
+        fi
+        ;;
+      Darwin-*) host_tag="darwin-x86_64" ;;
+      Linux-*) host_tag="linux-x86_64" ;;
       *) echo "Unsupported NDK build host" >&2; exit 2 ;;
     esac
     bin="$ndk/toolchains/llvm/prebuilt/$host_tag/bin"
@@ -150,16 +199,34 @@ case "${1:-}" in
     export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$bin/aarch64-linux-android24-clang"
     export CC_aarch64_linux_android="$CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER"
     export AR_aarch64_linux_android="$bin/llvm-ar"
-    export LIBCLANG_PATH="${LIBCLANG_PATH:-$(dirname "$(xcrun --find clang)")/../lib}"
+    export LIBCLANG_PATH="${LIBCLANG_PATH:-$(dirname "$(xcrun --find clang 2>/dev/null || command -v clang)")/../lib}"
     export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android24 --sysroot=$ndk/toolchains/llvm/prebuilt/$host_tag/sysroot"
-    export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384"
+    export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,--gc-sections -C link-arg=-Wl,--version-script=$GNU_VERSION_SCRIPT"
     build aarch64-linux-android
     mkdir -p "$PACKAGE_ROOT/android/src/main/jniLibs/arm64-v8a"
-    cp "$ROOT/native/target/aarch64-linux-android/release/libpocket_flutter.so" \
-      "$PACKAGE_ROOT/android/src/main/jniLibs/arm64-v8a/"
+    cp "$CARGO_TARGET_DIR/aarch64-linux-android/release/libpocket_flutter.so" \
+      "$PACKAGE_ROOT/android/src/main/jniLibs/arm64-v8a/libpocket_flutter.so"
+    if [ -x "$bin/llvm-strip" ]; then
+      "$bin/llvm-strip" --strip-unneeded \
+        "$PACKAGE_ROOT/android/src/main/jniLibs/arm64-v8a/libpocket_flutter.so"
+    fi
+    ;;
+  linux)
+    case "$(uname -m)" in
+      aarch64|arm64) linux_target="aarch64-unknown-linux-gnu" ;;
+      *) linux_target="x86_64-unknown-linux-gnu" ;;
+    esac
+    export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-Wl,--gc-sections -C link-arg=-Wl,--version-script=$GNU_VERSION_SCRIPT"
+    build "$linux_target"
+    mkdir -p "$PACKAGE_ROOT/linux/lib"
+    cp "$CARGO_TARGET_DIR/$linux_target/release/libpocket_flutter.so" \
+      "$PACKAGE_ROOT/linux/lib/libpocket_flutter.so"
+    if command -v strip >/dev/null 2>&1; then
+      strip --strip-unneeded "$PACKAGE_ROOT/linux/lib/libpocket_flutter.so"
+    fi
     ;;
   *)
-    echo "Usage: $0 macos|ios-sim|ios|android" >&2
+    echo "Usage: $0 macos|ios-sim|ios|android|linux" >&2
     exit 2
     ;;
 esac

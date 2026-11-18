@@ -1135,11 +1135,12 @@ final class FfiPocketRuntime
       return DynamicLibrary.open(override);
     }
     if (Platform.isAndroid) return DynamicLibrary.open('libpocket_flutter.so');
+    if (Platform.isLinux) return DynamicLibrary.open('libpocket_flutter.so');
     if (Platform.isWindows) return DynamicLibrary.open('pocket_flutter.dll');
     if (Platform.isIOS) return DynamicLibrary.process();
     if (Platform.isMacOS) return DynamicLibrary.process();
     throw UnsupportedError(
-      'Pocket Flutter host supports Windows, macOS, iOS and Android.',
+      'Pocket Flutter host supports Windows, macOS, Linux, iOS and Android.',
     );
   }
 

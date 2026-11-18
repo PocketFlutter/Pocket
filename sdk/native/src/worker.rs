@@ -26,7 +26,8 @@ use std::sync::atomic::{
 use std::sync::{Arc, Condvar, Mutex, OnceLock, Weak};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
-use url::Url;
+
+use crate::worker_http::{HttpAgent, Url};
 
 use crate::bytecode::{self, BytecodeExpectation, BytecodeKind};
 use crate::replay::Mode;
@@ -1013,7 +1014,7 @@ struct WorkerState {
     node_names: OnceLock<Vec<CString>>,
     drivers: OnceLock<Vec<CWorkerDriver>>,
     nodes: OnceLock<Vec<CWorkerNode>>,
-    http_agent: ureq::Agent,
+    http_agent: HttpAgent,
 }
 impl WorkerState {
     fn wake_host(&self) {
@@ -1335,10 +1336,7 @@ impl WorkerRuntime {
             node_names: OnceLock::new(),
             drivers: OnceLock::new(),
             nodes: OnceLock::new(),
-            http_agent: ureq::AgentBuilder::new()
-                .redirects(0)
-                .timeout_connect(SHARED_HTTP_CONNECT_TIMEOUT)
-                .build(),
+            http_agent: HttpAgent::pooled(SHARED_HTTP_CONNECT_TIMEOUT),
         });
         install_node_table(&state, &declaration)?;
         let bytecode = artifact.payload.to_vec();
@@ -3693,8 +3691,7 @@ struct RawHttpOptions {
 fn normalize_origin(raw: &str) -> Result<String, String> {
     let url = Url::parse(raw).map_err(|error| format!("invalid origin {raw:?}: {error}"))?;
     if !matches!(url.scheme(), "http" | "https")
-        || !url.username().is_empty()
-        || url.password().is_some()
+        || url.has_credentials()
         || url.path() != "/"
         || url.query().is_some()
         || url.fragment().is_some()
@@ -3703,7 +3700,7 @@ fn normalize_origin(raw: &str) -> Result<String, String> {
             "origin must contain only http(s) scheme, host and optional port: {raw:?}"
         ));
     }
-    Ok(url.origin().ascii_serialization())
+    Ok(url.origin_ascii())
 }
 
 fn parse_http_descriptor(bytes: &[u8], grants: &HashSet<String>) -> Result<HttpDescriptor, String> {
@@ -3780,13 +3777,12 @@ fn valid_header_name(name: &str) -> bool {
 fn validate_destination(url: &Url, grants: &HashSet<String>) -> Result<(), String> {
     if !matches!(url.scheme(), "http" | "https")
         || url.host_str().is_none()
-        || !url.username().is_empty()
-        || url.password().is_some()
+        || url.has_credentials()
         || url.fragment().is_some()
     {
         return Err("only credential-free http(s) URLs without fragments are allowed".to_owned());
     }
-    let origin = url.origin().ascii_serialization();
+    let origin = url.origin_ascii();
     if !grants.contains(&origin) {
         return Err(format!("HTTP origin {origin} has no host grant"));
     }
@@ -3857,6 +3853,7 @@ fn perform_http(
         let mut request = agent
             .request(&method, url.as_str())
             .timeout(remaining)
+            .max_bytes_hint(descriptor.max_bytes)
             .set("accept-encoding", "identity");
         for (name, value) in &headers {
             if request_header_allowed(name) {
@@ -3869,8 +3866,7 @@ fn perform_http(
         };
         let response = match result {
             Ok(response) => response,
-            Err(ureq::Error::Status(_, response)) => response,
-            Err(error) => return Err(map_http_error(error.to_string(), cancel, deadline)),
+            Err(error) => return Err(map_http_error(error, cancel, deadline)),
         };
         let status = response.status();
         let location = response.header("location").map(str::to_owned);
@@ -3884,7 +3880,7 @@ fn perform_http(
                     .join(&location)
                     .map_err(|error| format!("invalid redirect location: {error}"))?;
                 validate_destination(&next, &state.allowed_origins)?;
-                if next.origin().ascii_serialization() != url.origin().ascii_serialization() {
+                if next.origin_ascii() != url.origin_ascii() {
                     headers.remove("authorization");
                     headers.remove("cookie");
                 }
@@ -4001,14 +3997,8 @@ fn perform_http(
 /// reads. Without the overall limit one blocking read can cross the Worker
 /// deadline, or a peer can keep each individual read below its limit while the
 /// response as a whole exceeds the deadline.
-fn http_agent(remaining: Duration) -> ureq::Agent {
-    ureq::AgentBuilder::new()
-        .redirects(0)
-        .timeout_connect(remaining)
-        .timeout_read(remaining)
-        .timeout_write(remaining)
-        .timeout(remaining)
-        .build()
+fn http_agent(remaining: Duration) -> HttpAgent {
+    HttpAgent::oneshot(remaining)
 }
 
 fn request_header_allowed(name: &str) -> bool {
@@ -5521,10 +5511,6 @@ mod tests {
         let first = http_agent(budget).get(&url).call();
         let location = match first {
             Ok(response) if response.status() == 302 => response
-                .header("location")
-                .expect("redirect response should include Location")
-                .to_owned(),
-            Err(ureq::Error::Status(302, response)) => response
                 .header("location")
                 .expect("redirect response should include Location")
                 .to_owned(),

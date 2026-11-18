@@ -3,16 +3,68 @@ Pod::Spec.new do |s|
   s.version          = '0.1.0'
   s.summary          = 'PocketJS QuickJS FFI renderer'
   s.description      = 'Minimal retained Canvas host for PocketJS guests.'
-  s.homepage         = 'https://github.com/pocket-nexus/pocketjs'
+  s.homepage         = 'https://github.com/PocketFlutter/Pocket'
   s.license          = { :type => 'MIT', :file => '../LICENSE' }
   s.author           = { 'PocketJS' => 'dev@pocketjs.invalid' }
   s.source           = { :path => '.' }
   s.vendored_libraries = 'Frameworks/libpocket_flutter.a'
   s.osx.deployment_target = '12.0'
-  # Match iOS SwiftPM: retain FFI entry roots, not every Rust archive member.
-  # export_dynamic preserves the admitted C ABI for Dart process lookups.
+  # Retain the 50 production Dart FFI C ABI entry points across Release dead_strip and non-global strip.
+  ffi_roots = %w[
+    _pocket_bytecode_runtime_abi
+    _pocket_complete_worker_http_request
+    _pocket_configure_compositor
+    _pocket_configure_guest_security
+    _pocket_configure_offload
+    _pocket_configure_worker
+    _pocket_create
+    _pocket_create_with_density
+    _pocket_create_with_density_and_tick_hz
+    _pocket_create_with_memory_limits
+    _pocket_destroy
+    _pocket_duplex_abi_version
+    _pocket_duplex_capacity
+    _pocket_duplex_egress_consume
+    _pocket_duplex_egress_peek
+    _pocket_duplex_endpoint_acquire
+    _pocket_duplex_endpoint_release
+    _pocket_duplex_ingress_publish
+    _pocket_duplex_ingress_reserve
+    _pocket_duplex_message_size
+    _pocket_duplex_step
+    _pocket_enable_auxiliary
+    _pocket_eval
+    _pocket_frame_binary
+    _pocket_frame_delta_binary_v2
+    _pocket_is_perf_sampling_enabled
+    _pocket_last_error
+    _pocket_last_frame_stage_timings_us
+    _pocket_load
+    _pocket_load_bytecode
+    _pocket_load_bytecode_files
+    _pocket_load_files
+    _pocket_next_wake_delay_ms
+    _pocket_notify_external_work
+    _pocket_offload_complete_binary
+    _pocket_offload_has_replies
+    _pocket_offload_take_binary
+    _pocket_record_live2d_update_ns
+    _pocket_register_worker_http_bridge
+    _pocket_resize_viewport
+    _pocket_send_binary
+    _pocket_set_host_font_metrics
+    _pocket_set_host_glyph_measure_callback
+    _pocket_set_host_text_measure_callback
+    _pocket_set_perf_sampling_enabled
+    _pocket_set_scheduler_paused
+    _pocket_stop_async
+    _pocket_trace_clock_begin_json
+    _pocket_trace_clock_end_json
+    _pocket_trace_clock_mode
+  ].map { |sym| "-Wl,-u,#{sym}" }.join(' ')
   s.user_target_xcconfig = {
-    'OTHER_LDFLAGS' => '$(inherited) -Wl,-u,_pocket_create -Wl,-u,_pocket_worker_create -Wl,-u,_pocket_worker_quickjs_create -Wl,-u,_pocket_worker_ui_attach -Wl,-u,_pocket_worker_runner_create -lc -lm -liconv -Wl,-export_dynamic'
+    'STRIP_STYLE' => 'non-global',
+    'OTHER_LDFLAGS' => "$(inherited) #{ffi_roots} -lc -lm -liconv -Wl,-export_dynamic"
   }
   s.requires_arc = false
   s.pod_target_xcconfig = {

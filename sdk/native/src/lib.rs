@@ -14,6 +14,7 @@ mod guest_security;
 pub mod offload;
 mod replay;
 pub mod worker;
+pub mod worker_http;
 mod worker_trace;
 
 use pocket_draw_ops::{DrawOps, Operation};
@@ -6556,7 +6557,7 @@ pub unsafe extern "C" fn pocket_configure_offload(
 }
 
 /// Pop one bounded provider request/cancellation on the UI owner thread.
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_offload_take(
     handle: *mut HostState,
     cancelled: u32,
@@ -6633,7 +6634,7 @@ pub unsafe extern "C" fn pocket_offload_has_replies(handle: *const HostState) ->
 }
 
 /// Completion is generation/session/id scoped; stale or duplicate results fail.
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_offload_complete(
     handle: *mut HostState,
     record: *const c_char,
@@ -7560,7 +7561,7 @@ fn failed_frame_output(host: &mut HostState, error: String) -> *const c_char {
     host.output.as_ptr()
 }
 
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_frame(handle: *mut HostState, delta_ms: f64) -> *const c_char {
     guard_host_mut(handle, "pocket_frame", ptr::null(), |host| {
         match build_frame(host, delta_ms, false, false) {
@@ -7615,7 +7616,7 @@ unsafe fn clone_duplex_channel(
 
 /// Acquire an independent strong channel reference. It remains valid after
 /// `pocket_destroy`; release it with `pocket_duplex_channel_release`.
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_duplex_channel_acquire(
     handle: *mut HostState,
 ) -> *const duplex::DuplexRing {
@@ -7624,7 +7625,7 @@ pub unsafe extern "C" fn pocket_duplex_channel_acquire(
     })
 }
 
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_duplex_channel_retain(
     channel: *const duplex::DuplexRing,
 ) -> *const duplex::DuplexRing {
@@ -7637,7 +7638,7 @@ pub unsafe extern "C" fn pocket_duplex_channel_retain(
     })
 }
 
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_duplex_channel_release(channel: *const duplex::DuplexRing) {
     catch_ffi_unwind((), || {
         if !channel.is_null() {
@@ -7646,7 +7647,7 @@ pub unsafe extern "C" fn pocket_duplex_channel_release(channel: *const duplex::D
     })
 }
 
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_duplex_channel_close(channel: *const duplex::DuplexRing) {
     catch_ffi_unwind((), || {
         if let Some(channel) = channel.as_ref() {
@@ -7704,14 +7705,14 @@ pub unsafe extern "C" fn pocket_duplex_endpoint_acquire(
     })
 }
 
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_duplex_attach_ingress_producer(
     channel: *const duplex::DuplexRing,
 ) -> *mut DuplexEndpoint {
     catch_ffi_unwind(ptr::null_mut(), || attach_duplex_endpoint(channel, true, false))
 }
 
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_duplex_attach_egress_consumer(
     channel: *const duplex::DuplexRing,
 ) -> *mut DuplexEndpoint {
@@ -7903,7 +7904,7 @@ pub unsafe extern "C" fn pocket_set_scheduler_paused(handle: *mut HostState, pau
 /// transient events or resource lifecycle changes is reduced to a tiny marker.
 /// The first frame and every changed frame remain the ordinary full JSON
 /// schema, so a caller can use this symbol without a separate visual baseline.
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_frame_delta(
     handle: *mut HostState,
     delta_ms: f64,
@@ -7998,7 +7999,7 @@ pub unsafe extern "C" fn pocket_frame_binary(
 /// with no `pocket_last_error` means the retained frame was unchanged.  The
 /// returned bytes are borrowed from the runtime and remain valid until the
 /// next frame call; Flutter copies them immediately.
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_frame_delta_binary(
     handle: *mut HostState,
     delta_ms: f64,
@@ -8365,7 +8366,7 @@ pub unsafe extern "C" fn pocket_send_binary(
     })
 }
 
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_send(handle: *mut HostState, message: *const c_char) -> i32 {
     guard_host_mut(handle, "pocket_send", -1, |host| {
         let Some(message) = message.as_ref() else {
@@ -8610,7 +8611,7 @@ pub unsafe extern "C" fn pocket_destroy(handle: *mut HostState) {
 }
 
 #[doc(hidden)]
-#[no_mangle]
+#[cfg_attr(feature = "legacy-c-abi", no_mangle)]
 pub unsafe extern "C" fn pocket_test_trigger_panic(handle: *mut HostState) -> i32 {
     guard_host_mut(handle, "pocket_test_trigger_panic", -1, |_host| {
         panic!("simulated FFI panic for catch_unwind verification");

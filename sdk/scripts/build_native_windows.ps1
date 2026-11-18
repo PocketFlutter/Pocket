@@ -27,7 +27,7 @@ if (-not $SkipPrepare) {
 
 $previousRustFlags = $env:RUSTFLAGS
 try {
-  $env:RUSTFLAGS = (($previousRustFlags + ' -C target-feature=+crt-static').Trim())
+  $env:RUSTFLAGS = (($previousRustFlags + ' -C target-feature=+crt-static -C strip=symbols -C link-arg=/OPT:REF -C link-arg=/OPT:ICF').Trim())
   & cargo build --locked --release --target $target --manifest-path $cargoManifest --lib
   if ($LASTEXITCODE -ne 0) { throw 'Pocket Windows FFI runtime build failed.' }
 } finally {

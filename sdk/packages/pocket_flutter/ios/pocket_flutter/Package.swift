@@ -1,10 +1,11 @@
 // swift-tools-version: 5.9
 
-import PackageDescription
 import Foundation
+import PackageDescription
 
-// Flutter 3.47 supplies this package through its generated application graph.
-// Keep it optional here so Flutter 3.35 can still resolve the plugin manifest.
+// Flutter's `flutter pub get` resolves plugin Swift packages before an iOS/macOS
+// build creates the generated `FlutterFramework` local package. Keep that edge
+// conditional here so Flutter 3.35 can still resolve the plugin manifest.
 let flutterFrameworkPath = "../FlutterFramework"
 let hasFlutterFramework = FileManager.default.fileExists(
     atPath: URL(fileURLWithPath: #filePath)
@@ -63,16 +64,22 @@ let package = Package(
             resources: [.copy("PrivacyInfo.xcprivacy")],
             swiftSettings: displayGeometrySwiftSettings,
             linkerSettings: [
-                // Dart FFI resolves the Rust C ABI from the process image. Use
-                // targeted `-u` roots instead of `-all_load` so apps linking
-                // other Rust staticlibs (e.g. intiface) do not collide on
-                // unreferenced `compiler_builtins` object members.
+                // Dart FFI resolves the Rust C ABI from the process image.
+                // `PocketNativeAbiRetainer.swift` holds live relocation edges
+                // from `PocketFlutterPlugin.register(with:)` to every C ABI
+                // function so `-dead_strip` never discards subsections, while
+                // `-export_dynamic` + host `STRIP_STYLE = non-global` keep the
+                // symbols visible to `dlsym(RTLD_DEFAULT, ...)`.
                 .unsafeFlags([
                     "-Xlinker", "-u", "-Xlinker", "_pocket_create",
-                    "-Xlinker", "-u", "-Xlinker", "_pocket_worker_create",
-                    "-Xlinker", "-u", "-Xlinker", "_pocket_worker_quickjs_create",
-                    "-Xlinker", "-u", "-Xlinker", "_pocket_worker_ui_attach",
-                    "-Xlinker", "-u", "-Xlinker", "_pocket_worker_runner_create",
+                    "-Xlinker", "-u", "-Xlinker", "_pocket_frame_binary",
+                    "-Xlinker", "-u", "-Xlinker", "_pocket_frame_delta_binary_v2",
+                    "-Xlinker", "-u", "-Xlinker", "_pocket_send_binary",
+                    "-Xlinker", "-u", "-Xlinker", "_pocket_load_bytecode",
+                    "-Xlinker", "-u", "-Xlinker", "_pocket_configure_worker",
+                    "-Xlinker", "-u", "-Xlinker", "_pocket_register_worker_http_bridge",
+                    "-Xlinker", "-u", "-Xlinker", "_pocket_complete_worker_http_request",
+                    "-Xlinker", "-u", "-Xlinker", "_pocket_duplex_endpoint_acquire",
                     "-Xlinker", "-export_dynamic",
                 ]),
                 .linkedLibrary("c"),
