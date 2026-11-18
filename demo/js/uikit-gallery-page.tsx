@@ -37,9 +37,9 @@ import {
   useRouteActive,
   useSearchState,
   stateParam,
+  computeTransitionDescriptor,
   type DisplayGeometry,
 } from "@pocket/ui";
-import { createGlassSpring } from "@pocket/liquid_glass";
 import {
   LiquidGlassActivityIndicator,
   LiquidGlassAlertModal,
@@ -368,19 +368,38 @@ export function UIKitGalleryReplicaPage(props: {
   const [scrollY, setScrollY] = createSignal(0);
   const navGlassAlpha = createMemo(() => Math.min(1, Math.max(0, scrollY() / 72)));
 
-  // --- Page transition: spring-animated crossfade + slide between catalog and detail ---
+  // --- Page transition: retained IOS_SPRING_PARALLAX descriptor (legacy rate dt*3.6) ---
   const [prevSlug, setPrevSlug] = createSignal<GalleryComponentSlug | null>(null);
-  const transitionTarget = createMemo(() => (activeSlug() !== null ? 1 : 0));
-  const transitionSpring = createGlassSpring(transitionTarget, {
-    preset: "snappy",
-    quantizeStep: 0.008,
-  });
   createEffect(() => {
     const slug = activeSlug();
     if (slug !== null) setPrevSlug(slug);
   });
-  const showDetail = createMemo(() => transitionSpring() > 0.01);
-  const showCatalog = createMemo(() => transitionSpring() < 0.99);
+  const pushTarget = createMemo(() => (activeSlug() !== null ? 1 : 0));
+  // 1 = detail fully presented. Advances 3.6/s at the guest's fixed 60 Hz tick.
+  const [pushPosition, setPushPosition] = createSignal(pushTarget());
+  const pushAnimating = () => pushPosition() !== pushTarget();
+  try {
+    onFrame(
+      () => {
+        const target = pushTarget();
+        setPushPosition((value) =>
+          target > value ? Math.min(target, value + 0.06) : Math.max(target, value - 0.06),
+        );
+      },
+      { active: () => routeActive() && pushAnimating(), continuous: () => routeActive() && pushAnimating() },
+    );
+  } catch {}
+  const pushDescriptor = createMemo(() => {
+    const forward = pushTarget() === 1;
+    const width = props.geometry().width || 390;
+    const position = pushPosition();
+    const d = computeTransitionDescriptor("IOS_SPRING_PARALLAX", forward ? position : 1 - position, !forward, width);
+    return forward
+      ? { detailTx: d.inTx, catalogTx: d.outTx, catalogCover: d.easedT }
+      : { detailTx: d.outTx, catalogTx: d.inTx, catalogCover: 1 - d.easedT };
+  });
+  const showDetail = createMemo(() => pushPosition() > 0);
+  const showCatalog = createMemo(() => pushPosition() < 1);
 
   // Siri IntelligentLight animated phase (demand-driven: runs ONLY while `siriActive()` is true!)
   const [siriPhase, setSiriPhase] = createSignal(0);
@@ -622,9 +641,10 @@ export function UIKitGalleryReplicaPage(props: {
                 insetR: 0,
                 insetB: 0,
                 insetL: 0,
-                opacity: Math.max(0, 1 - transitionSpring() * 1.5),
-                translateX: -transitionSpring() * 48,
-                hitPass: transitionSpring() > 0.5 ? 1 : 0,
+                // Transparent pages share one wallpaper, so the covered page dims out under the incoming one.
+                opacity: 1 - pushDescriptor().catalogCover,
+                translateX: pushDescriptor().catalogTx,
+                hitPass: pushPosition() > 0.5 ? 1 : 0,
               }}
             >
               <GalleryCatalogList
@@ -645,9 +665,8 @@ export function UIKitGalleryReplicaPage(props: {
                 insetR: 0,
                 insetB: 0,
                 insetL: 0,
-                opacity: Math.min(1, transitionSpring() * 2),
-                translateX: (1 - transitionSpring()) * 80,
-                hitPass: transitionSpring() < 0.5 ? 1 : 0,
+                translateX: pushDescriptor().detailTx,
+                hitPass: pushPosition() < 0.5 ? 1 : 0,
               }}
             >
               <ScrollablePage>
@@ -903,6 +922,16 @@ function ScrollOffsetTracker(props: { onScroll?: (y: number) => void }): JSX.Ele
   return null as unknown as JSX.Element;
 }
 
+function mixHex(from: string, to: string, t: number): string {
+  const channel = (hex: string, at: number) => parseInt(hex.slice(at, at + 2), 16);
+  let out = "#";
+  for (const at of [1, 3, 5]) {
+    const value = Math.round(channel(from, at) + (channel(to, at) - channel(from, at)) * t);
+    out += value.toString(16).padStart(2, "0").toUpperCase();
+  }
+  return out;
+}
+
 function SiriEdgeGlowOverlay(props: { phase: () => number }): JSX.Element {
   const TAU = Math.PI * 2;
   const W = 4;
@@ -917,7 +946,7 @@ function SiriEdgeGlowOverlay(props: { phase: () => number }): JSX.Element {
         posType: 1, insetT: 0, insetL: 0, insetR: 0, height: W,
         bgColor: (() => {
           const wave = (Math.sin(props.phase() - 0 * TAU) + 1) / 2;
-          return wave > 0.3 ? "#EC4899" : "#38BDF8";
+          return mixHex("#38BDF8", "#EC4899", wave);
         })(),
         opacity: (() => {
           const wave = (Math.sin(props.phase() - 0 * TAU) + 1) / 2;
@@ -931,7 +960,7 @@ function SiriEdgeGlowOverlay(props: { phase: () => number }): JSX.Element {
         posType: 1, insetT: 0, insetR: 0, insetB: 0, width: W,
         bgColor: (() => {
           const wave = (Math.sin(props.phase() - 0.25 * TAU) + 1) / 2;
-          return wave > 0.3 ? "#38BDF8" : "#A855F7";
+          return mixHex("#A855F7", "#38BDF8", wave);
         })(),
         opacity: (() => {
           const wave = (Math.sin(props.phase() - 0.25 * TAU) + 1) / 2;
@@ -945,7 +974,7 @@ function SiriEdgeGlowOverlay(props: { phase: () => number }): JSX.Element {
         posType: 1, insetB: 0, insetL: 0, insetR: 0, height: W,
         bgColor: (() => {
           const wave = (Math.sin(props.phase() - 0.5 * TAU) + 1) / 2;
-          return wave > 0.3 ? "#A855F7" : "#EC4899";
+          return mixHex("#EC4899", "#A855F7", wave);
         })(),
         opacity: (() => {
           const wave = (Math.sin(props.phase() - 0.5 * TAU) + 1) / 2;
@@ -959,7 +988,7 @@ function SiriEdgeGlowOverlay(props: { phase: () => number }): JSX.Element {
         posType: 1, insetT: 0, insetL: 0, insetB: 0, width: W,
         bgColor: (() => {
           const wave = (Math.sin(props.phase() - 0.75 * TAU) + 1) / 2;
-          return wave > 0.3 ? "#F472B6" : "#22D3EE";
+          return mixHex("#22D3EE", "#F472B6", wave);
         })(),
         opacity: (() => {
           const wave = (Math.sin(props.phase() - 0.75 * TAU) + 1) / 2;
@@ -973,7 +1002,7 @@ function SiriEdgeGlowOverlay(props: { phase: () => number }): JSX.Element {
         posType: 1, insetT: 6, insetL: 6, insetR: 6, insetB: 6,
         borderColor: (() => {
           const wave = (Math.sin(props.phase() * 0.7) + 1) / 2;
-          return wave > 0.5 ? "#C084FC44" : "#38BDF844";
+          return mixHex("#38BDF8", "#C084FC", wave) + "44";
         })(),
         borderWidth: 2,
         radius: 30,
