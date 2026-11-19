@@ -228,6 +228,8 @@ function copySources(out: string, sourceCommit: string): void {
     "patch_deep_links.py",
     "project_templates.ts",
     "project_scaffold.ts",
+    "create_project.mjs",
+    "check_project.mjs",
     "project_commands.mjs",
     "plugin_types.ts",
     "prepare_upstream.py",
@@ -298,7 +300,9 @@ function writeRepositoryFiles(out: string, sourceCommit: string, platform?: Plat
       "@pocket/live2d": "0.1.0",
       bun: "1.3.9",
       "find-process": "2.1.1",
+      "solid-js": "1.9.14",
       "tree-kill": "1.2.2",
+      typescript: "5.9.3",
     },
     devDependencies: {
       "@open-wxa/wxa-runner-core": "0.12.3",
@@ -306,6 +310,9 @@ function writeRepositoryFiles(out: string, sourceCommit: string, platform?: Plat
     },
     optionalDependencies: { "@abandonware/noble": "1.9.2-26" } as Record<string, string>,
     scripts: {
+      create: "node scripts/create_project.mjs",
+      "sync:agents": "node scripts/create_project.mjs --sync-agents",
+      check: "node scripts/check_project.mjs",
       setup: "node scripts/toolchain.mjs setup",
       "setup:source": "node scripts/toolchain.mjs setup:source",
       "bootstrap:source": "node scripts/toolchain.mjs bootstrap:source",
@@ -386,6 +393,32 @@ function writeRepositoryFiles(out: string, sourceCommit: string, platform?: Plat
     pinnedPocketJsRevision: PINNED_REVISION,
     runtime: "QuickJS QJBC + PAK + PocketJS WebAssembly + Canvas2D",
   }, null, 2)}\n`);
+  write(join(out, "AGENTS.md"), `# Pocket Web SDK — AI Agent Development Rules
+
+## Creating, Syncing, and Verifying Guest Projects
+
+- Always scaffold new standalone JS / Web / Studio projects with:
+  \`\`\`sh
+  npm run create -- /path/to/new-app --template=app --name="My App"
+  \`\`\`
+- Always synchronize framework-first AI agent rules into existing external projects with:
+  \`\`\`sh
+  npm run sync:agents -- /path/to/existing-project
+  \`\`\`
+- Always verify TypeScript types and framework conventions with:
+  \`\`\`sh
+  npm run check -- /path/to/project
+  \`\`\`
+
+## Guest App & Page Construction (Framework-First)
+
+- Construct all navigation, shells, scrolling, IME inputs, and controls using Pocket's built-in framework primitives first:
+  - Routing & app shell: \`@pocket/ui\` \`createPocketRouter\` + \`PocketAppShell\` (or retained \`RouteView\` + \`PocketRouteScope\` + \`createPocketBackNavigation\`), and \`usePocketBackHandler\`.
+  - Scaffolds & bars: \`SkinScaffold\` / \`SafeAreaScaffold\`, \`SkinAppBar\` / \`MobileAppBar\`, \`SkinBackButton\` / \`MobileBackButton\`, \`SkinNavigationBar\` / \`NavigationBar\`.
+  - Scrolling, inputs & controls: \`ScrollablePage\`, \`PocketVirtualList\`, \`InputField\` / \`SkinInput\`, \`SkinParagraph\`, \`Skin*\` / \`Mobile*\` / \`Shadcn*\` components, \`UiSkinProvider\` (with \`defineUiSkin\` / \`registerUiSkin\` or official \`@pocket/liquid_glass\`, \`@pocket/arc\`, \`@pocket/looseleaf\` skins), or \`@pocket/vn\` (\`createNovelEngine\` + \`NovelView\`) for visual novels.
+  - Customize skin adapters, theme tokens, or low-level \`View\` / \`Text\` / \`Focusable\` styles only where built-in components do not satisfy specific visual needs.
+- Never hand-roll \`<Show>\` page routers (which destroy inactive page state, scroll offsets, and IME sessions), HTML/DOM tags (\`<div>\`, \`<button>\`, \`<input>\`), browser globals (\`window\`, \`document\`, \`localStorage\`), fake \`<View>\` text inputs, or non-translation transforms (\`scale\` / \`rotate\`) on \`<View>\` ancestors containing \`<Text>\`.
+`);
 }
 
 function codeEagleEnvironment(): NodeJS.ProcessEnv {

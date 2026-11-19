@@ -46,7 +46,7 @@ import {
   scaffoldEcosystemModules,
   type EcosystemModuleId,
 } from "../scripts/ecosystem_scaffold.ts";
-import { writeProjectSupport } from "../scripts/project_scaffold.ts";
+import { FRAMEWORK_AGENT_DEVELOPER_INSTRUCTIONS, writeProjectSupport } from "../scripts/project_scaffold.ts";
 import { createStudioCodex, type StudioExecutionContext, type StudioScope } from "./codex.ts";
 import {
   compositorSurfacesFromProject,
@@ -1489,7 +1489,7 @@ async function createProject(workspace: Workspace, id: string, input: Record<str
   await mkdir(workspace.projects, { recursive: true });
   await copyTree(join(root, "templates", config.template), projectDir);
   await writeConfig(projectDir, config);
-  writeProjectSupport(projectDir, root, id);
+  writeProjectSupport(projectDir, root, id, { template: config.template, title: config.title });
   if (config.ecosystemModules && config.ecosystemModules.length > 0) {
     scaffoldEcosystemModules(projectDir, config.ecosystemModules, {
       mode: "set",
@@ -2974,6 +2974,29 @@ function validateRequestSecurity(req: Request, url: URL, serverPort: number, csr
   }
 
   return null;
+}
+
+export function buildStudioCodexContext(
+  projectDirectory: string,
+  sdkRootDir: string,
+  scope: StudioScope,
+): StudioExecutionContext {
+  if (scope === "project") {
+    return {
+      scope,
+      cwd: projectDirectory,
+      writableRoots: [projectDirectory],
+      developerInstructions: `You are editing the currently selected Pocket Studio JS project. Keep UI, routing and app logic in JS. Modify only this project and its files under ${projectDirectory}; preserve user changes. Do not create subagents, read credentials, run deployment, publish, or change files outside this writable root. Explain changes and test results. An attached screenshot may contain a selected region described with pixel coordinates; inspect that region before editing.\n\n${FRAMEWORK_AGENT_DEVELOPER_INSTRUCTIONS}`,
+    };
+  }
+  // The browser may choose only the scope name. The SDK root is fixed to
+  // this server's checked-in SDK directory; no client path is accepted.
+  return {
+    scope: "sdk" as StudioScope,
+    cwd: sdkRootDir,
+    writableRoots: [projectDirectory, sdkRootDir],
+    developerInstructions: `You are editing the Pocket SDK source together with the currently selected Pocket Studio project. The only writable roots are the selected project (${projectDirectory}) and the fixed SDK source (${sdkRootDir}); preserve user changes and keep any edits within those roots. Read ${projectDirectory}/AGENTS.md (if present) before editing project files. Keep application UI, routing and component composition in the JS project, and keep SDK changes limited to the requested integration. Do not modify other managed project sources or read/edit Studio private signing material. Do not create subagents, read credentials, run deployment, publish, use network access, or change files outside these writable roots. Explain changes and test results. An attached screenshot may contain a selected region described with pixel coordinates; inspect that region before editing.\n\n${FRAMEWORK_AGENT_DEVELOPER_INSTRUCTIONS}`,
+  };
 }
 
 export async function startEditor(options: StartEditorOptions = {}): Promise<EditorServer> {
@@ -4915,22 +4938,7 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
     resolveContext: (id, scope): StudioExecutionContext => {
       const projectDirectory = projectDir(asProjectId(id));
       safeProjectFile(projectDirectory, "pocket.json", { allowConfig: true, mustExist: true });
-      if (scope === "project") {
-        return {
-          scope,
-          cwd: projectDirectory,
-          writableRoots: [projectDirectory],
-          developerInstructions: `You are editing the currently selected Pocket Studio JS project. Keep UI, routing and app logic in JS. Modify only this project and its files under ${projectDirectory}; preserve user changes. Do not create subagents, read credentials, run deployment, publish, or change files outside this writable root. Explain changes and test results. An attached screenshot may contain a selected region described with pixel coordinates; inspect that region before editing.`,
-        };
-      }
-      // The browser may choose only the scope name. The SDK root is fixed to
-      // this server's checked-in SDK directory; no client path is accepted.
-      return {
-        scope: "sdk" as StudioScope,
-        cwd: sdkRoot,
-        writableRoots: [projectDirectory, sdkRoot],
-        developerInstructions: `You are editing the Pocket SDK source together with the currently selected Pocket Studio project. The only writable roots are the selected project (${projectDirectory}) and the fixed SDK source (${sdkRoot}); preserve user changes and keep any edits within those roots. Keep application UI, routing and component composition in the JS project, and keep SDK changes limited to the requested integration. Do not modify other managed project sources or read/edit Studio private signing material. Do not create subagents, read credentials, run deployment, publish, use network access, or change files outside these writable roots. Explain changes and test results. An attached screenshot may contain a selected region described with pixel coordinates; inspect that region before editing.`,
-      };
+      return buildStudioCodexContext(projectDirectory, sdkRoot, scope);
     },
     onChanged: async (id) => {
       const state = await getState(id);

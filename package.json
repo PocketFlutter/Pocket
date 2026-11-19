@@ -7,6 +7,9 @@
     "node": ">=22.22.2"
   },
   "scripts": {
+    "create": "node sdk/scripts/create_project.mjs",
+    "sync:agents": "node sdk/scripts/create_project.mjs --sync-agents",
+    "check": "node sdk/scripts/check_project.mjs",
     "setup": "npm --prefix sdk run setup",
     "start": "npm --prefix sdk run editor:start -- --project-root=../demo/js --flutter-root=../demo",
     "restart": "npm start",

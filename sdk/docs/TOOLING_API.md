@@ -22,6 +22,9 @@ The root [package.json](../../package.json) forwards common commands.
 | Command | Behavior and output |
 | --- | --- |
 | `npm run setup` | Installs Node/npm dependencies, managed Bun, and prebuilt SDK tools for the current platform. |
+| `npm run create -- DIRECTORY [options]` | Runs `node sdk/scripts/create_project.mjs` (`INIT_CWD`-aware, atomic cleanup on failure) to scaffold a standalone JS/Preview/Studio project (`--template=app\|game`, `--name`, `--id`, `--app-id`, `--version`, `--surfaces`, `--flutter`) and generates `AGENTS.md`, `CLAUDE.md` (`@AGENTS.md`), and `.pocket/tsconfig.json`. |
+| `npm run sync:agents -- [DIRECTORY]` | Runs `node sdk/scripts/create_project.mjs --sync-agents` to write or update the managed `AGENTS.md` block, `@AGENTS.md` `CLAUDE.md`, `.pocket/tsconfig.json`, and managed `package.json` scripts (`check`, `typecheck`, `sync:agents`) while preserving custom notes outside the managed block. |
+| `npm run check -- [DIRECTORY]` | Runs `node sdk/scripts/check_project.mjs` to refresh `.pocket/tsconfig.json`, perform project-scoped TypeScript pre-emit typechecking (`tsc`), and validate Pocket guest framework conventions. |
 | `npm start` | Starts or resumes Studio with `demo/js` and Flutter root `demo` by default. URL `http://127.0.0.1:8791`. |
 | `npm restart` / `npm stop` / `npm run status` | Restarts, stops, or checks the Studio service. |
 | `npm run bootstrap` | Maintains source checkout bootstrap. Normal installation uses setup. |
@@ -36,7 +39,7 @@ See [sdk/package.json](../package.json) for the exact definitions.
 
 | Area | `npm run` command | Behavior |
 | --- | --- | --- |
-| Project | `init -- DIRECTORY [options]`, `build -- DIRECTORY [options]` | Delegates to `pocket.ts init/build`. See [project templates](PROJECT_TEMPLATES.md). |
+| Project | `create -- DIRECTORY [options]`, `sync:agents -- [DIRECTORY]`, `check -- [DIRECTORY]`, `init -- DIRECTORY [options]`, `build -- DIRECTORY [options]` | `create` and `sync:agents` invoke `scripts/create_project.mjs`; `check` invokes `scripts/check_project.mjs` (generated projects also expose `npm run check` and `npm run typecheck` via `project_commands.mjs check\|typecheck`); `init` and `build` delegate to `pocket.ts init/build`. See [project templates](PROJECT_TEMPLATES.md). |
 | JS compiler and targets | `build:guest -- [guest flags]`, `build:web -- [web flags]`, `export:web-sdk -- [export flags]`, `preview:wechat -- [target flags]` | Uses pinned Guest and QuickJS. See [Web SDK](WEB_SDK_EXPORT.md) and [WeChat host](WECHAT_HOST_IMPLEMENTATION.md) for target boundaries. |
 | Studio | `editor`, `editor:start`, `editor:restart`, `editor:stop`, `editor:status` | Calls Node service start/restart/stop/status. Use `bun pocket.ts editor DIRECTORY [options]` for foreground Editor. See [Studio](EDITOR_STUDIO.md). |
 | Toolchain | `setup`, `bootstrap`, `doctor`, `build:probe`, `setup:source`, `bootstrap:source`, `build:probe:source`, `build:engine:source`, `package:tools` | Prebuilt installation and validation and source release tools. See [NPM_TOOLCHAIN.md](NPM_TOOLCHAIN.md). |
@@ -44,7 +47,22 @@ See [sdk/package.json](../package.json) for the exact definitions.
 | Architecture | `check:architecture` | Checks SDK and Showcase boundaries. |
 | Test entry points | `test`, `test:demand`, `test:packages`, `test:editor`, `test:editor:live` | See manifest commands. Test results do not define the public contract. |
 
-Run `build`, `init`, and `export:web-sdk` at the SDK root. Generated projects have their own `npm run build` and `npm run build:web`. See [generated directories and commands](PROJECT_SCAFFOLD_AND_OPEN_20261114.md).
+Run `create`, `sync:agents`, `check`, `build`, `init`, and `export:web-sdk` at the SDK root (or use `npm run create`, `npm run sync:agents`, and `npm run check` from the repository root or an exported Web SDK). Generated projects have their own `npm run check`, `npm run typecheck`, `npm run build`, `npm run build:web`, and `npm run sync:agents`. See [generated directories and commands](PROJECT_SCAFFOLD_AND_OPEN_20261114.md).
+
+### `create_project.mjs` and `check_project.mjs`
+
+[`scripts/create_project.mjs`](../scripts/create_project.mjs) and [`scripts/check_project.mjs`](../scripts/check_project.mjs) are standalone Node.js entry points available in both the source checkout and exported Web SDK packages.
+
+```sh
+npm run create -- /absolute/path/to/my-app --template=app --name="My App"
+npm run sync:agents -- /absolute/path/to/existing-project
+npm run check -- /absolute/path/to/my-app
+```
+
+- **Creation options (`npm run create -- <dir>`)**: `INIT_CWD`-aware relative path resolution, atomic target cleanup on failure, `--template=app|game` (default `app`), `--name=TITLE`, `--id=SLUG` (rejected when `--flutter` is passed), `--app-id=REVERSE_DNS`, `--version=SEMVER`, `--surfaces=MODULE_A,MODULE_B`, `--sdk-root=DIR`, and `--flutter` (delegates full Flutter companion scaffolding to `pocket.ts init` along with `--dio`, `--hardware`, `--clipboard`, `--bluetooth`, `--biometrics`, `--camera`, `--sensors`, `--location`, `--weather`, `--permissions`, `--platform-experience`, `--deep-link-scheme`, `--team-id`, `--use-xcodegen`, and `--embed-ios-extensions`).
+- **Agent instruction files & `.pocket/tsconfig.json` (`npm run sync:agents -- [dir]`)**: Every newly created or synced project receives `AGENTS.md` (with a managed `<!-- pocket:framework-rules:start/end -->` block encoding the 23-slot `UiSkinProvider` + `Skin*` polymorphic skin contract, `createPocketRouter` + `PocketAppShell`, `usePocketBackHandler`, scrolling, and `SkinInput` / `InputField` rules), `CLAUDE.md` starting with `@AGENTS.md`, `.pocket/tsconfig.json` (plus `tsconfig.json` extending `./.pocket/tsconfig.json`), and `"check"`, `"typecheck"`, and `"sync:agents"` scripts in `package.json` (delegating to `project_commands.mjs check|typecheck|sync-agents`). First-layer Flutter checkouts (`pubspec.yaml` + `js/pocket.json`) automatically resolve into `js/`.
+- **Managed `.pocket/tsconfig.json` generation**: Configures `target: "ES2023"`, `lib: ["ES2023"]`, `types: []` (excluding DOM types so HTML/DOM globals fail at typecheck time), explicit path mappings for all workspace `@pocket/*` exports, `solid-js`, and `@pocketjs/framework` / `@pocketjs/framework/solid/*` subpaths, and includes pinned `framework/src/jsx.d.ts` and `framework/compiler/app-globals.d.ts` via `files` (so consumer `tsconfig.json` overrides of `include` still inherit Pocket JSX and global declarations).
+- **Project typechecking and convention checking (`check_project.mjs` / `npm run check` / `npm run typecheck`)**: `check_project.mjs` refreshes `.pocket/tsconfig.json`, runs project-scoped TypeScript `tsc` pre-emit diagnostics (`--typecheck-only` or `npm run typecheck`), and runs lexical guest convention inspection (`stripCommentsAndStrings` + `inspectGuestFrameworkConventionsDetailed`). By default (`editor.json#conventions` omitted or `"strict"`), HTML/DOM JSX tags (`<div>`, `<button>`, `<input>`, etc.) and browser globals (`window`, `document`, `localStorage`, `history`, `navigator`, `alert`) are blocking errors in both `npm run check` and `buildGuest`, while `<Show>`/`<Match>`/`<Dynamic>` page switching without `PocketAppShell`/`RouteView` and missing `AGENTS.md` managed blocks emit `[pocket-agent-hint]` warnings. Setting `"conventions": "warn"` (or `"off"`) in `editor.json` (or passing `--warn-only` to `check_project.mjs`) downgrades convention errors to non-blocking `[pocket-agent-hint]` warnings for legacy migrations.
 
 ## `pocket.ts` project CLI
 

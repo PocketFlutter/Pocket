@@ -11,6 +11,7 @@ const [command, ...extra] = process.argv.slice(2);
 const native = existsSync(join(project, 'flutter/pubspec.yaml'));
 let script;
 let args;
+let extraHandled = false;
 if (['start', 'status', 'stop'].includes(command)) {
   script = 'editor_service.mjs';
   args = command === 'start'
@@ -23,11 +24,23 @@ if (['start', 'status', 'stop'].includes(command)) {
     : native && existsSync(join(sdk, 'pocket.ts'))
       ? ['run', 'pocket.ts', 'build', project, `--sdk-root=${sdk}`]
       : ['build:guest', `--project-root=${project}`, `--outdir=${join(project, 'build/pocket')}`];
+} else if (command === 'check') {
+  script = 'check_project.mjs';
+  args = [project, ...extra];
+  extraHandled = true;
+} else if (command === 'typecheck') {
+  script = 'check_project.mjs';
+  args = ['--typecheck-only', project, ...extra];
+  extraHandled = true;
+} else if (command === 'sync-agents') {
+  script = 'create_project.mjs';
+  args = ['--sync-agents', project, ...extra];
+  extraHandled = true;
 } else {
-  console.error('Usage: project_commands.mjs start|build|build:web|status|stop');
+  console.error('Usage: project_commands.mjs start|build|build:web|check|typecheck|status|stop|sync-agents');
   process.exit(1);
 }
-const result = spawnSync(process.execPath, [join(sdk, 'scripts', script), ...args, ...extra], {
+const result = spawnSync(process.execPath, [join(sdk, 'scripts', script), ...args, ...(extraHandled ? [] : extra)], {
   cwd: project, stdio: 'inherit', env: process.env,
 });
 if (result.error) console.error(result.error.message);

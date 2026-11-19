@@ -4,20 +4,36 @@ The Pocket SDK provides two starters. Both use the same Solid/QuickJS project la
 
 ## Run or reopen a project
 
-CLI and Studio projects share support files and npm command generation. Run `npm start`, `npm run build`, or `npm run build:web` from the generated project. To edit an existing project in place, choose **Open project** in Studio and enter its path. See [scaffolding, directory layout, and acceptance](PROJECT_SCAFFOLD_AND_OPEN_20261114.md).
+CLI and Studio projects share support files and npm command generation. Run `npm run check`, `npm start`, `npm run build`, or `npm run build:web` from the generated project. To edit an existing project in place, choose **Open project** in Studio and enter its path. See [scaffolding, directory layout, and acceptance](PROJECT_SCAFFOLD_AND_OPEN_20261114.md).
 
 ## Choose a template
 
-The CLI defaults to `app`.
+The CLI defaults to `app`. For a standalone JS, Web, or Pocket Studio project (in either the source repository or an exported Web SDK), run `npm run create`:
 
 ```sh
-cd /Volumes/ORICO/Development/Github/pocket/sdk
+npm run create -- /absolute/path/to/my-app \
+  --template=app \
+  --app-id=com.example.myapp \
+  --name="My App" \
+  --version=1.0.0
+```
+
+When you also want a generated thin Flutter companion host (`flutter/` or first-layer Flutter + `js/`), run `pocket.ts init` (or pass `--flutter` to `npm run create` in a source checkout):
+
+```sh
+cd /path/to/pocket/sdk
 bun pocket.ts init /absolute/path/to/my-app \
   --template=app \
   --app-id=com.example.myapp \
   --name=my-app \
   --version=1.0.0 \
   --sdk-root "$PWD"
+```
+
+To add or refresh the managed `AGENTS.md` and `CLAUDE.md` framework instructions in an existing project without overwriting custom rules outside the `<!-- pocket:framework-rules:start/end -->` markers:
+
+```sh
+npm run sync:agents -- /absolute/path/to/existing-project
 ```
 
 Use `game` to create a game project.
@@ -71,18 +87,24 @@ Studio copies the selected App or Game instructions into the project `README.md`
 
 ## App template
 
-The source is [`templates/app/app.tsx`](../templates/app/app.tsx). It preserves the runnable mobile starter with `MobileThemeProvider`, `MobileScaffold`, `MobileAppBar`, safe areas, foldable display panes, and light/dark theme switching. JS/TSX owns pages and state. Flutter supplies the thin host.
+The source is [`templates/app/app.tsx`](../templates/app/app.tsx). It provides a multi-route starter built 100% on skin-polymorphic `@pocket/ui` primitives: `<UiSkinProvider>`, `createPocketRouter`, `<PocketAppShell>`, `ScrollablePage`, `<SkinParagraph>`, `<SkinCard>`, `<SkinListTile>`, `<SkinInput>`, `<SkinButton>`, `<SkinSwitch>`, and `<SkinDialog>` (`home` tab with note list, pushed `detail` route with `<SkinInput>` note creation, and `settings` tab with light/dark theme switching and a `<SkinDialog>` rules modal that intercepts back requests via `usePocketBackHandler`). Visited tabs and pushed pages remain mounted in `RouteView` slots while hardware/host back and swipe-back navigation are bound automatically. JS/TSX owns pages, routing, and state.
 
 Start app edits in these generated files.
 
 ```text
 my-app/
-├── app.tsx                 # App template JS UI entry
+├── app.tsx                 # App template JS UI entry (UiSkinProvider + createPocketRouter + PocketAppShell)
+├── AGENTS.md               # Managed framework-first AI coding rules (with custom section support)
+├── CLAUDE.md               # @AGENTS.md companion entry pointing agents to AGENTS.md
+├── .pocket/
+│   └── tsconfig.json       # Managed non-DOM TypeScript paths & JSX declarations (used by npm run check)
+├── tsconfig.json           # Extends ./.pocket/tsconfig.json
+├── package.json            # Project scripts (npm run check, npm run typecheck, npm start, npm run build, etc.)
 ├── manifest.json           # Guest capability and permission declaration
 ├── pocket.json             # Pocket app runtime configuration
 ├── editor.json             # Studio/CLI identity and template=app
-├── vendor/pocket-ui/       # Public UI package copied from the SDK
-└── flutter/                # Generated thin Flutter host
+├── vendor/pocket-ui/       # Public UI package copied from the SDK (when initialized with pocket.ts init)
+└── flutter/                # Generated thin Flutter host (when initialized with pocket.ts init or --flutter)
 ```
 
 App skips camera, Bluetooth, networking, and other native capabilities by default. Opt in with flags such as `--hardware`, `--bluetooth`, and `--dio` as needed. Keep state, routing, and composition in JS.

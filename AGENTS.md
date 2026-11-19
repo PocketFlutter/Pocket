@@ -13,6 +13,16 @@
 
 - Public SDK code under `sdk/` must not import `demo/` internals. Keep scaffold/editor/showcase on the same pinned buildGuest bytecode pipeline; preserve custom consumer files and keep generated platform patches idempotent.
 
+## Guest App & Page Construction (Framework-First)
+
+- Always scaffold new projects with `npm run create -- <dir>` (JS/Web/Studio) or `npm --prefix sdk run init -- <dir>` (with Flutter host), sync agent instructions into existing external projects with `npm run sync:agents -- <dir>`, and verify types/conventions with `npm run check -- <dir>`.
+- When building or editing any Pocket guest app (`app.tsx` and TSX pages), construct navigation, shells, scrolling, IME inputs, and controls using Pocket's built-in framework primitives first:
+  - Routing & app shell: `@pocket/ui` `createPocketRouter` + `PocketAppShell` (or retained `RouteView` + `PocketRouteScope` + `createPocketBackNavigation`), and `usePocketBackHandler`.
+  - Scaffolds & bars: `SkinScaffold` / `SafeAreaScaffold`, `SkinAppBar` / `MobileAppBar`, `SkinBackButton` / `MobileBackButton`, `SkinNavigationBar` / `NavigationBar`.
+  - Scrolling, inputs & controls: `ScrollablePage`, `PocketVirtualList`, `InputField` / `SkinInput`, `SkinParagraph`, `Skin*` / `Mobile*` / `Shadcn*` components, `UiSkinProvider` (with `defineUiSkin` / `registerUiSkin` or optional `@pocket/liquid_glass`, `@pocket/arc`, `@pocket/looseleaf` skins), or `@pocket/vn` (`createNovelEngine` + `NovelView`) for visual novels.
+  - Customize skin adapters, theme tokens, or low-level `View` / `Text` / `Focusable` styles only where built-in components do not satisfy specific visual needs.
+- Never hand-roll `<Show>` page routers (which destroy inactive page state, scroll offsets, and IME sessions), HTML/DOM tags or `window`/`document`/`localStorage` globals, fake `<View>` text inputs, or non-translation transforms (`scale`/`rotate`) on `<View>` ancestors containing `<Text>`.
+
 ## API documentation maintenance
 
 - `sdk/docs/API.md` is the project API documentation entry. Public API changes must update the corresponding Flutter, JS/TS, plugin, tooling and integration references in the same change, including names/signatures, defaults, results/errors, events, capabilities, platform support and working examples. Keep Demo-only adapters clearly separate from reusable SDK APIs.

@@ -50,7 +50,17 @@ Before editing, answer these questions.
 
 ## 3. Create an app
 
-The default scaffold is a thin host without hardware plugins.
+For a standalone JS, Web, or Pocket Studio project, run `npm run create`:
+
+```sh
+npm run create -- /absolute/path/to/app \
+  --template=app \
+  --app-id=com.example.notes \
+  --name="Notes" \
+  --version=1.0.0
+```
+
+When you also need a generated thin Flutter companion host (`lib/`, `ios/`, `android/`, and `js/`), use `pocket.ts init` (or pass `--flutter` to `npm run create` in a source checkout):
 
 ```sh
 bun sdk/pocket.ts init /absolute/path/to/app \
@@ -59,27 +69,38 @@ bun sdk/pocket.ts init /absolute/path/to/app \
   --version=1.0.0
 ```
 
+Both commands (as well as Studio's **New project** action) automatically generate `AGENTS.md` and `CLAUDE.md` inside the JS project with Pocket's framework-first UI and routing rules. To add or refresh `AGENTS.md` and `CLAUDE.md` in an existing external project without touching your application code or custom notes outside the managed block, run:
+
+```sh
+npm run sync:agents -- /absolute/path/to/existing-project
+```
+
 Keep the generated project organized by responsibility.
+
+Standalone JS / Web / Studio project (`npm run create -- <dir>`):
 
 ```text
 app/
-├── lib/                 # Thin Flutter host, with pages and state in JS
-├── ios/ android/        # Native declarations and real platform providers
-├── assets/              # QJBC, PAK, metadata, and manifest from buildGuest
-└── js/                  # Application project
-    ├── app.tsx
-    ├── manifest.json
-    ├── pocket.json
-    ├── package.json
-    └── assets/
+├── app.tsx              # Application entry (UiSkinProvider + createPocketRouter + PocketAppShell)
+├── AGENTS.md            # Managed framework-first AI coding rules
+├── CLAUDE.md            # @AGENTS.md companion instruction entry
+├── .pocket/
+│   └── tsconfig.json    # Managed non-DOM TypeScript paths & JSX declarations
+├── tsconfig.json        # Extends ./.pocket/tsconfig.json
+├── manifest.json        # Guest capability and permission declaration
+├── pocket.json          # Pocket app runtime configuration
+├── editor.json          # Studio/CLI identity and template metadata
+├── package.json         # Project commands (check, typecheck, start, build, build:web, sync:agents)
+└── assets/              # Project assets
 ```
 
-Build the app.
+When initialized with a companion Flutter host (`pocket.ts init` or `npm run create -- <dir> --flutter`), the generated project places the JS sources at the project root alongside `flutter/` (`flutter/lib`, `flutter/ios`, `flutter/android`, `flutter/assets`) and `vendor/pocket-ui/` (or, in a first-layer Flutter checkout such as Showcase, keeps the Flutter host at the root and the JS project in `js/`).
+
+Typecheck, validate framework conventions, and build the app:
 
 ```sh
-cd /absolute/path/to/app/js
-bun install
-bun run build
+cd /absolute/path/to/app
+npm run check && npm run build
 ```
 
 For a project with SystemUI and multiple Mini Apps, use the existing `build:system` command. Pages share the same compiler entry point.
@@ -101,10 +122,15 @@ Common mistakes include mirroring JS routing in Dart `currentPage`, creating Flu
 
 ## 5. UI controls and composition
 
+> **Mandatory rule — Framework-First, Customize UI Second:** Always assemble navigation, page shells, scrolling, IME inputs, and standard controls from `@pocket/ui` (and optional skin packages `@pocket/liquid_glass`, `@pocket/arc`, `@pocket/looseleaf`, or `@pocket/vn`) before writing custom low-level `<View>` / `<Text>` / `<Focusable>` trees. Never hand-roll `<Show>` page routers, HTML/DOM tags (`<div>`, `<button>`), browser globals (`window`, `document`, `localStorage`), or fake `<View>` text inputs.
+
 Public imports
 
 ```ts
 import {
+  UiSkinProvider,
+  createPocketRouter,
+  PocketAppShell,
   MobileThemeProvider,
   MOBILE_THEME_LIGHT,
   MobileScaffold,
@@ -119,7 +145,90 @@ import {
 } from "@pocket/ui";
 ```
 
-Example page
+Multi-page app shell example (`createPocketRouter` + `PocketAppShell` + `UiSkinProvider`)
+
+```tsx
+import { createSignal } from "solid-js";
+import {
+  PocketAppShell,
+  ScrollablePage,
+  SkinButton,
+  SkinCard,
+  SkinInput,
+  UiSkinProvider,
+  createPocketRouter,
+  defineUiSkin,
+  type PocketRouteDefinition,
+} from "@pocket/ui";
+
+type Route = "home" | "detail" | "settings";
+
+const ROUTES: readonly PocketRouteDefinition<Route>[] = [
+  { id: "home", path: "/home", aliases: ["/"], primary: true },
+  { id: "detail", path: "/detail", parent: "home" },
+  { id: "settings", path: "/settings", primary: true },
+];
+
+const brandSkin = defineUiSkin({
+  id: "brand",
+  label: "Brand",
+  resolveTokens: (mode, _accent, base) => ({
+    ...base,
+    accentBg: mode === "dark" ? "#38BDF8" : "#0284C7",
+    radiusControl: 12,
+    radiusSurface: 16,
+  }),
+});
+
+export function App() {
+  const router = createPocketRouter<Route>({ routes: ROUTES, fallbackRouteId: "home" });
+  const [note, setNote] = createSignal("");
+
+  return (
+    <UiSkinProvider skin="brand" skins={[brandSkin]}>
+      <PocketAppShell
+        router={router}
+        tabs={[
+          { id: "home", label: "Home", kind: "home" },
+          { id: "settings", label: "Settings", kind: "settings" },
+        ]}
+        routes={[
+          {
+            id: "home",
+            title: "Home",
+            render: () => (
+              <ScrollablePage class="px-4 py-4 gap-3">
+                <SkinCard title="Quick Note">
+                  <SkinInput value={note} placeholder="Write a note..." onInput={setNote} />
+                  <SkinButton label="Open Detail" onPress={() => router.push("detail")} />
+                </SkinCard>
+              </ScrollablePage>
+            ),
+          },
+          {
+            id: "detail",
+            title: "Detail",
+            render: () => (
+              <ScrollablePage class="px-4 py-4 gap-3">
+                <SkinCard title="Saved Note" detail={note() || "Empty"} />
+              </ScrollablePage>
+            ),
+          },
+          {
+            id: "settings",
+            title: "Settings",
+            render: () => <ScrollablePage class="px-4 py-4 gap-3" />,
+          },
+        ]}
+      />
+    </UiSkinProvider>
+  );
+}
+```
+
+> **Pluggable skins (`defineUiSkin` + `UiSkinProvider`):** All 23 `Skin*` components resolve their tokens and kit slots through `UiSkinProvider`. You can plug in a custom skin via `defineUiSkin({ id, label, resolveTokens, kit })` (or official skin adapters `@pocket/looseleaf`, `@pocket/arc`, and `@pocket/liquid_glass`) without rewriting any page, router, or navigation logic.
+
+Single-page example
 
 ```tsx
 import { createSignal } from "solid-js";
@@ -165,7 +274,8 @@ export function NotesPage() {
 
 | Scenario | Existing components |
 | --- | --- |
-| Page shell and safe area | `MobileScaffold`, `SafeAreaScaffold` |
+| Multi-page app shell and routing | `createPocketRouter`, `PocketAppShell`, `RouteView`, `PocketRouteScope`, `MobileBackButton` |
+| Page shell and safe area | `SkinScaffold`, `MobileScaffold`, `SafeAreaScaffold` |
 | Long content and keyboard avoidance | `ScrollablePage` |
 | System input | `InputField`, with the application value owned by JS |
 | Primary actions | `MobileButton` and Filled, Tonal, Outlined, or Text aliases |

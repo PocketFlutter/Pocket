@@ -11,7 +11,7 @@ This index covers the Pocket SDK API. Its baseline is the current `sdk/package.j
 - Stable native Flutter tab host surface. [Hybrid Host API](HYBRID_HOST_API.md)
 - Integration, lifecycle, and state boundaries. [Hybrid Flutter Tab Host](HYBRID_FLUTTER_TAB_HOST.md)
 - Workspace export paths, component families, core clients, methods, and capability limits. [JavaScript / TypeScript API](JS_API.md)
-- Repository npm scripts, `pocket.ts`, Studio service, build tools, and publishing commands. [CLI and tooling API](TOOLING_API.md)
+- Repository npm scripts (`npm run create -- <dir>`, `npm run sync:agents -- <dir>`, `npm run check` via `check_project.mjs`), `pocket.ts`, Studio service, build tools, and publishing commands. [CLI and tooling API](TOOLING_API.md)
 - `pocket_sdk` configuration, app shell, updates, plugins, and platform integration. [Flutter SDK integration](SDK_INTEGRATION.md)
 - Existing Dart host reference. [Flutter SDK](FLUTTER_SDK.md)
 - Native capability registration and restrictions. [Optional native plugins](OPTIONAL_PLUGINS.md) · [Hardware modules](HARDWARE_MODULES.md) · [Dio IO Worker](DIO_WORKER.md)
@@ -43,7 +43,7 @@ Import through the published entry points. `@pocket/<package>/src/...` and SDK i
 
 | Package | Purpose and Interface | Reference and Status |
 | --- | --- | --- |
-| [`@pocket/ui`](../packages/pocket_ui/package.json) | JS UI primitives and composition, routing, HostBridge, system capabilities, resources, recording, mobile and skin components. Root and 40 named subpaths. | Some upstream nodes and DrawList operations are disconnected. [Component contracts](COMPONENTS.md) · [Integration](SDK_INTEGRATION.md) · [JS API](JS_API.md) |
+| [`@pocket/ui`](../packages/pocket_ui/package.json) | JS UI primitives and composition, 23-slot polymorphic `UiSkinKit` interface + default `defaultSkinAdapter`, `defineUiSkin` custom skin builder, `PocketAppShell` + `usePocketBackHandler` declarative navigation and routing, HostBridge, system capabilities, resources, recording, mobile and skin components. Root and 41 named subpaths (including `@pocket/ui/app-shell`). | Some upstream nodes and DrawList operations are disconnected. [Component contracts](COMPONENTS.md) · [Integration](SDK_INTEGRATION.md) · [JS API](JS_API.md) |
 | [`@pocket/looseleaf`](../packages/pocket_looseleaf/package.json) | Hand-drawn paper, markings, controls, navigation, data, overlays, skins, and kit. Root and named subpaths. | Current workspace source API. Export sources define props, and `@pocket/ui` and the engine constrain interaction behavior. |
 | [`@pocket/arc`](../packages/pocket_arc/package.json) | Calm-motion semantic tokens, spring helpers, surfaces, controls, navigation, data, overlays, skins, and kit. | Current workspace source API. Platform capabilities require separate acceptance. |
 | [`@pocket/liquid_glass`](../packages/pocket_liquid_glass/package.json) | JS optical surface admission, motion, controls, menus, and a skin adapter. Root and nine named subpaths. | Target behavior depends on the host's glass rendering path. [Liquid Glass](LIQUID_GLASS_PACKAGE.md) |

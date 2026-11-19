@@ -1423,7 +1423,7 @@
       "name": "@pocket/arc",
       "manifest": "packages/pocket_arc/package.json",
       "scripts": {
-        "test": "node --experimental-transform-types test/arc.check.ts"
+        "test": "node test/arc.check.ts"
       },
       "bin": {},
       "exports": {
@@ -1489,7 +1489,7 @@
             "registerArcSkin",
             "resolveArcSkinTokens"
           ],
-          "sourceSha256": "d8d4e5938ebc561329ebe3a7626aecaf4e7b9c17cc0dbb052585d115b2328657",
+          "sourceSha256": "8f20d6f58b77dc1502401d04e8bdae4f7c1bf473829290cd53ea969238d88888",
           "reexports": []
         },
         {
@@ -1575,7 +1575,7 @@
             "resolveArcPalette",
             "useArcTheme"
           ],
-          "sourceSha256": "df4a0c572acb96148209c1fd8373e3ef16e6baac03e86ac51ab065f0648699e1",
+          "sourceSha256": "84dc1bb1fb33c5923c3b9ac6c15c9ce6453b221de53feeef087cbc2d6c8578ae",
           "reexports": []
         }
       ]
@@ -1878,7 +1878,7 @@
             "LiquidGlassSwitch",
             "LiquidGlassTone"
           ],
-          "sourceSha256": "ac938defb32e15ecd661e3cd35eb1bece0fe0c6263d22509c12726ff9c6fc5ba",
+          "sourceSha256": "05947c298df5dc1aeb9ba6730cb0ced9e1b44cfeeec58a7a9d74fafe6fe2d449",
           "reexports": []
         },
         {
@@ -1921,7 +1921,7 @@
             "registerLiquidGlassSkin",
             "resolveLiquidGlassSkinTokens"
           ],
-          "sourceSha256": "85ebfdd64068419d41ce7d94fa42aad9472adfe1ae7104649b6e26c20c1c97d1",
+          "sourceSha256": "1156a1c52fbb8b1c5d6f24bb79ca23fa077dd0232022f044c483797d29f19f8c",
           "reexports": []
         },
         {
@@ -2202,7 +2202,7 @@
             "Toggle",
             "ToggleGroup"
           ],
-          "sourceSha256": "ac2cfe0eb3256144f0ff5dcbe6b890b917677aadf2aeab51be610ce6972d2318",
+          "sourceSha256": "806e63f9b51be8ec10ed3224f88ca13df7d6b650089a1d0889a7b35a6023d114",
           "reexports": []
         },
         {
@@ -2269,7 +2269,7 @@
             "registerLooseleafSkin",
             "resolveLooseleafSkinTokens"
           ],
-          "sourceSha256": "01bdb61c0a68459d02386c7b90a0541a974faf7d4aa01f59fccf014e1efef492",
+          "sourceSha256": "8358c18ab6ba2f1add1b44a1d2fa93258ebe8c8b9651902e18e8365648b2939e",
           "reexports": []
         },
         {
@@ -2350,7 +2350,7 @@
             "Toast",
             "Tooltip"
           ],
-          "sourceSha256": "68c54353c9b4e805f68c5e40326d3ca5d3b40eb9119c9cae1aa56db4bf44cbbc",
+          "sourceSha256": "edf963ee417137faf95a2e08942de7d1ca1eb0f8ad41eb4f86274b6f6627aeed",
           "reexports": []
         },
         {
@@ -2414,7 +2414,7 @@
             "TearOff",
             "Ticket"
           ],
-          "sourceSha256": "a8d68aa2a7c2b6a108c1b8b42acc2a04cf5c9666760bedc0455fc6052c404350",
+          "sourceSha256": "434af5271a97922b42dd4f3323f3306cfedb709cf5cf89ada139d2dac2c181ac",
           "reexports": []
         },
         {
@@ -2642,6 +2642,7 @@
         "./bytes": "./src/bytes.ts",
         "./skins": "./src/skins.tsx",
         "./router": "./src/router.tsx",
+        "./app-shell": "./src/app-shell.tsx",
         "./fast": "./src/fast.tsx",
         "./surface-catalog": "./src/surface-catalog.ts",
         "./surfaces": "./src/surfaces.tsx",
@@ -2677,6 +2678,18 @@
           "reexports": []
         },
         {
+          "file": "packages/pocket_ui/src/app-shell.tsx",
+          "declarations": [
+            "PocketAppRouteView",
+            "PocketAppShell",
+            "PocketAppShellProps"
+          ],
+          "sourceSha256": "60731108c4e01424f211fcc20b8c743dff10d4db03e9cbbadfc64d5342c7abd7",
+          "reexports": [
+            "export { usePocketBackHandler } from \"./back-navigation.ts\";"
+          ]
+        },
+        {
           "file": "packages/pocket_ui/src/apple.tsx",
           "declarations": [
             "AppleDraggableGlass",
@@ -2702,11 +2715,17 @@
             "PocketBackGestureEvent",
             "PocketBackGestureHandler",
             "PocketBackGesturePhase",
+            "PocketBackInterceptorEntry",
+            "PocketBackInterceptorHandler",
+            "PocketBackInterceptorProvider",
+            "PocketBackInterceptorRegistry",
             "PocketBackRequestHandler",
+            "createPocketBackInterceptorRegistry",
             "createPocketBackNavigation",
-            "shouldCommitPocketBackGesture"
+            "shouldCommitPocketBackGesture",
+            "usePocketBackHandler"
           ],
-          "sourceSha256": "49474b6b4753a979363a5fee79e825cfe2cb0860a1f959812983a4960f58e562",
+          "sourceSha256": "015188a4a568b9cf8d1e4c734f46d57f0346cfba57d273893b3311b84cb6bcce",
           "reexports": []
         },
         {
@@ -3191,7 +3210,7 @@
         {
           "file": "packages/pocket_ui/src/index.ts",
           "declarations": [],
-          "sourceSha256": "aa1e45f4e6f36e40b23c97d8bb2c56b72587884831f9a397a1a3c765d9a03cd1",
+          "sourceSha256": "35560c6b92ac4730cec8b72a051b689918b09ed3c727664163c7a48c9b8ea35f",
           "reexports": [
             "export * from \"./ui.tsx\";",
             "export * from \"./route.tsx\";",
@@ -3212,6 +3231,7 @@
             "export * from \"./bytes.ts\";",
             "export * from \"./skins.tsx\";",
             "export * from \"./router.tsx\";",
+            "export * from \"./app-shell.tsx\";",
             "export * from \"./fast.tsx\";",
             "export * from \"./system-surfaces.tsx\";",
             "export * from \"./tree.tsx\";",
@@ -3448,7 +3468,7 @@
             "useWindowSizeClass",
             "wrapTextLines"
           ],
-          "sourceSha256": "9bb35893f17b4044abce111762424326c6de2ec92a9c3dbe4ecb69882ed60388",
+          "sourceSha256": "1bec190bd14e5a6b24ff20b094b8e70b183513b1c9a3ffe080ee2bb18e077640",
           "reexports": [
             "export { MOBILE_MOTION, motionEaseInOut, motionEaseOut } from \"./motion.ts\";"
           ]
@@ -3712,6 +3732,7 @@
         {
           "file": "packages/pocket_ui/src/skins.tsx",
           "declarations": [
+            "DefineUiSkinOptions",
             "NamedUiSkinAccent",
             "SkinAccordion",
             "SkinAccordionProps",
@@ -3719,6 +3740,8 @@
             "SkinAlertProps",
             "SkinAppBar",
             "SkinAppBarProps",
+            "SkinBackButton",
+            "SkinBackButtonProps",
             "SkinBackdrop",
             "SkinBackdropProps",
             "SkinBadge",
@@ -3765,6 +3788,7 @@
             "SkinTabs",
             "SkinToast",
             "SkinToastProps",
+            "UI_SKIN_KIT_SLOTS",
             "UiSkinAccent",
             "UiSkinAdapter",
             "UiSkinButtonVariant",
@@ -3778,13 +3802,14 @@
             "UiSkinTokens",
             "UiSkinTone",
             "defaultSkinAdapter",
+            "defineUiSkin",
             "getUiSkin",
             "listUiSkins",
             "registerUiSkin",
             "resolveDefaultSkinTokens",
             "useUiSkin"
           ],
-          "sourceSha256": "6907ece347f2d917db855bbcdb2451c6a5f10d8607e8992ac9c03994983b4fcb",
+          "sourceSha256": "ce546279122dcfe7aac69471235efa8a5e5587b98c7364bdba9c199b28379cce",
           "reexports": [
             "export { toMobileColor };"
           ]
@@ -4048,6 +4073,7 @@
             "MiniBarChart",
             "NavigationBar",
             "NavigationBarProps",
+            "NavigationIconKind",
             "NavigationItem",
             "NavigationRoute",
             "PageIntro",
@@ -4080,7 +4106,7 @@
             "registerDesktopScrollPage",
             "useScrollContourReserve"
           ],
-          "sourceSha256": "562bc9a9b4f41aa64815961eb38329cced95d06f2b0dbc2590957684f87e4bea",
+          "sourceSha256": "af4fbe117be3094a48797197f7c3c398fd21ac56d95711d1168cfdb35861941f",
           "reexports": [
             "export * from \"./mobile.tsx\";"
           ]
@@ -4897,6 +4923,9 @@
     {
       "manifest": "../package.json",
       "scripts": {
+        "create": "node sdk/scripts/create_project.mjs",
+        "sync:agents": "node sdk/scripts/create_project.mjs --sync-agents",
+        "check": "node sdk/scripts/check_project.mjs",
         "setup": "npm --prefix sdk run setup",
         "start": "npm --prefix sdk run editor:start -- --project-root=../demo/js --flutter-root=../demo",
         "restart": "npm start",
@@ -4923,6 +4952,9 @@
         "test:editor": "npm exec --yes --package=bun@1.4.4 -- bun test --max-concurrency=1 editor/test/*.test.ts",
         "test:editor:live": "bun editor/test/editor_live_probe.ts",
         "editor": "node scripts/editor_service.mjs start",
+        "create": "node scripts/create_project.mjs",
+        "sync:agents": "node scripts/create_project.mjs --sync-agents",
+        "check": "node scripts/check_project.mjs",
         "init": "node scripts/toolchain.mjs run pocket.ts init",
         "build": "node scripts/toolchain.mjs run pocket.ts build",
         "build:web": "node scripts/toolchain.mjs run scripts/build_web.ts",
@@ -4955,7 +4987,7 @@
         },
         {
           "file": "editor/server.ts",
-          "sourceSha256": "dba1d19fc27b6602f859262c9348bc667ff242cd994d2477e5fa872ba300ede2"
+          "sourceSha256": "322905564ac203e2e086e1bad6abc52429c70666642f30f6c23b096cfb7a9471"
         },
         {
           "file": "editor/test/editor_live_probe.ts",
@@ -4967,11 +4999,11 @@
         },
         {
           "file": "pocket.ts",
-          "sourceSha256": "4af0c3b149b731656a9b8060614dc9211ed7af98f13b0c4471c8e7f6dc603f74"
+          "sourceSha256": "7a04f769b4d2e0f276ad8a14d82a2388afb1fcb4148a708bd3303be9f854adcc"
         },
         {
           "file": "scripts/build_guest.ts",
-          "sourceSha256": "bb142f4fa5ace8d29f526481d430020ddcc49fa40479a7a6af5e3a310ea67710"
+          "sourceSha256": "b58c748cc409f2904db91a36445066d8666f6ec8dc67b20090a52b45015d991f"
         },
         {
           "file": "scripts/build_web.ts",
@@ -4982,12 +5014,20 @@
           "sourceSha256": "714a5a73fd33ad2e67f231696d83e15002c824147ecde81a10e2af76a6954675"
         },
         {
+          "file": "scripts/check_project.mjs",
+          "sourceSha256": "d0aec2d6dfcc4799292f0d80b1dd22125d4e5c1a477e08660b8047513b5554d6"
+        },
+        {
+          "file": "scripts/create_project.mjs",
+          "sourceSha256": "a3156ab7ebf708f7d451e9e576078a89cb705e16f21dc3973fd9248aa0665321"
+        },
+        {
           "file": "scripts/editor_service.mjs",
           "sourceSha256": "288d657b70a40df78814c93422ad3cb88305ab5932c99a95239f143ca58c1434"
         },
         {
           "file": "scripts/export_web_sdk.ts",
-          "sourceSha256": "fe6b823a7c58879114255535ef76ae47ce1f8252d5011e2be1d40305e1e30d07"
+          "sourceSha256": "983649a23a67ece15180b1e6dba610d76b861e782046693ce10e2dd21c49cfe9"
         },
         {
           "file": "scripts/install_studio.mjs",

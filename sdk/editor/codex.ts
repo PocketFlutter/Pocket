@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolvePrebuiltTools } from "../scripts/prebuilt_tools.mjs";
+import { FRAMEWORK_AGENT_DEVELOPER_INSTRUCTIONS } from "../scripts/project_scaffold.ts";
 
 const sdkRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 function resolveCompanionModuleUrl(): string | undefined {
@@ -349,7 +350,7 @@ export function createStudioCodex(options: StudioCodexOptions) {
         scope: "project" as const,
         cwd: projectDirectory,
         writableRoots: [projectDirectory],
-        developerInstructions: "You are editing the currently selected Pocket Studio JS project. Modify only this project; preserve user changes. Do not create subagents, read credentials, run deployment, publish, or change files outside this project. Explain changes and test results.",
+        developerInstructions: `You are editing the currently selected Pocket Studio JS project. Modify only this project; preserve user changes. Do not create subagents, read credentials, run deployment, publish, or change files outside this project. Explain changes and test results.\n\n${FRAMEWORK_AGENT_DEVELOPER_INSTRUCTIONS}`,
       };
     })();
     if (context.scope !== input.scope || !context.cwd || !context.writableRoots.length || context.writableRoots.some((path) => typeof path !== "string" || !path)) throw new Error("editor scope is not available");

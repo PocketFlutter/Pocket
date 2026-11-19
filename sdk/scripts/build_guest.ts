@@ -5,7 +5,14 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
 import { resolveManagedBun, resolvePrebuiltTools } from "./prebuilt_tools.mjs";
+import {
+  inspectGuestFrameworkConventions,
+  inspectGuestFrameworkConventionsDetailed,
+  writeManagedProjectTsconfig,
+} from "./check_project.mjs";
 import { validatePocketProjectFonts } from "./project_fonts.ts";
+
+export { inspectGuestFrameworkConventions, inspectGuestFrameworkConventionsDetailed };
 import { createNovelEngine } from "../packages/pocket_vn/src/engine.ts";
 import { validateNovelAssetReferences } from "../packages/pocket_vn/src/asset-references.ts";
 import type { StoryDefinition } from "../packages/pocket_vn/src/types.ts";
@@ -945,6 +952,27 @@ async function buildGuestSerialized(options: BuildGuestOptions): Promise<BuildGu
     }
     const rasterDensity = checkedRasterDensity(options.rasterDensity ?? 1);
     const entry = projectEntry(projectRoot, options.entry);
+    if (existsSync(join(projectRoot, ".pocket/tsconfig.json"))) {
+      try {
+        writeManagedProjectTsconfig(projectRoot, root);
+      } catch {
+        // Best-effort refresh of managed tsconfig during guest build.
+      }
+    }
+    const conventions = inspectGuestFrameworkConventionsDetailed(projectRoot, relative(projectRoot, entry));
+    for (const hint of conventions.all) {
+      report(hint, options.log);
+    }
+    const projectEditor = readJsonObject(join(projectRoot, "editor.json"));
+    const mode =
+      projectEditor?.conventions === "warn" || projectEditor?.conventions === "off"
+        ? projectEditor.conventions
+        : "strict";
+    if (mode === "strict" && conventions.errors.length > 0) {
+      throw new Error(
+        `build_guest: disallowed browser DOM/HTML constructs in ${projectRoot} (set "conventions": "warn" in editor.json only for legacy migration):\n${conventions.errors.join("\n")}`,
+      );
+    }
     const preparedUi = await prepareUiPackage(projectRoot, entry, options.log);
     uiCleanup = preparedUi.cleanup;
     // SDK guest packages use the same pinned JSX lowering and pass-1 asset
