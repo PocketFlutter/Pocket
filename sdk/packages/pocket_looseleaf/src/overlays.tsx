@@ -37,6 +37,7 @@ export function Alert(props: {
   tone?: AlertTone;
   actionLabel?: string;
   onAction?: () => void;
+  onClose?: () => void;
   children?: JSX.Element;
 }): JSX.Element {
   const { palette } = useLooseleafTheme();
@@ -62,7 +63,14 @@ export function Alert(props: {
     <Paper stock={stock()} shadow="sheet" tilt={false} paddingClass="relative flex-row items-stretch w-full overflow-hidden">
       <View class="w-[5] shrink-0" style={{ bgColor: accent() }} />
       <View class="flex-col gap-1 p-3 flex-1" style={{ minW: 0 }}>
-        <MobileParagraph text={props.title} class="text-sm font-bold" style={{ textColor: palette().ink }} />
+        <View class="flex-row items-start justify-between gap-2 w-full">
+          <View class="flex-col flex-1" style={{ minW: 0 }}>
+            <MobileParagraph text={props.title} class="text-sm font-bold" style={{ textColor: palette().ink }} />
+          </View>
+          <Show when={Boolean(props.onClose)}>
+            <Button label="×" variant="ghost" size="sm" onPress={props.onClose} />
+          </Show>
+        </View>
         <Show when={Boolean(props.description)}>
           <MobileParagraph text={props.description!} class="text-xs" style={{ textColor: palette().inkSoft }} />
         </Show>

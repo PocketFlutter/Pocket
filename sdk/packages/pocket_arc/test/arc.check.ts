@@ -13,10 +13,28 @@ const upstreamCandidates = [
 ];
 const upstreamDir = upstreamCandidates.find((p) => existsSync(join(p, "package.json"))) ?? upstreamCandidates[0]!;
 const reqUpstream = module.createRequire(join(upstreamDir, "package.json"));
+const typescript = reqUpstream("typescript");
 
 if (typeof module.registerHooks === "function") {
   let inHook = false;
   module.registerHooks({
+    load(url, context, nextLoad) {
+      if (!url.startsWith("file:") || !/\.tsx?$/.test(url)) {
+        return nextLoad(url, context);
+      }
+      const fileName = fileURLToPath(url);
+      // The pinned framework uses TypeScript parameter properties, which
+      // Node's strip-only loader cannot execute.
+      const result = typescript.transpileModule(readFileSync(fileName, "utf8"), {
+        fileName,
+        compilerOptions: {
+          module: typescript.ModuleKind.ESNext,
+          target: typescript.ScriptTarget.ESNext,
+          jsx: typescript.JsxEmit.React,
+        },
+      });
+      return { format: "module", shortCircuit: true, source: result.outputText };
+    },
     resolve(specifier, context, nextResolve) {
       if (specifier === "@pocketjs/framework/solid/lifecycle") {
         return {

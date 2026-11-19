@@ -19,6 +19,7 @@ export * from "./apple.tsx";
 export * from "./bytes.ts";
 export * from "./skins.tsx";
 export * from "./router.tsx";
+export * from "./app-shell.tsx";
 export * from "./fast.tsx";
 
 // Preload compositor composition with the public UI entry so the pinned

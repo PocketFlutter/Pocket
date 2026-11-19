@@ -395,13 +395,15 @@ export interface ArcThemeContextValue {
 
 const DEFAULT_LIGHT = resolveArcPalette("light", "coral");
 
-export const ArcThemeContext = createContext<ArcThemeContextValue>({
+const DEFAULT_ARC_THEME_CONTEXT: ArcThemeContextValue = {
   mode: () => "light",
   accent: () => "coral",
   density: () => "compact",
   reducedMotion: () => false,
   palette: () => DEFAULT_LIGHT,
-});
+};
+
+export const ArcThemeContext = createContext<ArcThemeContextValue>(DEFAULT_ARC_THEME_CONTEXT);
 
 export function ArcThemeProvider(props: {
   mode?: ArcThemeMode | (() => ArcThemeMode);
@@ -431,5 +433,5 @@ export function ArcThemeProvider(props: {
 }
 
 export function useArcTheme(): ArcThemeContextValue {
-  return useContext(ArcThemeContext);
+  return useContext(ArcThemeContext) ?? DEFAULT_ARC_THEME_CONTEXT;
 }

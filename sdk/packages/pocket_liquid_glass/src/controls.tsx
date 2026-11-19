@@ -29,6 +29,7 @@ import {
   useContext,
   type JSX,
 } from "solid-js";
+import { after } from "@pocketjs/framework/clock";
 import { createGesture } from "@pocketjs/framework/gesture";
 import { Focusable, Text, View, type NodeMirror } from "@pocketjs/framework/solid/components";
 import { onFrame } from "@pocketjs/framework/solid/lifecycle";
@@ -150,12 +151,12 @@ export function LiquidGlassFlexSurface(props: {
     onDown: (c) => {
       setPressing(true);
       setDragVec({ x: 0, y: 0 });
-      const pt = resolveNodeLocalPoint(hostNode, c.x, c.y, null, 0);
+      const pt = resolveNodeLocalPoint(hostNode, c.x, c.y, undefined, 0);
       if (pt) setGlowPos({ x: pt.clampedX - pt.width * 0.5, y: pt.clampedY - pt.height * 0.5 });
     },
     onPanMove: (c) => {
       setDragVec({ x: c.dx, y: c.dy });
-      const pt = resolveNodeLocalPoint(hostNode, c.x, c.y, null, 0);
+      const pt = resolveNodeLocalPoint(hostNode, c.x, c.y, undefined, 0);
       if (pt) setGlowPos({ x: pt.clampedX - pt.width * 0.5, y: pt.clampedY - pt.height * 0.5 });
     },
     onTap: () => {
@@ -199,7 +200,7 @@ export function LiquidGlassFlexSurface(props: {
         priority="high"
         shape={props.shape ?? "rounded"}
         radius={rad()}
-        pressed={pressing}
+        pressed={pressing()}
         magnification={() => (pressing() ? 1.12 : 1.02)}
         deformation={{
           anchorX: glowPos().x * 0.65,
@@ -430,7 +431,7 @@ export function LiquidGlassButton(props: {
         priority="normal"
         shape="pill"
         radius={999}
-        pressed={holding}
+        pressed={holding()}
         magnification={() => (holding() ? 1.1 : 1)}
         class={props.fullWidth ? "relative flex-col w-full" : "relative flex-col"}
         contentClass="relative flex-row items-center justify-center p-0"
@@ -1047,16 +1048,16 @@ export function LiquidGlassSegmentedControl<T extends string = string>(props: {
     return Math.max(0, Math.min(count() - 1, raw));
   };
 
-  let flashTimer: ReturnType<typeof setTimeout> | undefined;
-  onCleanup(() => clearTimeout(flashTimer));
+  let cancelFlash: (() => void) | undefined;
+  onCleanup(() => cancelFlash?.());
 
   const firePick = (idx: number): void => {
     const picked = props.items[idx];
     if (!picked || picked.disabled) return;
     if (props.momentary) {
       setMomentaryFlash(idx);
-      clearTimeout(flashTimer);
-      flashTimer = setTimeout(() => setMomentaryFlash(null), 180);
+      cancelFlash?.();
+      cancelFlash = after(0.18, () => setMomentaryFlash(null));
       props.onChange(picked.id);
       return;
     }
@@ -1517,13 +1518,13 @@ export function LiquidGlassStepper(props: {
 
   const [pressedSide, setPressedSide] = createSignal<"left" | "right" | null>(null);
   let pillNode: NodeMirror | undefined;
-  let repeatTimer: ReturnType<typeof setTimeout> | undefined;
+  let cancelRepeat: (() => void) | undefined;
   let repeatStepCount = 0;
 
   const stopRepeat = (): void => {
-    if (repeatTimer !== undefined) {
-      clearTimeout(repeatTimer);
-      repeatTimer = undefined;
+    if (cancelRepeat !== undefined) {
+      cancelRepeat();
+      cancelRepeat = undefined;
     }
     repeatStepCount = 0;
     setPressedSide(null);
@@ -1557,10 +1558,10 @@ export function LiquidGlassStepper(props: {
     if (props.autorepeat === false) return;
     repeatStepCount += 1;
     const delay = repeatStepCount === 1 ? 380 : repeatStepCount < 6 ? 130 : 65;
-    repeatTimer = setTimeout(() => {
+    cancelRepeat = after(delay / 1000, () => {
       applyDelta(dir);
       scheduleAutorepeat(dir);
-    }, delay);
+    });
   };
 
   createGesture({
@@ -1570,13 +1571,13 @@ export function LiquidGlassStepper(props: {
       node: () => (routeActive() ? pillNode : undefined),
     },
     onDown: (c) => {
-      const pt = resolveNodeLocalPoint(pillNode, c.x, c.y, null, 0);
+      const pt = resolveNodeLocalPoint(pillNode, c.x, c.y, undefined, 0);
       if (!pt) return;
       const side = pt.x < pt.width * 0.5 ? "left" : "right";
       if ((side === "left" && !canDecrement()) || (side === "right" && !canIncrement())) return;
       setPressedSide(side);
       if (props.autorepeat !== false) {
-        clearTimeout(repeatTimer);
+        cancelRepeat?.();
         repeatStepCount = 0;
         scheduleAutorepeat(side === "left" ? -1 : 1);
       }
@@ -1868,7 +1869,11 @@ export function LiquidGlassActivityIndicator(props: {
   try {
     onFrame(
       () => {
-        const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+        const now =
+          typeof (globalThis as { performance?: { now?: () => number } }).performance?.now ===
+          "function"
+            ? (globalThis as { performance: { now: () => number } }).performance.now()
+            : Date.now();
         const dt = prevNow > 0 ? Math.min(50, Math.max(8, now - prevNow)) : 16.67;
         prevNow = now;
         accumMs += dt;

@@ -23,6 +23,7 @@ import { createGesture } from "@pocketjs/framework/gesture";
 import { CompositorSurface, Focusable, Modal, Portal, Text, View, type NodeMirror, type ViewProps } from "@pocketjs/framework/solid/components";
 import { onFrame } from "@pocketjs/framework/solid/lifecycle";
 import { simulationHz, virtualNow } from "@pocketjs/framework/clock";
+import { usePocketBackHandler } from "./back-navigation.ts";
 import { buildLiquidGlassRecipe, type GlassShape } from "./legacy.ts";
 import {
   ContourConsumedContext,
@@ -1807,24 +1808,33 @@ export function MobileCheckbox(props: {
 export function MobileRadioGroup(props: {
   items: readonly { id: string; label: string; detail?: string }[];
   value: string;
+  direction?: "row" | "col";
   onChange: (id: string) => void;
 }): JSX.Element {
   const theme = useMobileThemeAccessor();
   return (
-    <View class="flex-col gap-2">
+    <View class={props.direction === "row" ? "flex-row flex-wrap gap-2" : "flex-col gap-2"}>
       <For each={props.items}>
         {(item) => {
           const active = () => props.value === item.id;
           const selection = usePresenceTransition(active, { durationMs: MOBILE_MOTION.state, animateOnMount: false });
           return (
             <Focusable
-              class={active()
-                ? (theme().name === "dark"
-                  ? "flex-row items-center gap-3 w-full px-3 py-2.5 rounded-lg bg-[#18181B] border-[#FAFAFA] transition-colors duration-150 ease-out"
-                  : "flex-row items-center gap-3 w-full px-3 py-2.5 rounded-lg bg-[#FAFAFA] border-[#18181B] transition-colors duration-150 ease-out")
-                : (theme().name === "dark"
-                  ? "flex-row items-center gap-3 w-full px-3 py-2.5 rounded-lg bg-[#09090B] border-[#27272A] transition-colors duration-150 ease-out"
-                  : "flex-row items-center gap-3 w-full px-3 py-2.5 rounded-lg bg-white border-[#E4E4E7] transition-colors duration-150 ease-out")}
+              class={props.direction === "row"
+                ? (active()
+                  ? (theme().name === "dark"
+                    ? "flex-row items-center gap-3 px-3 py-2.5 rounded-lg bg-[#18181B] border-[#FAFAFA] transition-colors duration-150 ease-out"
+                    : "flex-row items-center gap-3 px-3 py-2.5 rounded-lg bg-[#FAFAFA] border-[#18181B] transition-colors duration-150 ease-out")
+                  : (theme().name === "dark"
+                    ? "flex-row items-center gap-3 px-3 py-2.5 rounded-lg bg-[#09090B] border-[#27272A] transition-colors duration-150 ease-out"
+                    : "flex-row items-center gap-3 px-3 py-2.5 rounded-lg bg-white border-[#E4E4E7] transition-colors duration-150 ease-out"))
+                : (active()
+                  ? (theme().name === "dark"
+                    ? "flex-row items-center gap-3 w-full px-3 py-2.5 rounded-lg bg-[#18181B] border-[#FAFAFA] transition-colors duration-150 ease-out"
+                    : "flex-row items-center gap-3 w-full px-3 py-2.5 rounded-lg bg-[#FAFAFA] border-[#18181B] transition-colors duration-150 ease-out")
+                  : (theme().name === "dark"
+                    ? "flex-row items-center gap-3 w-full px-3 py-2.5 rounded-lg bg-[#09090B] border-[#27272A] transition-colors duration-150 ease-out"
+                    : "flex-row items-center gap-3 w-full px-3 py-2.5 rounded-lg bg-white border-[#E4E4E7] transition-colors duration-150 ease-out"))}
               onPress={() => props.onChange(item.id)}
             >
               <View
@@ -2309,6 +2319,11 @@ export function MobilePopup(props: {
   const presence = usePresenceTransition(() => typeof props.open === "function" ? props.open() : props.open, {
     durationMs: 260, easing: motionEaseOut,
   });
+  usePocketBackHandler(() => {
+    if (!presence.interactive()) return true;
+    props.onClose();
+    return true;
+  }, () => Boolean(typeof props.open === "function" ? props.open() : props.open));
   let panelNode: { id: number } | undefined;
   const [panelHeight, setPanelHeight] = createSignal(0);
   const syncPanelHeight = (): void => {
@@ -2435,6 +2450,11 @@ export function MobileDialog(props: {
   const presence = usePresenceTransition(() => typeof props.open === "function" ? props.open() : props.open, {
     durationMs: MOBILE_MOTION.overlay, easing: motionEaseOut,
   });
+  usePocketBackHandler(() => {
+    if (!presence.interactive()) return true;
+    props.onClose();
+    return true;
+  }, () => Boolean(typeof props.open === "function" ? props.open() : props.open));
   return (
     <Show when={presence.mounted()}>
       <MobileModalBackdrop progress={presence.progress} />

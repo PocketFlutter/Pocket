@@ -1,3 +1,4 @@
+import { createContext, createEffect, createSignal, onCleanup, useContext, type Accessor, type JSX } from "solid-js";
 import type { HostBridge } from "./host.ts";
 
 export const POCKET_BACK_REQUEST_EVENT = "platform.back.request";
@@ -161,4 +162,88 @@ export function createPocketBackNavigation(
       remove?.();
     },
   };
+}
+
+export type PocketBackInterceptorHandler = () => boolean | void;
+
+export interface PocketBackInterceptorEntry {
+  readonly id: number;
+  readonly handler: PocketBackInterceptorHandler;
+  readonly isEnabled: () => boolean;
+}
+
+export interface PocketBackInterceptorRegistry {
+  register(handler: PocketBackInterceptorHandler, isEnabled?: () => boolean): () => void;
+  dispatch(): boolean;
+  readonly count: Accessor<number>;
+}
+
+export function createPocketBackInterceptorRegistry(): PocketBackInterceptorRegistry {
+  let nextId = 1;
+  const entries: PocketBackInterceptorEntry[] = [];
+  const [count, setCount] = createSignal(0);
+
+  return {
+    register(handler: PocketBackInterceptorHandler, isEnabled: () => boolean = () => true): () => void {
+      const id = nextId++;
+      const entry: PocketBackInterceptorEntry = { id, handler, isEnabled };
+      entries.push(entry);
+      setCount(entries.length);
+      let removed = false;
+      return () => {
+        if (removed) return;
+        removed = true;
+        const idx = entries.findIndex((candidate) => candidate.id === id);
+        if (idx >= 0) {
+          entries.splice(idx, 1);
+          setCount(entries.length);
+        }
+      };
+    },
+    dispatch(): boolean {
+      const snapshot = entries.slice();
+      for (let i = snapshot.length - 1; i >= 0; i -= 1) {
+        const entry = snapshot[i]!;
+        if (!entries.some((candidate) => candidate.id === entry.id)) continue;
+        try {
+          if (!entry.isEnabled()) continue;
+          if (entry.handler() === true) return true;
+        } catch {
+          // Ignore errors from individual interceptors and continue LIFO walk.
+        }
+      }
+      return false;
+    },
+    count,
+  };
+}
+
+const PocketBackInterceptorContext = createContext<PocketBackInterceptorRegistry | undefined>(undefined);
+
+export function PocketBackInterceptorProvider(props: {
+  readonly value: PocketBackInterceptorRegistry;
+  readonly children: JSX.Element;
+}): JSX.Element {
+  return PocketBackInterceptorContext.Provider({
+    get value() {
+      return props.value;
+    },
+    get children() {
+      return props.children;
+    },
+  });
+}
+
+export function usePocketBackHandler(
+  handler: PocketBackInterceptorHandler,
+  enabled: boolean | Accessor<boolean> = true,
+): void {
+  const registry = useContext(PocketBackInterceptorContext);
+  if (!registry) return;
+  createEffect(() => {
+    const active = typeof enabled === "function" ? enabled() : enabled;
+    if (!active) return;
+    const unregister = registry.register(handler);
+    onCleanup(unregister);
+  });
 }

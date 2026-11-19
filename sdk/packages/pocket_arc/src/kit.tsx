@@ -17,6 +17,7 @@ import {
   NavigationBar,
   registerUiSkin,
   type DisplayGeometry,
+  type InputFieldColor,
   type NavigationItem,
   type UiSkinAccent,
   type UiSkinAdapter,
@@ -441,11 +442,11 @@ export function ArcInput(props: {
         onInput={props.onInput}
         onSubmit={props.onSubmit}
         appearance={{
-          fillColor: palette().surfaceRaised,
-          textColor: palette().foreground,
-          placeholderColor: palette().textMuted,
-          borderColor: palette().borderStrong,
-          focusedBorderColor: palette().accent,
+          fillColor: (palette().surfaceRaised === "transparent" || palette().surfaceRaised.startsWith("#") ? palette().surfaceRaised : "#FFFFFF") as InputFieldColor,
+          textColor: (palette().foreground === "transparent" || palette().foreground.startsWith("#") ? palette().foreground : "#18181B") as InputFieldColor,
+          placeholderColor: (palette().textMuted === "transparent" || palette().textMuted.startsWith("#") ? palette().textMuted : "#71717A") as InputFieldColor,
+          borderColor: (palette().borderStrong === "transparent" || palette().borderStrong.startsWith("#") ? palette().borderStrong : "#D4D4D8") as InputFieldColor,
+          focusedBorderColor: (palette().accent === "transparent" || palette().accent.startsWith("#") ? palette().accent : "#DE5A43") as InputFieldColor,
           borderRadius: palette().radiusControl,
         }}
       />
@@ -784,12 +785,26 @@ export const arcSkinAdapter: UiSkinAdapter = {
         />
       );
     },
+    BackButton(props) {
+      const { palette } = useArcTheme();
+      return (
+        <View style={{ opacity: props.disabled ? 0.5 : 1 }}>
+          <ArcActionButton
+            label={props.label ? `‹ ${props.label}` : "‹"}
+            variant="outline"
+            isDark={palette().mode !== "light"}
+            boxClass="relative py-1.5 px-3 items-center justify-center"
+            onPress={props.disabled ? undefined : props.onPress}
+          />
+        </View>
+      );
+    },
     NavigationBar(props) {
       return (
         <ArcNavigationBar
           route={props.route}
           items={props.items}
-          onNavigate={(id) => props.onNavigate(id as T)}
+          onNavigate={(id) => props.onNavigate(id as typeof props.route)}
           visible={props.visible}
           geometry={props.geometry}
         />
@@ -1167,6 +1182,19 @@ export const arcSkinAdapter: UiSkinAdapter = {
         >
           {props.children}
         </ArcAccordion>
+      );
+    },
+    Paragraph(props) {
+      const { palette } = useArcTheme();
+      return (
+        <MobileParagraph
+          text={props.text}
+          class={props.class ?? "text-xs"}
+          style={{
+            textColor: props.muted ? palette().textMuted : palette().foreground,
+            ...props.style,
+          }}
+        />
       );
     },
   },

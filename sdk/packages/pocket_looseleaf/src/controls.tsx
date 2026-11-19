@@ -9,7 +9,7 @@
 
 import { For, Show, createMemo, createSignal, type JSX } from "solid-js";
 import { Focusable, Text, View, type ViewProps } from "@pocketjs/framework/solid/components";
-import { InputField, MobileParagraph, useAnimatedNumber } from "@pocket/ui";
+import { InputField, MobileParagraph, useAnimatedNumber, type InputFieldColor } from "@pocket/ui";
 import {
   accentColorOf,
   densityHitHeight,
@@ -317,6 +317,9 @@ export function LabelTag(props: {
  * Paper-slip `<Input>` backed by `@pocket/ui`'s native `InputField` so mobile
  * and desktop keyboards edit blue-felt ink (`--ll-ink-you`) directly.
  */
+const asInputColor = (v: string, fb: InputFieldColor): InputFieldColor =>
+  v === "transparent" || v.startsWith("#") ? (v as InputFieldColor) : fb;
+
 export function Input(props: {
   value: string | (() => string);
   placeholder?: string;
@@ -332,11 +335,11 @@ export function Input(props: {
       onInput={(val) => props.onInput?.(val)}
       onSubmit={(val) => props.onSubmit?.(val)}
       appearance={{
-        fillColor: palette().slip,
-        textColor: palette().inkYou,
-        placeholderColor: palette().pencilText,
-        borderColor: palette().ink,
-        focusedBorderColor: palette().focus,
+        fillColor: asInputColor(palette().slip, "#FFFFFF"),
+        textColor: asInputColor(palette().inkYou, "#1F4F82"),
+        placeholderColor: asInputColor(palette().pencilText, "#6B6155"),
+        borderColor: asInputColor(palette().ink, "#2A2420"),
+        focusedBorderColor: asInputColor(palette().focus, "#1F4F82"),
         borderRadius: 4,
       }}
     />
@@ -648,11 +651,18 @@ export function Switch(props: {
 export function RadioGroup(props: {
   options: readonly { id: string; label: string; detail?: string }[];
   value: string;
+  direction?: "row" | "col";
   onChange?: (id: string) => void;
 }): JSX.Element {
   const { palette } = useLooseleafTheme();
   return (
-    <View class="flex-col gap-2 w-full">
+    <View
+      class={
+        props.direction === "row"
+          ? "flex-row flex-wrap gap-2 w-full"
+          : "flex-col gap-2 w-full"
+      }
+    >
       <For each={props.options}>
         {(opt) => {
           const active = () => props.value === opt.id;

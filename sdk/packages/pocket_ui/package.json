@@ -34,6 +34,7 @@
     "./bytes": "./src/bytes.ts",
     "./skins": "./src/skins.tsx",
     "./router": "./src/router.tsx",
+    "./app-shell": "./src/app-shell.tsx",
     "./fast": "./src/fast.tsx",
     "./surface-catalog": "./src/surface-catalog.ts",
     "./surfaces": "./src/surfaces.tsx",

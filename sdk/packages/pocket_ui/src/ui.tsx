@@ -69,6 +69,7 @@ export interface SafeAreaScaffoldProps {
   background?: SafeAreaSlot;
   /** Full-viewport canvas class; the background must remain edge-to-edge. */
   class?: string;
+  readonly style?: ViewProps["style"];
   /** Insets to consume; `all` is for an independent guest, `top` for a root shell. */
   edges?: SafeAreaEdges;
   /** Reuse an existing display signal when the parent already owns geometry. */
@@ -358,7 +359,7 @@ function SafeAreaScaffoldBody(props: SafeAreaScaffoldProps & {
   if (intrinsic) {
     return (
       <View class="flex-col w-full" style={{ grow: 1 }}>
-        <View class={canvasClass()} style={{ grow: 1 }}>
+        <View class={canvasClass()} style={{ grow: 1, ...props.style }}>
           {backgroundLayer()}
           {hasAppBar ? resolveSlot(props.appBar) : null}
           {resolvedChildren()}
@@ -376,6 +377,7 @@ function SafeAreaScaffoldBody(props: SafeAreaScaffoldProps & {
           grow: 1,
           paddingL: bodyLeftInset(),
           paddingR: bodyRightInset(),
+          ...props.style,
         }}
       >
         {backgroundLayer()}
@@ -862,11 +864,24 @@ export function StatusBar(props: { label: string; detail: string; ok?: boolean }
 
 export type NavigationRoute = "home" | "gallery" | "about" | "settings";
 
+export type NavigationIconKind =
+  | "home"
+  | "gallery"
+  | "host"
+  | "settings"
+  | "profile"
+  | "search"
+  | "inbox"
+  | "star";
+
 export interface NavigationItem {
   /** String keeps NavigationBar reusable for local segmented routes. */
   id: string;
   label: string;
-  kind: "home" | "gallery" | "host" | "settings";
+  readonly kind?: NavigationIconKind;
+  readonly icon?:
+    | JSX.Element
+    | ((state: { readonly active: boolean; readonly color: string; readonly dark: boolean }) => JSX.Element);
 }
 
 export interface NavigationBarProps {
@@ -908,11 +923,12 @@ export interface NavigationBarProps {
  * geometric marks are therefore stable across Flutter, WeChat and native
  * probe hosts and inherit the selected-tab colour through one explicit style.
  */
-function NavigationIcon(props: { kind: NavigationItem["kind"]; active: boolean; dark?: boolean; accentColor?: string; surfaceColor?: string }): JSX.Element {
+function NavigationIcon(props: { kind?: NavigationIconKind; active: boolean; dark?: boolean; accentColor?: string; surfaceColor?: string }): JSX.Element {
   const color = () => props.active
     ? props.accentColor ?? (props.dark ? "#A8BEFF" : "#315DEB")
     : props.dark ? "#A9B7CF" : "#7C8799";
-  if (props.kind === "home") {
+  const kind = props.kind ?? "home";
+  if (kind === "home") {
     return (
       <View class="relative w-[20] h-[20]">
         <View class="absolute left-[4] top-[8] w-[12] h-[9] rounded-sm" style={{ bgColor: color() }} />
@@ -921,7 +937,7 @@ function NavigationIcon(props: { kind: NavigationItem["kind"]; active: boolean; 
       </View>
     );
   }
-  if (props.kind === "gallery") {
+  if (kind === "gallery") {
     return (
       <View class="flex-col gap-[2] w-[20] h-[20] items-center justify-center">
         <View class="flex-row gap-[2]">
@@ -935,12 +951,46 @@ function NavigationIcon(props: { kind: NavigationItem["kind"]; active: boolean; 
       </View>
     );
   }
-  if (props.kind === "settings") {
+  if (kind === "settings") {
     return (
       <View class="relative w-[20] h-[20]">
         <View class="absolute left-[8] top-[1] w-[4] h-[18] rounded-sm" style={{ bgColor: color() }} />
         <View class="absolute left-[1] top-[8] w-[18] h-[4] rounded-sm" style={{ bgColor: color() }} />
         <View class="absolute left-[4] top-[4] w-[12] h-[12] rounded-sm" style={{ bgColor: color(), rotate: 45 }} />
+      </View>
+    );
+  }
+  if (kind === "profile") {
+    return (
+      <View class="relative w-[20] h-[20]">
+        <View class="absolute left-[7] top-[2] w-[6] h-[6] rounded-full" style={{ bgColor: color() }} />
+        <View class="absolute left-[3] top-[11] w-[14] h-[7] rounded-full" style={{ bgColor: color() }} />
+      </View>
+    );
+  }
+  if (kind === "search") {
+    return (
+      <View class="relative w-[20] h-[20]">
+        <View class="absolute left-[2] top-[2] w-[12] h-[12] rounded-full" style={{ bgColor: color() }} />
+        <View class="absolute left-[5] top-[5] w-[6] h-[6] rounded-full" style={{ bgColor: props.surfaceColor ?? "#FFFFFF" }} />
+        <View class="absolute left-[13] top-[12] w-[6] h-[3] rounded-full" style={{ bgColor: color(), rotate: 45 }} />
+      </View>
+    );
+  }
+  if (kind === "inbox") {
+    return (
+      <View class="relative w-[20] h-[20]">
+        <View class="absolute left-[2] top-[3] w-[16] h-[14] rounded-sm" style={{ bgColor: color() }} />
+        <View class="absolute left-[4] top-[5] w-[12] h-[6] rounded-sm" style={{ bgColor: props.surfaceColor ?? "#FFFFFF" }} />
+        <View class="absolute left-[7] top-[10] w-[6] h-[3] rounded-sm" style={{ bgColor: props.surfaceColor ?? "#FFFFFF" }} />
+      </View>
+    );
+  }
+  if (kind === "star") {
+    return (
+      <View class="relative w-[20] h-[20]">
+        <View class="absolute left-[5] top-[5] w-[10] h-[10] rounded-sm" style={{ bgColor: color() }} />
+        <View class="absolute left-[5] top-[5] w-[10] h-[10] rounded-sm" style={{ bgColor: color(), rotate: 45 }} />
       </View>
     );
   }
@@ -1103,6 +1153,10 @@ export function NavigationBar(props: NavigationBarProps): JSX.Element {
             {(item) => {
               const nodeRef = props.nodeRefForItem?.(item);
               const active = () => props.route === item.id || (hostRoute() && item.id === "about");
+              const customIcon = () =>
+                typeof item.icon === "function"
+                  ? item.icon({ active: active(), color: accent(), dark: props.dark === true })
+                  : item.icon;
               return (
                 <Focusable
                   nodeRef={nodeRef}
@@ -1110,7 +1164,17 @@ export function NavigationBar(props: NavigationBarProps): JSX.Element {
                   onPress={() => props.onItemPress ? props.onItemPress(item.id) : props.onNavigate(item.id as NavigationRoute)}
                 >
                   <View class="w-[24] h-[22] flex-col items-center justify-center bg-transparent">
-                    <NavigationIcon kind={item.kind} active={active()} dark={props.dark} accentColor={active() ? accent() : undefined} surfaceColor={surface()} />
+                    {item.icon !== undefined ? (
+                      customIcon()
+                    ) : (
+                      <NavigationIcon
+                        kind={item.kind ?? "home"}
+                        active={active()}
+                        dark={props.dark}
+                        accentColor={active() ? accent() : undefined}
+                        surfaceColor={surface()}
+                      />
+                    )}
                   </View>
                   <Text
                     class={active()
@@ -1534,7 +1598,7 @@ export function deliverTextInputEvent(method: string, params: TextInputParams): 
 
 export function InputField(props: {
   value: Accessor<string>;
-  onInput: (value: string) => void;
+  onInput?: (value: string) => void;
   onSubmit?: (value: string) => void;
   placeholder?: string;
   appearance?: InputFieldAppearance;
@@ -1677,7 +1741,7 @@ export function InputField(props: {
     // reducer event in that case while still accepting selection metadata.
     if (text !== props.value()) {
       textLayoutDirty = true;
-      props.onInput(text);
+      props.onInput?.(text);
     }
   };
 

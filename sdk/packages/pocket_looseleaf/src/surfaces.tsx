@@ -1152,7 +1152,7 @@ export function Ribbon(props: {
   const fg = () => {
     const mode = palette().mode;
     if (mode === "amber-night") return "#1C1000";
-    const accent = props.accent ?? "marker";
+    const accent: string = props.accent ?? "marker";
     if (mode === "dark" && (accent === "ink" || accent === "cobalt" || accent === "violet")) {
       return "#191E1C";
     }

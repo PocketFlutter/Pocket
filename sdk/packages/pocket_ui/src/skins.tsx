@@ -18,7 +18,9 @@ import {
   type JSX,
 } from "solid-js";
 import { Focusable, Text, View, type ViewProps } from "@pocketjs/framework/solid/components";
-import { InputField, NavigationBar, SafeAreaScaffold, type NavigationItem, type SafeAreaEdges } from "./ui.tsx";
+import { usePocketBackHandler } from "./back-navigation.ts";
+import { MobileBackButton } from "./navigation.tsx";
+import { InputField, NavigationBar, SafeAreaScaffold, type InputFieldColor, type NavigationItem, type SafeAreaEdges } from "./ui.tsx";
 import {
   DesignDensityProvider,
   MobileAccordion,
@@ -126,10 +128,10 @@ export interface SkinBackdropProps {
 }
 
 export interface SkinScaffoldProps {
-  edges?: readonly SafeAreaEdges[];
+  edges?: SafeAreaEdges;
   geometry?: () => DisplayGeometry;
   appBar?: JSX.Element | (() => JSX.Element);
-  bottomBar?: JSX.Element;
+  bottomBar?: JSX.Element | (() => JSX.Element);
   backdrop?: boolean;
   class?: string;
   style?: ViewProps["style"];
@@ -142,6 +144,12 @@ export interface SkinAppBarProps {
   centered?: boolean;
   leading?: JSX.Element;
   trailing?: JSX.Element;
+}
+
+export interface SkinBackButtonProps {
+  label?: string;
+  disabled?: boolean;
+  onPress?: () => void;
 }
 
 export interface SkinNavigationBarProps<T extends string = string> {
@@ -331,6 +339,7 @@ export interface SkinParagraphProps {
 export interface UiSkinKit {
   Backdrop: (props: SkinBackdropProps) => JSX.Element;
   AppBar: (props: SkinAppBarProps) => JSX.Element;
+  BackButton: (props: SkinBackButtonProps) => JSX.Element;
   NavigationBar: <T extends string = string>(props: SkinNavigationBarProps<T>) => JSX.Element;
   Card: (props: SkinCardProps) => JSX.Element;
   ListTile: (props: SkinListTileProps) => JSX.Element;
@@ -350,7 +359,10 @@ export interface UiSkinKit {
   Metric: (props: SkinMetricProps) => JSX.Element;
   EmptyState: (props: SkinEmptyStateProps) => JSX.Element;
   Accordion: (props: SkinAccordionProps) => JSX.Element;
+  Paragraph: (props: SkinParagraphProps) => JSX.Element;
 }
+
+export const UI_SKIN_KIT_SLOTS = ["Backdrop", "AppBar", "BackButton", "NavigationBar", "Card", "ListTile", "Button", "Badge", "SegmentedControl", "Switch", "Checkbox", "RadioGroup", "Input", "Progress", "Stepper", "Alert", "Toast", "Dialog", "Sheet", "Metric", "EmptyState", "Accordion", "Paragraph"] as const satisfies readonly (keyof UiSkinKit)[];
 
 export interface UiSkinAdapter {
   readonly id: UiSkinId;
@@ -464,6 +476,11 @@ function mapBadgeTone(
   return "accent";
 }
 
+function asInputColor(value: string, fallback: InputFieldColor): InputFieldColor {
+  const trimmed = value.trim();
+  return trimmed === "transparent" || trimmed.startsWith("#") ? (trimmed as InputFieldColor) : fallback;
+}
+
 export const defaultSkinAdapter: UiSkinAdapter = {
   id: "default",
   label: "Default UI",
@@ -500,9 +517,23 @@ export const defaultSkinAdapter: UiSkinAdapter = {
         />
       );
     },
+    BackButton(props) {
+      if (!props.label) {
+        return <MobileBackButton disabled={props.disabled} onPress={props.onPress} />;
+      }
+      return (
+        <MobileButton
+          label={`‹ ${props.label}`}
+          kind="text"
+          compact
+          disabled={props.disabled}
+          onPress={props.onPress}
+        />
+      );
+    },
     NavigationBar(props) {
       const { tokens } = useUiSkin();
-      const baseTheme = createMobileTheme(tokens().dark, tokens().accentBg);
+      const baseTheme = () => createMobileTheme(tokens().dark, tokens().accentBg);
       return (
         <NavigationBar
           route={props.route}
@@ -510,7 +541,7 @@ export const defaultSkinAdapter: UiSkinAdapter = {
           onNavigate={(id) => props.onNavigate(id as typeof props.route)}
           visible={props.visible ?? true}
           dark={tokens().dark}
-          accentColor={baseTheme.accentColor}
+          accentColor={baseTheme().accentColor}
           geometry={props.geometry}
         />
       );
@@ -606,7 +637,7 @@ export const defaultSkinAdapter: UiSkinAdapter = {
       return (
         <MobileCheckbox
           checked={props.checked}
-          label={props.label}
+          label={props.label ?? ""}
           disabled={props.disabled}
           onChange={(next) => props.onChange?.(next)}
         />
@@ -640,11 +671,11 @@ export const defaultSkinAdapter: UiSkinAdapter = {
             onInput={props.onInput}
             onSubmit={props.onSubmit}
             appearance={{
-              fillColor: tokens().surfaceBg,
-              textColor: tokens().ink,
-              placeholderColor: tokens().inkMuted,
-              borderColor: tokens().border,
-              focusedBorderColor: tokens().accentBg,
+              fillColor: asInputColor(tokens().surfaceBg, "#FFFFFF"),
+              textColor: asInputColor(tokens().ink, "#09090B"),
+              placeholderColor: asInputColor(tokens().inkMuted, "#71717A"),
+              borderColor: asInputColor(tokens().border, "#E4E4E7"),
+              focusedBorderColor: asInputColor(tokens().accentBg, "#18181B"),
               borderRadius: tokens().radiusControl,
             }}
           />
@@ -696,7 +727,8 @@ export const defaultSkinAdapter: UiSkinAdapter = {
           tone={props.tone}
           actionLabel={props.actionLabel}
           onAction={props.onAction}
-          onDismiss={props.onDismiss}
+          closable={Boolean(props.onDismiss)}
+          onClose={props.onDismiss}
         />
       );
     },
@@ -704,12 +736,12 @@ export const defaultSkinAdapter: UiSkinAdapter = {
       return (
         <MobileToast
           open={props.open}
-          title={props.title}
-          body={props.body}
+          message={props.title}
+          detail={props.body}
           tone={props.tone}
           actionLabel={props.actionLabel}
           onAction={props.onAction}
-          onDismiss={props.onDismiss}
+          onClose={props.onDismiss}
         />
       );
     },
@@ -836,8 +868,63 @@ export const defaultSkinAdapter: UiSkinAdapter = {
         </MobileAccordion>
       );
     },
+    Paragraph(props) {
+      const { tokens } = useUiSkin();
+      return (
+        <MobileParagraph
+          text={props.text}
+          class={props.class ?? "text-xs"}
+          style={{
+            textColor: props.muted ? tokens().inkMuted : tokens().ink,
+            ...props.style,
+          }}
+        />
+      );
+    },
   },
 };
+
+export interface DefineUiSkinOptions {
+  readonly id: UiSkinId;
+  readonly label: string;
+  readonly description?: string;
+  readonly floatingBottomBar?: boolean;
+  readonly resolveTokens?: (
+    mode: UiSkinThemeMode,
+    accent: UiSkinAccent,
+    baseTokens: UiSkinTokens,
+  ) => Partial<UiSkinTokens>;
+  readonly Provider?: (props: UiSkinProviderSlotProps) => JSX.Element;
+  readonly kit?: Partial<UiSkinKit>;
+}
+
+/**
+ * Ergonomic helper for defining a complete pluggable `UiSkinAdapter`:
+ * overrides any subset of tokens or `UiSkinKit` slots while inheriting
+ * token-driven `defaultSkinAdapter.kit` defaults for the rest.
+ */
+export function defineUiSkin(options: DefineUiSkinOptions): UiSkinAdapter {
+  return {
+    id: options.id,
+    label: options.label,
+    description: options.description ?? `Custom Pocket UI skin (${options.label})`,
+    floatingBottomBar: options.floatingBottomBar,
+    resolveTokens: (mode, accent) => {
+      const base = resolveDefaultSkinTokens(mode, accent);
+      return {
+        ...base,
+        ...(options.resolveTokens?.(mode, accent, base) ?? {}),
+        id: options.id,
+        label: options.label,
+      };
+    },
+    ...(options.Provider ? { Provider: options.Provider } : {}),
+    kit: {
+      ...defaultSkinAdapter.kit,
+      ...(options.kit ?? {}),
+    },
+  };
+}
 
 const skinRegistry = new Map<UiSkinId, UiSkinAdapter>([
   [defaultSkinAdapter.id, defaultSkinAdapter],
@@ -1079,7 +1166,8 @@ export function SkinBackdrop(props: SkinBackdropProps): JSX.Element {
 export function SkinScaffold(props: SkinScaffoldProps): JSX.Element {
   const ctx = useUiSkin();
   const bottomBar = (): JSX.Element => {
-    const bar = props.bottomBar;
+    const raw = props.bottomBar;
+    const bar = typeof raw === "function" ? (raw as () => JSX.Element)() : raw;
     if (bar == null || bar === false || ctx.adapter().floatingBottomBar !== true) return bar;
     return (
       <View class="w-full shrink-0" style={{ posType: 1, insetL: 0, insetR: 0, insetB: 0 }}>
@@ -1117,6 +1205,15 @@ export function SkinAppBar(props: SkinAppBarProps): JSX.Element {
   return (
     <Show when={ctx.adapter()} keyed>
       {(active) => active.kit.AppBar(props)}
+    </Show>
+  );
+}
+
+export function SkinBackButton(props: SkinBackButtonProps): JSX.Element {
+  const ctx = useUiSkin();
+  return (
+    <Show when={ctx.adapter()} keyed>
+      {(active) => active.kit.BackButton(props)}
     </Show>
   );
 }
@@ -1255,6 +1352,10 @@ export function SkinToast(props: SkinToastProps): JSX.Element {
 
 export function SkinDialog(props: SkinDialogProps): JSX.Element {
   const ctx = useUiSkin();
+  usePocketBackHandler(() => {
+    props.onClose();
+    return true;
+  }, () => Boolean(props.open));
   return (
     <Show when={ctx.adapter()} keyed>
       {(active) => active.kit.Dialog(props)}
@@ -1264,6 +1365,10 @@ export function SkinDialog(props: SkinDialogProps): JSX.Element {
 
 export function SkinSheet(props: SkinSheetProps): JSX.Element {
   const ctx = useUiSkin();
+  usePocketBackHandler(() => {
+    props.onClose();
+    return true;
+  }, () => Boolean(props.open));
   return (
     <Show when={ctx.adapter()} keyed>
       {(active) => active.kit.Sheet(props)}
@@ -1299,16 +1404,11 @@ export function SkinAccordion(props: SkinAccordionProps): JSX.Element {
 }
 
 export function SkinParagraph(props: SkinParagraphProps): JSX.Element {
-  const { tokens } = useUiSkin();
+  const ctx = useUiSkin();
   return (
-    <MobileParagraph
-      text={props.text}
-      class={props.class ?? "text-xs"}
-      style={{
-        textColor: props.muted ? tokens().inkMuted : tokens().ink,
-        ...props.style,
-      }}
-    />
+    <Show when={ctx.adapter()} keyed>
+      {(active) => active.kit.Paragraph(props)}
+    </Show>
   );
 }
 

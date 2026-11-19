@@ -135,6 +135,17 @@ export const looseleafSkinAdapter: UiSkinAdapter = {
         />
       );
     },
+    BackButton(props) {
+      return (
+        <Button
+          label={props.label ? `‹ ${props.label}` : "‹"}
+          variant="outline"
+          size="sm"
+          disabled={props.disabled}
+          onPress={props.onPress}
+        />
+      );
+    },
     NavigationBar(props) {
       return (
         <LooseleafNavigationBar
@@ -300,6 +311,7 @@ export const looseleafSkinAdapter: UiSkinAdapter = {
         <RadioGroup
           options={props.items}
           value={props.value}
+          direction={props.direction}
           onChange={(id) => props.onChange(id)}
         />
       );
@@ -358,6 +370,7 @@ export const looseleafSkinAdapter: UiSkinAdapter = {
           tone={tone()}
           actionLabel={props.actionLabel}
           onAction={props.onAction}
+          onClose={props.onDismiss}
         />
       );
     },
@@ -516,6 +529,19 @@ export const looseleafSkinAdapter: UiSkinAdapter = {
           </Focusable>
           <Show when={props.expanded}>{props.children}</Show>
         </Paper>
+      );
+    },
+    Paragraph(props) {
+      const { palette } = useLooseleafTheme();
+      return (
+        <MobileParagraph
+          text={props.text}
+          class={props.class ?? "text-xs"}
+          style={{
+            textColor: props.muted ? palette().pencilText : palette().ink,
+            ...props.style,
+          }}
+        />
       );
     },
   },

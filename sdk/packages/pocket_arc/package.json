@@ -18,7 +18,7 @@
     "./kit": "./src/kit.tsx"
   },
   "scripts": {
-    "test": "node --experimental-transform-types test/arc.check.ts"
+    "test": "node test/arc.check.ts"
   },
   "files": [
     "src"

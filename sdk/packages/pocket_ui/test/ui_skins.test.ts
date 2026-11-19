@@ -49,6 +49,8 @@ mock.module("@pocketjs/framework/gesture", () => ({
 }));
 mock.module("@pocketjs/framework/animation", () => ({ jump: () => undefined }));
 mock.module("@pocket/ui/fast", () => ({
+  PocketVirtualList: () => undefined,
+  createFastText: () => (() => undefined),
   createFrameProfiler: () => ({}),
   resolveNodeLocalPoint: () => undefined,
 }));
@@ -83,17 +85,23 @@ mock.module("@pocketjs/framework/clock", () => ({
 const skinsModule = await import("../src/skins.tsx");
 const mobileModule = await import("../src/mobile.tsx");
 const uiModule = await import("../src/ui.tsx");
+const backNavModule = await import("../src/back-navigation.ts");
 
 mock.module("@pocket/ui", () => ({
   ...uiModule,
   ...mobileModule,
   ...skinsModule,
+  ...backNavModule,
   useAccessibilityPreferences: () => () => ({}),
   useRouteActive: () => () => true,
 }));
 
 const {
+  UI_SKIN_KIT_SLOTS,
   defaultSkinAdapter,
+  defineUiSkin,
+  SkinBackButton,
+  SkinParagraph,
   SkinScaffold,
   getUiSkin,
   listUiSkins,
@@ -110,56 +118,105 @@ const {
   registerArcSkin,
   resolveArcSkinTokens,
 } = await import("../../pocket_arc/src/kit.tsx");
+const {
+  liquidGlassSkinAdapter,
+  registerLiquidGlassSkin,
+  resolveLiquidGlassSkinTokens,
+} = await import("../../pocket_liquid_glass/src/kit.tsx");
 const { parseClassLiteral, unknownUtilities } = await import(
   "../../../.cache/pocketjs/framework/compiler/tailwind.ts"
 );
 
-const REQUIRED_KIT_SLOTS = [
-  "Backdrop",
-  "AppBar",
-  "NavigationBar",
-  "Card",
-  "ListTile",
-  "Button",
-  "Badge",
-  "SegmentedControl",
-  "Switch",
-  "Checkbox",
-  "RadioGroup",
-  "Input",
-  "Progress",
-  "Stepper",
-  "Alert",
-  "Toast",
-  "Dialog",
-  "Sheet",
-  "Metric",
-  "EmptyState",
-  "Accordion",
-] as const;
-
-test("Default, Looseleaf, and Arc adapters implement all 21 UiSkinKit component slots", () => {
-  for (const adapter of [defaultSkinAdapter, looseleafSkinAdapter, arcSkinAdapter]) {
-    for (const slot of REQUIRED_KIT_SLOTS) {
+test("Default, Looseleaf, Arc, and Liquid Glass adapters implement all 23 UiSkinKit component slots", () => {
+  expect(UI_SKIN_KIT_SLOTS.length).toBe(23);
+  expect(UI_SKIN_KIT_SLOTS).toContain("BackButton");
+  expect(UI_SKIN_KIT_SLOTS).toContain("Paragraph");
+  for (const adapter of [
+    defaultSkinAdapter,
+    looseleafSkinAdapter,
+    arcSkinAdapter,
+    liquidGlassSkinAdapter,
+  ]) {
+    for (const slot of UI_SKIN_KIT_SLOTS) {
       expect(typeof adapter.kit[slot]).toBe("function");
     }
   }
 });
 
-test("registerUiSkin / getUiSkin / listUiSkins seamlessly switch across Default, Looseleaf, and Arc", () => {
+test("registerUiSkin / getUiSkin / listUiSkins seamlessly switch across Default, Looseleaf, Arc, and Liquid Glass", () => {
   registerLooseleafSkin();
   registerArcSkin();
+  registerLiquidGlassSkin();
   registerUiSkin(defaultSkinAdapter);
 
   expect(getUiSkin("default").id).toBe("default");
   expect(getUiSkin("looseleaf").id).toBe("looseleaf");
   expect(getUiSkin("arc").id).toBe("arc");
+  expect(getUiSkin("liquid-glass").id).toBe("liquid-glass");
   expect(getUiSkin("unknown-skin").id).toBe("default");
 
   const ids = listUiSkins().map((s) => s.id);
   expect(ids).toContain("default");
   expect(ids).toContain("looseleaf");
   expect(ids).toContain("arc");
+  expect(ids).toContain("liquid-glass");
+});
+
+test("SkinBackButton and SkinParagraph delegate cleanly through the active skin adapter and defineUiSkin overrides slots while inheriting defaults", () => {
+  const customSkin = defineUiSkin({
+    id: "custom-brand",
+    label: "Custom Brand",
+    resolveTokens: (_mode, _accent, base) => ({
+      ...base,
+      ink: "#123456",
+      inkMuted: "#654321",
+      accentBg: "#ABCDEF",
+    }),
+    kit: {
+      Button: (props) => ({ type: "custom-button", props }) as any,
+      BackButton: (props) => ({ type: "custom-back", props }) as any,
+    },
+  });
+  registerUiSkin(customSkin);
+  expect(getUiSkin("custom-brand").id).toBe("custom-brand");
+
+  const resolvedTokens = customSkin.resolveTokens("light", "blue");
+  expect(resolvedTokens.id).toBe("custom-brand");
+  expect(resolvedTokens.label).toBe("Custom Brand");
+  expect(resolvedTokens.ink).toBe("#123456");
+  expect(resolvedTokens.inkMuted).toBe("#654321");
+  expect(resolvedTokens.accentBg).toBe("#ABCDEF");
+
+  // Inherited slots from defaultSkinAdapter.kit
+  expect(customSkin.kit.Paragraph).toBe(defaultSkinAdapter.kit.Paragraph);
+  expect(customSkin.kit.Dialog).toBe(defaultSkinAdapter.kit.Dialog);
+  expect(customSkin.kit.Card).toBe(defaultSkinAdapter.kit.Card);
+
+  expect(listUiSkins().map((s) => s.id)).toContain("custom-brand");
+  const unwrapShow = (el: any) => (el && typeof el.type === "function" ? el.type(el.props) : el);
+  testSkinAdapter = () => customSkin;
+  try {
+    const backEl = unwrapShow(SkinBackButton({ label: "Home" }));
+    expect(backEl.type).toBe("custom-back");
+    expect(backEl.props.label).toBe("Home");
+
+    const paraCalls: any[] = [];
+    testSkinAdapter = () => ({
+      ...customSkin,
+      kit: {
+        ...customSkin.kit,
+        Paragraph: (props: any) => {
+          paraCalls.push(props);
+          return defaultSkinAdapter.kit.Paragraph(props);
+        },
+      },
+    });
+    const paraEl = unwrapShow(SkinParagraph({ text: "Hello skin", muted: true }));
+    expect(paraCalls).toEqual([{ text: "Hello skin", muted: true }]);
+    expect(paraEl.type).toBe(mobileModule.MobileParagraph);
+  } finally {
+    testSkinAdapter = undefined;
+  }
 });
 
 test("SkinScaffold keeps a regular bottom bar in its safe-area slot and floats only the active skin's bar", () => {
@@ -181,6 +238,14 @@ test("SkinScaffold keeps a regular bottom bar in its safe-area slot and floats o
     bar = undefined;
     floating = true;
     expect(scaffold.props.bottomBar()).toBeUndefined();
+    bar = () => undefined;
+    floating = true;
+    expect(scaffold.props.bottomBar()).toBeUndefined();
+    bar = () => button;
+    floating = true;
+    const floatingFnBar = scaffold.props.bottomBar();
+    expect(floatingFnBar.props.style).toMatchObject({ posType: 1, insetB: 0 });
+    expect(floatingFnBar.props.children).toBe(button);
   } finally {
     testSkinAdapter = undefined;
   }
@@ -271,6 +336,7 @@ test("every JSX class literal in unified skin adapters & SkinStudioPage compiles
     join(testDir, "../../pocket_looseleaf/src/skins.tsx"),
     join(testDir, "../../pocket_arc/src/kit.tsx"),
     join(testDir, "../../pocket_arc/src/skins.tsx"),
+    join(testDir, "../../pocket_liquid_glass/src/kit.tsx"),
     join(testDir, "../../../../demo/js/skin-studio-page.tsx"),
   ];
   for (const file of files) {

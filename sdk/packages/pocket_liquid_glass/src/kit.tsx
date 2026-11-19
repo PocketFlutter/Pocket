@@ -9,6 +9,7 @@
 import { type JSX } from "solid-js";
 import { View as PocketView } from "@pocketjs/framework/solid/components";
 import {
+  MobileParagraph,
   registerUiSkin,
   type UiSkinAccent,
   type UiSkinAdapter,
@@ -41,7 +42,7 @@ import {
   LiquidGlassSheet,
   LiquidGlassToast,
 } from "./overlays.tsx";
-import { LiquidGlassBackdrop, LiquidGlassProvider } from "./surfaces.tsx";
+import { LiquidGlassBackdrop, LiquidGlassProvider, useLiquidGlass } from "./surfaces.tsx";
 import {
   resolveLiquidGlassPalette,
   type LiquidGlassAccent,
@@ -173,6 +174,17 @@ export const liquidGlassSkinAdapter: UiSkinAdapter = {
           centered={props.centered}
           leading={props.leading}
           trailing={props.trailing}
+        />
+      );
+    },
+    BackButton(props) {
+      return (
+        <LiquidGlassButton
+          label={props.label ? `‹ ${props.label}` : "‹"}
+          variant="glass"
+          compact
+          disabled={props.disabled}
+          onPress={props.onPress}
         />
       );
     },
@@ -398,6 +410,19 @@ export const liquidGlassSkinAdapter: UiSkinAdapter = {
         >
           {props.children}
         </LiquidGlassAccordion>
+      );
+    },
+    Paragraph(props) {
+      const ctx = useLiquidGlass();
+      return (
+        <MobileParagraph
+          text={props.text}
+          class={props.class ?? "text-xs"}
+          style={{
+            textColor: props.muted ? ctx.palette().inkMuted : ctx.palette().ink,
+            ...props.style,
+          }}
+        />
       );
     },
   },
