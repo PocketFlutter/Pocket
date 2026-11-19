@@ -65,7 +65,8 @@ for (const { slug, directory, manifest: workspaceManifest } of workspaces.values
     },
     publishConfig: {
       registry: "https://npm.pkg.github.com",
-      access: "restricted",
+      // Preserve the integrity of the pilot version already in the registry.
+      ...(slug === "diagnostics" && workspaceManifest.version === "0.1.0" ? { access: "restricted" } : {}),
     },
   };
 

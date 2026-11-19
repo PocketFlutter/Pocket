@@ -162,12 +162,14 @@ test("publisher: two-phase atomic upload, Phase 1 failure aborts before latest.j
     });
 
     // 1. Test Phase 1 failure aborts BEFORE any Phase 2 mutable file (like latest.json) is written
+    // Use one worker so the next scenario can reset the fake bucket after the rejection.
     failOnKeySubstring = "blobs/";
     await expect(
       publishReleaseDirectoryToCos({
         client,
         deployRoot: deployRootV1,
         publicKey: devKey.publicKeyPem,
+        concurrency: 1,
       }),
     ).rejects.toThrow(/Simulated Phase 1 failure/);
 
