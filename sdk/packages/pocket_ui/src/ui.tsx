@@ -1355,6 +1355,42 @@ const textInputGlobal = globalThis as typeof globalThis & {
 };
 let nextTextInputId = 1;
 let activeTextInput: TextInputSession | undefined;
+let lastHostDismissAt = 0;
+
+export interface TextInputVisualTransform {
+  readonly offsetX?: () => number;
+  readonly offsetY?: () => number;
+  readonly isAnimating?: () => boolean;
+}
+
+/**
+ * Optional ancestor paint-transform scope for animated overlays/sheets
+ * (e.g. bottom sheets animating `translateY`) whose visual position differs
+ * from raw Yoga `getLayout` coordinates.
+ */
+export const TextInputTransformContext = createContext<TextInputVisualTransform | undefined>(
+  undefined,
+);
+
+/**
+ * Dismisses the active keyboard/input overlay if one is open (or consumes a
+ * same-tap host `textInput.dismiss` that just landed inside `graceMs`).
+ * Returns `true` when backdrop press should stop after dismissing the keyboard
+ * instead of closing an enclosing modal on the first tap.
+ */
+export function dismissActiveTextInputOnBackdropPress(graceMs = 350): boolean {
+  const current = activeTextInput;
+  if (current?.isOpen()) {
+    current.close();
+    lastHostDismissAt = 0;
+    return true;
+  }
+  if (Date.now() - lastHostDismissAt <= graceMs) {
+    lastHostDismissAt = 0;
+    return true;
+  }
+  return false;
+}
 
 /** One event tap serves the active ScrollablePages in this guest realm. Pages
  * register only while their route is visible; the existing node tree and
@@ -1617,8 +1653,10 @@ export function InputField(props: {
 }): JSX.Element {
   const routeActive = useRouteActive();
   const scrollPage = useContext(ScrollablePageContext);
+  const transformCtx = useContext(TextInputTransformContext);
   const id = `guest-text-input-${nextTextInputId++}`;
   const [isFocused, setIsFocused] = createSignal(false);
+  const [settlePending, setSettlePending] = createSignal(false);
   let node: NodeMirror | undefined;
   let opened = false;
   let openGeneration = 0;
@@ -1633,7 +1671,14 @@ export function InputField(props: {
   let lastRect: TextInputRect | undefined;
   let lastClipRect: TextInputRect | undefined;
   let textLayoutDirty = false;
+  let settleFramesRemaining = 0;
   const [overlayReady, setOverlayReady] = createSignal(false);
+  const scheduleRectSettle = (frames = 10): void => {
+    if (frames > settleFramesRemaining) {
+      settleFramesRemaining = frames;
+    }
+    if (!settlePending()) setSettlePending(true);
+  };
   const appearance = (): Required<InputFieldAppearance> => {
     const provided = props.appearance ?? {};
     const fontSize = provided.fontSize === 12 || provided.fontSize === 16
@@ -1697,10 +1742,14 @@ export function InputField(props: {
   const shellStyle = () => {
     const current = appearance();
     const border = isFocused() ? current.focusedBorderColor : current.borderColor;
+    // Once the native TextField overlay acknowledges mount and paints its own
+    // fill + focused border, hide the JS shell chrome so an intermediate resize
+    // or keyboard animation frame can never reveal two stacked boxes.
+    const hideShellChrome = overlayReady();
     return {
       width: -1,
-      bgColor: current.fillColor === "transparent" ? 0 : current.fillColor,
-      borderColor: border === "transparent" ? 0 : border,
+      bgColor: hideShellChrome || current.fillColor === "transparent" ? 0 : current.fillColor,
+      borderColor: hideShellChrome || border === "transparent" ? 0 : border,
       borderWidth: 1,
       radius: current.borderRadius,
       paddingL: current.paddingHorizontal,
@@ -1711,9 +1760,14 @@ export function InputField(props: {
   };
   const visualRect = (): TextInputRect | undefined => {
     const currentNode = node;
-    return (currentNode ? scrollPage?.visualRect?.(currentNode, lastRect) : undefined)
-      ?? committedLayout(currentNode)
-      ?? lastRect;
+    const rawBase =
+      (currentNode ? scrollPage?.visualRect?.(currentNode, undefined) : undefined) ??
+      committedLayout(currentNode);
+    if (!rawBase) return lastRect;
+    const ox = transformCtx?.offsetX?.() ?? 0;
+    const oy = transformCtx?.offsetY?.() ?? 0;
+    if (ox === 0 && oy === 0) return rawBase;
+    return { ...rawBase, x: rawBase.x + ox, y: rawBase.y + oy };
   };
 
   const visualClip = (): TextInputRect | undefined =>
@@ -1789,7 +1843,17 @@ export function InputField(props: {
   };
 
   const sendRectUpdate = (): void => {
-    if (!opened || activeTextInput !== session) return;
+    if (!opened || activeTextInput !== session) {
+      settleFramesRemaining = 0;
+      if (settlePending()) setSettlePending(false);
+      return;
+    }
+    if (settleFramesRemaining > 0) {
+      settleFramesRemaining -= 1;
+      if (settleFramesRemaining === 0 && !transformCtx?.isAnimating?.()) {
+        setSettlePending(false);
+      }
+    }
     const rect = visualRect();
     const clip = visualClip();
     if (!rect) return;
@@ -1828,6 +1892,7 @@ export function InputField(props: {
       lastRect = rect;
       lastClipRect = clip;
       textLayoutDirty = false;
+      scheduleRectSettle(4);
     }
   };
 
@@ -1886,9 +1951,12 @@ export function InputField(props: {
       activeTextInput = session;
       lastRect = rect;
       lastClipRect = clip;
+      scheduleRectSettle(10);
     } else {
       lastRect = undefined;
       lastClipRect = undefined;
+      settleFramesRemaining = 0;
+      setSettlePending(false);
     }
   };
 
@@ -1897,6 +1965,8 @@ export function InputField(props: {
     opened = false;
     setIsFocused(false);
     setOverlayReady(false);
+    settleFramesRemaining = 0;
+    setSettlePending(false);
     lastRect = undefined;
     lastClipRect = undefined;
     emitTextInput("textInput.close", { id, editingSession, revision: lastNativeRevision, jsRevision });
@@ -1934,6 +2004,7 @@ export function InputField(props: {
       if (overlayReady()) return true;
       if (!sendAppearanceUpdate(true)) return false;
       setOverlayReady(true);
+      scheduleRectSettle(6);
       return true;
     },
     onEdit: (params) => {
@@ -1973,9 +2044,14 @@ export function InputField(props: {
         updateOffsets(params, text);
         if (parsed.text !== undefined) applyIncomingText(text);
       }
+      if (opened) {
+        lastHostDismissAt = Date.now();
+      }
       opened = false;
       setIsFocused(false);
       setOverlayReady(false);
+      settleFramesRemaining = 0;
+      setSettlePending(false);
     },
   };
 
@@ -1993,17 +2069,31 @@ export function InputField(props: {
     const text = props.value();
     if (text === lastObservedText) return;
     lastObservedText = text;
+    selectionBase = text.length;
+    selectionExtent = text.length;
+    composingBase = -1;
+    composingExtent = -1;
     if (opened) sendUpdate(text);
   });
 
+  const unsubDisplayViewport = subscribeHostEvents((event) => {
+    if (event.method === "display.viewport" && opened && activeTextInput === session) {
+      scheduleRectSettle(10);
+    }
+  });
+
   // Layout can change after Flutter adjusts the viewport for the system
-  // keyboard. Observe geometry on work-driven frames while this session owns
-  // the overlay; emit only changed rects without keeping the ticker alive.
-  onFrame(sendRectUpdate, { active: routeActive, continuous: false });
+  // keyboard or while an enclosing sheet animates. Keep observing while
+  // opened until resize/animation frames settle.
+  onFrame(sendRectUpdate, {
+    active: () => routeActive() && isFocused(),
+    continuous: () => isFocused() && (settlePending() || Boolean(transformCtx?.isAnimating?.())),
+  });
 
   let unmounted = false;
   onCleanup(() => {
     unmounted = true;
+    unsubDisplayViewport();
     close();
     if (activeTextInput === session) activeTextInput = undefined;
   });

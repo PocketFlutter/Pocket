@@ -607,7 +607,7 @@
                 "PocketViewCapture",
                 "PocketViewController"
               ],
-              "sourceSha256": "2f9e9e228af5af40301a12122b4f7bd849c4e7d2caa7d97f14ca0799846bfa73"
+              "sourceSha256": "b1923238c968d32e45d498f3e922b933595695d7ff4d77ef2f0e8ded7e3d2b7d"
             },
             {
               "from": "packages/pocket_flutter/lib/pocket_flutter.dart",
@@ -2392,7 +2392,7 @@
             "LooseleafTimelineRow",
             "LooseleafWashiTape"
           ],
-          "sourceSha256": "00ab379a4250b08277eef52d238f7f4cc86fce65457744419767bba1402c4a35",
+          "sourceSha256": "fd7721b27b5fb4529affb389afe12c627391e077718ef020ecefc67029fdb1dd",
           "reexports": []
         },
         {
@@ -4118,16 +4118,19 @@
             "TabItem",
             "Tabs",
             "TextInputParams",
+            "TextInputTransformContext",
+            "TextInputVisualTransform",
             "TileGrid",
             "ViewText",
             "deliverTextInputEvent",
+            "dismissActiveTextInputOnBackdropPress",
             "getActiveTextInputSession",
             "parseTextInputParams",
             "readCommittedNodeRect",
             "registerDesktopScrollPage",
             "useScrollContourReserve"
           ],
-          "sourceSha256": "af4fbe117be3094a48797197f7c3c398fd21ac56d95711d1168cfdb35861941f",
+          "sourceSha256": "6e622ba7dbced19483a9a66ad4a396cae12bb59ee9e325255f417aeefb464064",
           "reexports": [
             "export * from \"./mobile.tsx\";"
           ]

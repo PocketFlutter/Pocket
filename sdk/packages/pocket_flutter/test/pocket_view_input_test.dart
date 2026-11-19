@@ -1445,4 +1445,50 @@ void main() {
       isEmpty,
     );
   });
+
+  testWidgets(
+    'text input overlay uses TextScaler.noScaling under system font scaling',
+    (tester) async {
+      final runtime = _TextInputRuntime(
+        initialEvent: _textInputEvent(
+          'textInput.open',
+          _textInputOpenParams('session-no-scale'),
+        ),
+      );
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(
+            size: Size(320, 480),
+            textScaler: TextScaler.linear(1.35),
+          ),
+          child: MaterialApp(
+            home: SizedBox(
+              width: 320,
+              height: 480,
+              child: PocketView(
+                runtime: runtime,
+                jsSource: '',
+                pakBytes: Uint8List(0),
+                showDebugFps: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final fieldFinder = find.byKey(
+        const ValueKey<String>('pocket-text-input-session-no-scale'),
+      );
+      expect(fieldFinder, findsOneWidget);
+      final field = tester.widget<TextField>(fieldFinder);
+      expect(field.style?.fontSize, 16);
+      expect(field.style?.letterSpacing, 0.0);
+      expect(field.decoration?.hintStyle?.letterSpacing, 0.0);
+      expect(
+        MediaQuery.textScalerOf(tester.element(fieldFinder)),
+        TextScaler.noScaling,
+      );
+    },
+  );
 }

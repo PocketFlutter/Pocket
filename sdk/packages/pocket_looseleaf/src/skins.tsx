@@ -769,6 +769,8 @@ export function LooseleafSegmentedBar<T extends string>(props: {
                     class="w-full h-full items-center justify-center transition-colors duration-150 ease-out"
                     style={{
                       bgColor: active() ? activeBg() : "#00000000",
+                      radius:
+                        idx() === 0 || idx() === props.items.length - 1 ? 5 : 0,
                     }}
                   >
                     <Text

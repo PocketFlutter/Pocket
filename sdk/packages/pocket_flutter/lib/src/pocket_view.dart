@@ -7692,6 +7692,7 @@ class _PocketViewState extends State<PocketView>
           fontSize: _textInputFontSize,
           fontWeight: _textInputFontWeight,
           height: textInputLineHeight,
+          letterSpacing: 0.0,
         ),
         cursorColor: _textInputFocusedBorderColor.a == 0
             ? _textInputTextColor
@@ -7709,6 +7710,7 @@ class _PocketViewState extends State<PocketView>
             fontSize: _textInputFontSize,
             fontWeight: _textInputFontWeight,
             height: textInputLineHeight,
+            letterSpacing: 0.0,
           ),
           contentPadding: EdgeInsets.symmetric(
             horizontal: _textInputPaddingHorizontal,
@@ -7747,18 +7749,23 @@ class _PocketViewState extends State<PocketView>
       top: overlayBounds.top * scaleY,
       width: overlayBounds.width * scaleX,
       height: overlayBounds.height * scaleY,
-      child: ClipRect(
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            Positioned(
-              left: (textInputRect.left - overlayBounds.left) * scaleX,
-              top: (textInputRect.top - overlayBounds.top) * scaleY,
-              width: textInputRect.width * scaleX,
-              height: textInputRect.height * scaleY,
-              child: textInputField,
-            ),
-          ],
+      // PocketCanvasPainter renders every text run with TextScaler.noScaling.
+      // Match that unscaled typography inside the TextField overlay so Android
+      // / iOS system text scaling never enlarges text upon focus.
+      child: MediaQuery.withNoTextScaling(
+        child: ClipRect(
+          child: Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              Positioned(
+                left: (textInputRect.left - overlayBounds.left) * scaleX,
+                top: (textInputRect.top - overlayBounds.top) * scaleY,
+                width: textInputRect.width * scaleX,
+                height: textInputRect.height * scaleY,
+                child: textInputField,
+              ),
+            ],
+          ),
         ),
       ),
     );
