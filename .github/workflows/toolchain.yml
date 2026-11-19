@@ -30,6 +30,8 @@ jobs:
       tag: ${{ steps.metadata.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/cache@v6
         id: web-engine-cache
         with:
@@ -51,12 +53,13 @@ jobs:
           if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== tag) throw new Error(`Expected tag ${tag}`);
           appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\ntag=${tag}\n`);
           JS
+          node sdk/scripts/release_notes.mjs --check
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.9
       - name: Verify packaging contracts before building
         working-directory: sdk
-        run: bun test --timeout 60000 scripts/tests/prebuilt_tools.test.ts scripts/tests/package_toolchain.test.ts scripts/tests/export_web_sdk.test.ts scripts/tests/install_studio.test.ts
+        run: bun test --timeout 60000 scripts/tests/release_notes.test.ts scripts/tests/prebuilt_tools.test.ts scripts/tests/package_toolchain.test.ts scripts/tests/export_web_sdk.test.ts scripts/tests/install_studio.test.ts
       - uses: dtolnay/rust-toolchain@stable
         if: steps.web-engine-cache.outputs.cache-hit != 'true'
         with:
@@ -341,6 +344,12 @@ jobs:
       SDK_VERSION: ${{ needs.web-engine.outputs.version }}
       ALLOW_RELEASE_UPDATE: ${{ inputs.update_existing_release && '1' || '0' }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          sparse-checkout: |
+            sdk/docs
+            sdk/scripts
       - uses: actions/download-artifact@v8
         with:
           pattern: pocket-sdk-release-*
@@ -367,29 +376,12 @@ jobs:
           cd release
           sha256sum -- *.tgz acceptance-*.json > SHA256SUMS
           cd ..
-          cat > release-notes.md <<'NOTES'
-          Standalone Pocket Web SDK, with a complete development package for each platform (each contains only its platform tools):
-
-          - Windows x64: `pocket-web-sdk-tools-win32-x64-VERSION.tgz`
-          - macOS arm64: `pocket-web-sdk-tools-darwin-arm64-VERSION.tgz`
-          - `pocket-tools-*` contains compiler tools only; download it separately only if you already have the SDK.
-
-          Node.js 24 LTS is recommended (minimum 22.22.2). Extract the complete SDK package for your platform and run:
-          ```sh
-          npm run setup
-          npm start
-          ```
-          Studio runs at http://127.0.0.1:8791. Product development requires no Rust, Python, C/C++, or global Bun installation.
-
-          Before publishing, the complete archives are installed on both platforms to verify doctor, Noble native module loading, real App/Game QJBC/PAK builds, input-driven Preview frames, and Studio startup/shutdown. Acceptance JSON and SHA256SUMS are attached.
-
-          Windows DK-META2 device connections and notifications remain unverified. CI has no BLE devices; loading a native module does not establish hardware connectivity. Linux native BLE is currently unsupported. See docs/NPM_TOOLCHAIN.md and docs/WINDOWS_BUILD.md in the package for details.
-          NOTES
-          sed -i "s/-VERSION\.tgz/-${SDK_VERSION}.tgz/g" release-notes.md
-          if [ -f "sdk/docs/RELEASE_${SDK_VERSION}.md" ]; then
-            printf '\nChanges and API migration notes: https://github.com/%s/blob/%s/sdk/docs/RELEASE_%s.md\n' "$GH_REPO" "$GITHUB_SHA" "$SDK_VERSION" >> release-notes.md
-          fi
-          printf '\nDistribution build: [Action %s](https://github.com/%s/actions/runs/%s), commit %s.\n' "$GITHUB_RUN_ID" "$GH_REPO" "$GITHUB_RUN_ID" "$GITHUB_SHA" >> release-notes.md
+          node sdk/scripts/release_notes.mjs --render \
+            --version="$SDK_VERSION" \
+            --repo="$GH_REPO" \
+            --commit="$GITHUB_SHA" \
+            --run-id="$GITHUB_RUN_ID" \
+            --output=release-notes.md
           tag_commit="$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq .sha 2>/dev/null)" || tag_commit=""
           if [ -n "$tag_commit" ] && [ "$tag_commit" != "$GITHUB_SHA" ] && [ "$ALLOW_RELEASE_UPDATE" != "1" ]; then
             echo "Release tag points to another commit: $tag_commit" >&2
