@@ -1,5 +1,44 @@
 # Pocket Diagnostics Package (`@pocket/diagnostics`)
 
+## Install from GitHub Packages
+
+PocketFlutter distributes a private npm package named
+`@pocketflutter/diagnostics` for cross-repository use. It exposes the same
+TypeScript entry points as the `@pocket/diagnostics` SDK workspace, including
+`/browser`, `/node`, `/file`, `/normalize`, and `/types`. The registry
+package runs with Bun or a TypeScript-aware consumer toolchain. Use the
+portable entry point in browser builds and `/node` or `/file` for file storage.
+The GitHub Releases installer for Web SDK and Studio uses the bundled workspace.
+
+Add the registry scope to the consumer project's `.npmrc` and authenticate with
+a GitHub classic personal access token that has `read:packages` and access to
+the package. In GitHub Actions, a workflow can use `GITHUB_TOKEN` if its
+repository has package read access.
+
+```ini
+@pocketflutter:registry=https://npm.pkg.github.com
+```
+
+```sh
+npm login --scope=@pocketflutter --registry=https://npm.pkg.github.com --auth-type=legacy
+npm install --save-exact @pocketflutter/diagnostics@0.1.0
+```
+
+```ts
+import { createDiagnosticsCollector } from "@pocketflutter/diagnostics";
+
+const diagnostics = createDiagnosticsCollector();
+await diagnostics.recordLog("Consumer started");
+console.log(await diagnostics.listLogs());
+await diagnostics.close();
+```
+
+The manual **Publish Diagnostics Package** workflow stages the existing
+diagnostics source, package exports, and repository MIT license. It uses the
+workspace version and exercises an authenticated install in a clean consumer.
+The retained parent sources described below provide historical context for
+the diagnostics API. Registry packaging reuses the existing implementation.
+
 ## Windows journal creation
 
 Build 42978280004 passed macOS consumer acceptance but Windows Studio startup
