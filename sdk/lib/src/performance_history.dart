@@ -165,6 +165,11 @@ final class PerformanceHistory {
   Future<void> _dispose() async {
     if (_disposed) return;
     _disposed = true;
+    if (_samples.isEmpty &&
+        _longFrameEvents.isEmpty &&
+        _initializeFuture == null) {
+      return;
+    }
     try {
       await flush();
     } on Object catch (error) {

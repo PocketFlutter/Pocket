@@ -8,11 +8,11 @@ The main isolate retains capability and permission admission, RPC correlation, c
 
 | Execution path | Use | Configuration and grants |
 | --- | --- | --- |
-| Official JS app Worker | Official `net.http` and background JS computation | `domains.worker` and Worker QJBC/descriptor. HTTP also needs `workerHttpOrigins`. |
+| Official JS app Worker | Official `net.http` and background JS computation | `domains.worker` and Worker QJBC/descriptor. HTTP also needs `workerHttpOrigins` and `PocketDioWorkerHttpBridge.install({ dioFactory })` on native hosts. |
 | Dio IO Worker isolate | Flutter native host `dio.request` | Register `PocketDioPlugin` with `network` permission and plugin `allowedOrigins`. Worker use is automatic. |
 | Web render Worker | Move UI, layout, and raster execution | `renderWorker` is off by default and does not change network access. |
 
-Dio alone requires neither `domains.worker` nor `net.http`. The standalone Web SDK uses official app Worker HTTP and has no Dart Dio plugin.
+Dio alone requires neither `domains.worker` nor `net.http`. When native JS Workers do call `net.http`, `PocketDioWorkerHttpBridge` (from `package:pocket_dio/pocket_dio.dart`) forwards Rust Worker `net.http` calls over C-FFI (`pocket_register_worker_http_bridge` / `pocket_complete_worker_http_request`) to Dio without embedding `ureq`/`rustls` in Rust native archives. Signed OTA update downloads in `pocket_services` also unify on Dio via `DioPocketUpdateTransport` (`HttpPocketUpdateTransport` typedef alias). The standalone Web SDK uses official app Worker HTTP and has no Dart Dio plugin.
 
 ## Integration and Customization
 
@@ -52,7 +52,7 @@ Moving response processing and decoding off the main isolate changes execution p
 
 The retained parent review excluded `pocket_host/`. `lib/core/real_hardware_bridge.dart:390` uses real HttpClient, timeout, and JSON decoding for weather but has no Dio Worker. `web_wasm_preview/index.html` contains a synchronous ring-buffer demo, `wasmWorkerStepEcho`, without a reusable Dart isolate.
 
-The existing bounded implementation from `packages/pocket_dio/lib/src/dio_plugin.dart` moved to the Worker. PocketPlugin, HostBridge, and permission admission remain shared. The direct main-isolate Dio path was removed to keep a single network implementation.
+The existing bounded implementation from `packages/pocket_dio/lib/src/dio_plugin.dart` moved to the Worker. PocketPlugin, HostBridge, and permission admission remain shared. The direct main-isolate Dio path was removed to keep a single network implementation, while `PocketDioWorkerHttpBridge` and `DioPocketUpdateTransport` unify native Worker `net.http` FFI bridging and `pocket_services` OTA downloads on Dio.
 
 ## Validation
 

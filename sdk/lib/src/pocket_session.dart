@@ -301,7 +301,6 @@ final class PocketSession extends ChangeNotifier {
     // operation, including on failure, before admission or close completes.
     late final List<String> sources;
     await Future.wait<void>([
-      performance.initialize(),
       if (config.diagnostics != null)
         config.diagnostics!.ensureCollector().then<void>((_) {}),
       Future.wait<String>([
@@ -1245,7 +1244,8 @@ final class PocketSession extends ChangeNotifier {
     _host = host;
     _plugins = plugins;
     registry.registerRequest('runtime.info', (_) => runtimeInfo());
-    registry.registerRequest('runtime.performance', (params) {
+    registry.registerRequest('runtime.performance', (params) async {
+      await performance.initialize();
       if (params.containsKey('context')) {
         final context = params['context'];
         if (context != null && context is! String) {

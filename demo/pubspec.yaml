@@ -20,6 +20,7 @@ dependencies:
     path: ../sdk/packages/pocket_audio
   pocket_live2d:
     path: ../sdk/packages/pocket_live2d
+  video_player: ^2.9.5
 
 dev_dependencies:
   pocket_permissions:
@@ -33,7 +34,6 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  video_player: ^2.9.5
   flutter_test:
     sdk: flutter
 

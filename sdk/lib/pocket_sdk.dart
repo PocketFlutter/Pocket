@@ -40,6 +40,7 @@ export 'package:pocket_flutter/pocket_flutter.dart'
 export 'package:pocket_services/pocket_services.dart'
     show
         PocketPlugin,
+        PocketLazyPlugin,
         PocketPluginContext,
         PocketPluginDescriptor,
         PocketPluginCapability,

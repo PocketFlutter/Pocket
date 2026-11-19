@@ -54,8 +54,7 @@ final class PocketSyncPlugin extends PocketPlugin {
   @override
   bool get backgroundSafe => allowBackgroundServer;
 
-  @override
-  PocketPluginDescriptor get descriptor => const PocketPluginDescriptor(
+  static const PocketPluginDescriptor pluginDescriptor = PocketPluginDescriptor(
     id: pocketSyncPluginId,
     version: '0.1.0',
     description:
@@ -101,6 +100,9 @@ final class PocketSyncPlugin extends PocketPlugin {
       ),
     },
   );
+
+  @override
+  PocketPluginDescriptor get descriptor => pluginDescriptor;
 
   @override
   void register(PocketPluginContext context) {

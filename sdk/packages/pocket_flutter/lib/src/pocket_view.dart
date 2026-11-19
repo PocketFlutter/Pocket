@@ -11,7 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:video_player/video_player.dart';
+
+import 'pocket_video_player.dart';
 
 import 'pocket_assets.dart';
 import 'pocket_binary_codec.dart';

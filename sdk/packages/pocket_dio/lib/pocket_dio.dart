@@ -8,3 +8,4 @@
 library;
 
 export 'src/dio_plugin.dart';
+export 'src/dio_worker_http_bridge.dart';

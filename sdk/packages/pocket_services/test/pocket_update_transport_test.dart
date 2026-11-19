@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data';
 
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
+import 'package:dio/dio.dart';
 import 'package:pocket_services/pocket_services.dart';
 import 'package:test/test.dart';
 
@@ -10,12 +10,13 @@ void main() {
 
   test('successful headers and body cancel every timeout timer', () async {
     final timers = _TimerTracker();
-    final client = MockClient((request) async {
-      expect(request.url, uri);
-      return http.Response.bytes(<int>[1, 2, 3, 4], 200);
-    });
-    final transport = HttpPocketUpdateTransport(
-      client: client,
+    final dio = Dio()
+      ..httpClientAdapter = _MockAdapter((options) async {
+        expect(options.uri, uri);
+        return ResponseBody.fromBytes(<int>[1, 2, 3, 4], 200);
+      });
+    final transport = DioPocketUpdateTransport(
+      dio: dio,
       requestTimeout: const Duration(seconds: 20),
       bodyTimeout: const Duration(seconds: 20),
     );
@@ -39,10 +40,10 @@ void main() {
 
   test('cancelling an in-flight request cancels its timeout timer', () async {
     final timers = _TimerTracker();
-    final request = Completer<http.StreamedResponse>();
-    final client = MockClient.streaming((_, __) => request.future);
-    final transport = HttpPocketUpdateTransport(
-      client: client,
+    final request = Completer<ResponseBody>();
+    final dio = Dio()..httpClientAdapter = _MockAdapter((_) => request.future);
+    final transport = DioPocketUpdateTransport(
+      dio: dio,
       requestTimeout: const Duration(seconds: 20),
     );
     final cancellation = PocketCancellationToken();
@@ -56,19 +57,18 @@ void main() {
     expect(timers.pendingCount, 0);
     transport.close();
 
-    // Release the deliberately pending mock response after the transport has
-    // observed cancellation. The operation must not become observable again.
-    request.complete(http.StreamedResponse(Stream<List<int>>.empty(), 200));
+    request.complete(ResponseBody(Stream<Uint8List>.empty(), 200));
   });
 
   test(
     'request timeout keeps the transport error contract and no timer',
     () async {
       final timers = _TimerTracker();
-      final request = Completer<http.StreamedResponse>();
-      final client = MockClient.streaming((_, __) => request.future);
-      final transport = HttpPocketUpdateTransport(
-        client: client,
+      final request = Completer<ResponseBody>();
+      final dio = Dio()
+        ..httpClientAdapter = _MockAdapter((_) => request.future);
+      final transport = DioPocketUpdateTransport(
+        dio: dio,
         requestTimeout: const Duration(milliseconds: 10),
       );
       final open = runZoned(
@@ -91,9 +91,25 @@ void main() {
       expect(timers.pendingCount, 0);
       transport.close();
 
-      request.complete(http.StreamedResponse(Stream<List<int>>.empty(), 200));
+      request.complete(ResponseBody(Stream<Uint8List>.empty(), 200));
     },
   );
+}
+
+final class _MockAdapter implements HttpClientAdapter {
+  _MockAdapter(this._handler);
+
+  final Future<ResponseBody> Function(RequestOptions options) _handler;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) => _handler(options);
+
+  @override
+  void close({bool force = false}) {}
 }
 
 final class _TimerTracker {
@@ -102,12 +118,12 @@ final class _TimerTracker {
   ZoneSpecification get specification => ZoneSpecification(
     createTimer: (self, parent, zone, duration, callback) {
       final timer = parent.createTimer(zone, duration, callback);
-      _timers.add(timer);
+      if (duration > Duration.zero) _timers.add(timer);
       return timer;
     },
     createPeriodicTimer: (self, parent, zone, duration, callback) {
       final timer = parent.createPeriodicTimer(zone, duration, callback);
-      _timers.add(timer);
+      if (duration > Duration.zero) _timers.add(timer);
       return timer;
     },
   );

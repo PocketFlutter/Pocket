@@ -125,6 +125,10 @@ additional diagnostics and update members. Keep callbacks scoped to their own ge
 A `PocketPlugin` implements `descriptor` and can override `register(context)`,
 `activate(context)`, `deactivate(context)`, and `dispose()`. `backgroundSafe` defaults to
 false. Set it to true only for trusted coordination that avoids foreground device resources.
+`PocketLazyPlugin` (`package:pocket_services/pocket_services.dart`, re-exported by
+`package:pocket_sdk/pocket_sdk.dart`) wraps a static `PocketPluginDescriptor` and a
+deferred `create` factory so optional plugins instantiate their underlying platform channels
+or Worker isolates only on first capability invocation.
 
 `PocketPluginDescriptor` declares id, version, capabilities, permissions, limits, and
 related metadata. Use `PocketPluginContext.registerRequest` and `registerStream` for
@@ -152,7 +156,7 @@ See [Plugin types](PLUGIN_TYPES.md) and [Streams](JS_HOST_STREAMS.md).
 | `pocket_live2d` | `PocketLive2dPlugin.fromBundledCatalog` | Model resources and native decoding. JS owns orchestration. |
 | `pocket_studio` | `PocketStudioPlugin`, `PocketStudioConfig`, `PocketStudioService` | Maps 53 allowlisted `studio.*` capabilities to local Editor service routes with CSRF injection, path and key redaction, and SSE. See [Studio provider](STUDIO_PROVIDER.md). |
 | `pocket_sync` | `PocketSyncPlugin` | Embedded HTTP and WebSocket sync server and cross-subnet client in a separate I/O isolate. Requires `network`. |
-| `pocket_archive` | Public archive readers and writers | Path permissions still apply. See [Archive integration](NATIVE_ARCHIVE_INTEGRATION.md). |
+| `pocket_archive` | Public archive readers and writers | Optional plugin dependency (not statically required by `pocket_sdk`); path permissions still apply. See [Archive integration](NATIVE_ARCHIVE_INTEGRATION.md). |
 | `pocket_diagnostics` | Public collector, storage, uploader, and exporter types | Actual capabilities depend on registration and configuration. See [Diagnostics package](DIAGNOSTICS_PACKAGE.md). |
 
 The inventory below lists each package's declaration names and library paths.
@@ -252,6 +256,7 @@ export chain permits it.
 | --- | --- |
 | [packages/pocket_dio/lib/pocket_dio.dart](../packages/pocket_dio/lib/pocket_dio.dart) | See the library and machine-readable inventory for exports, functions, and constants. |
 | [packages/pocket_dio/lib/src/dio_plugin.dart](../packages/pocket_dio/lib/src/dio_plugin.dart) | `PocketDioPlugin` |
+| [packages/pocket_dio/lib/src/dio_worker_http_bridge.dart](../packages/pocket_dio/lib/src/dio_worker_http_bridge.dart) | `PocketDioWorkerHttpBridge` |
 
 ### `pocket_file_picker`
 
@@ -346,8 +351,8 @@ export chain permits it.
 | [packages/pocket_services/lib/src/pocket_trust.dart](../packages/pocket_services/lib/src/pocket_trust.dart) | `PocketReleaseKey`, `PocketSignedTrustPolicy`, `PocketTrustException`, `PocketTrustPolicy`, `PocketTrustStore` |
 | [packages/pocket_services/lib/src/pocket_stream.dart](../packages/pocket_services/lib/src/pocket_stream.dart) | `PocketDuplexStream`, `PocketStreamBridge`, `PocketStreamBufferOverflowException`, `PocketStreamProtocolException`, `PocketStreamRemoteException`, `PocketStreamSend` |
 | [packages/pocket_services/lib/src/pocket_host.dart](../packages/pocket_services/lib/src/pocket_host.dart) | `PocketCapabilityAvailability`, `PocketCapabilityDescriptor`, `PocketCapabilityException`, `PocketCapabilityKind`, `PocketCapabilityRequest`, `PocketCapabilityStream`, `PocketHost`, `PocketHostRawSend`, `PocketHostRegistry`, `PocketHostSend`, `PocketHostStreamContext` |
-| [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart) | `PocketPermissionRequest`, `PocketPermissionRequestHandler`, `PocketPlugin`, `PocketPluginBudget`, `PocketPluginCapability`, `PocketPluginCapabilitySchema`, `PocketPluginContext`, `PocketPluginDescriptor`, `PocketPluginLimits`, `PocketPluginManager`, `PocketPluginMethod`, `PocketPluginRegistry`, `PocketPluginSchema`, `PocketPluginSchemaType`, `PocketPluginSession` |
-| [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart) | `HttpPocketUpdateTransport`, `PocketDownloadResponse`, `PocketPreparedPackage`, `PocketUpdateCoordinator`, `PocketUpdateInspection`, `PocketUpdateMode`, `PocketUpdateProgress`, `PocketUpdateProgressCallback`, `PocketUpdateScope`, `PocketUpdateStage`, `PocketUpdateTarget`, `PocketUpdateTransport` |
+| [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart) | `PocketLazyPlugin`, `PocketPermissionRequest`, `PocketPermissionRequestHandler`, `PocketPlugin`, `PocketPluginBudget`, `PocketPluginCapability`, `PocketPluginCapabilitySchema`, `PocketPluginContext`, `PocketPluginDescriptor`, `PocketPluginLimits`, `PocketPluginManager`, `PocketPluginMethod`, `PocketPluginRegistry`, `PocketPluginSchema`, `PocketPluginSchemaType`, `PocketPluginSession` |
+| [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart) | `DioPocketUpdateTransport`, `HttpPocketUpdateTransport` (typedef alias), `PocketDownloadResponse`, `PocketPreparedPackage`, `PocketUpdateCoordinator`, `PocketUpdateInspection`, `PocketUpdateMode`, `PocketUpdateProgress`, `PocketUpdateProgressCallback`, `PocketUpdateScope`, `PocketUpdateStage`, `PocketUpdateTarget`, `PocketUpdateTransport` |
 
 ### `pocket_studio`
 

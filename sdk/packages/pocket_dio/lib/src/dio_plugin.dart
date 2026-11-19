@@ -90,8 +90,7 @@ final class PocketDioPlugin extends PocketPlugin {
   /// startup and requests dispatched to the worker.
   int get inFlightCount => _pending.length;
 
-  @override
-  PocketPluginDescriptor get descriptor => const PocketPluginDescriptor(
+  static const PocketPluginDescriptor pluginDescriptor = PocketPluginDescriptor(
     id: pocketDioPluginId,
     version: '0.1.0',
     description: 'Bounded Dio HTTP requests for explicitly allowed origins',
@@ -108,6 +107,9 @@ final class PocketDioPlugin extends PocketPlugin {
       ),
     },
   );
+
+  @override
+  PocketPluginDescriptor get descriptor => pluginDescriptor;
 
   @override
   void register(PocketPluginContext context) {

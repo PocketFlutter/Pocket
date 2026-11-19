@@ -280,32 +280,40 @@ final class PocketPermissionsPlugin extends PocketPlugin {
   Set<String> get allowedPermissions =>
       Set<String>.unmodifiable(_allowedPermissions);
 
+  static PocketPluginDescriptor descriptorFor({
+    Iterable<String> allowedPermissions = const <String>[],
+  }) {
+    final normalized = _normalizeAllowed(allowedPermissions);
+    return PocketPluginDescriptor(
+      id: pocketPermissionsPluginId,
+      version: '0.1.0',
+      description: 'Real operating-system permissions via permission_handler',
+      optionalPermissions: normalized,
+      capabilities: <String, PocketPluginCapability>{
+        PocketPermissionsCapabilities.status: PocketPluginCapability(
+          name: PocketPermissionsCapabilities.status,
+          kind: PocketCapabilityKind.request,
+          optionalPermissions: normalized,
+          schema: _permissionCapabilitySchema,
+        ),
+        PocketPermissionsCapabilities.request: PocketPluginCapability(
+          name: PocketPermissionsCapabilities.request,
+          kind: PocketCapabilityKind.request,
+          optionalPermissions: normalized,
+          schema: _permissionCapabilitySchema,
+        ),
+        PocketPermissionsCapabilities.openSettings: PocketPluginCapability(
+          name: PocketPermissionsCapabilities.openSettings,
+          kind: PocketCapabilityKind.request,
+          optionalPermissions: normalized,
+        ),
+      },
+    );
+  }
+
   @override
-  PocketPluginDescriptor get descriptor => PocketPluginDescriptor(
-    id: pocketPermissionsPluginId,
-    version: '0.1.0',
-    description: 'Real operating-system permissions via permission_handler',
-    optionalPermissions: _allowedPermissions,
-    capabilities: <String, PocketPluginCapability>{
-      PocketPermissionsCapabilities.status: PocketPluginCapability(
-        name: PocketPermissionsCapabilities.status,
-        kind: PocketCapabilityKind.request,
-        optionalPermissions: _allowedPermissions,
-        schema: _permissionCapabilitySchema,
-      ),
-      PocketPermissionsCapabilities.request: PocketPluginCapability(
-        name: PocketPermissionsCapabilities.request,
-        kind: PocketCapabilityKind.request,
-        optionalPermissions: _allowedPermissions,
-        schema: _permissionCapabilitySchema,
-      ),
-      PocketPermissionsCapabilities.openSettings: PocketPluginCapability(
-        name: PocketPermissionsCapabilities.openSettings,
-        kind: PocketCapabilityKind.request,
-        optionalPermissions: _allowedPermissions,
-      ),
-    },
-  );
+  PocketPluginDescriptor get descriptor =>
+      descriptorFor(allowedPermissions: _allowedPermissions);
 
   @override
   void register(PocketPluginContext context) {

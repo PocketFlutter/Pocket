@@ -65,7 +65,7 @@
               "declarations": [
                 "PocketBiometricsPlugin"
               ],
-              "sourceSha256": "ffb16d1449e27240917252fee9dc931934a3d97f34c00aba9d7de7bb323c7ddc"
+              "sourceSha256": "2728e5e930c63579fd583a0b3df59e49dec0fe26bf5b5df4702ab19e47ba3228"
             },
             {
               "from": "packages/pocket_biometrics/lib/pocket_biometrics.dart",
@@ -88,7 +88,7 @@
               "declarations": [
                 "PocketBluetoothPlugin"
               ],
-              "sourceSha256": "00eb6bbf6c2b19c6096ae8c2af277dbbdc7a36a6ef5260aa623656b02744e60e"
+              "sourceSha256": "58c2deb00d795c68e1e65be2df93084fa03ee2b0b58ee6d36ba99670ca6ea4fb"
             },
             {
               "from": "packages/pocket_bluetooth/lib/pocket_bluetooth.dart",
@@ -111,7 +111,7 @@
               "declarations": [
                 "PocketCameraPlugin"
               ],
-              "sourceSha256": "c43fc6971f3233c71271ce0da2aa587329d880cce8c246bbe0ecb7234fda9bd9"
+              "sourceSha256": "83ed4c5e1a9ab2802f34ddac9f364f48686513ec8a5b78582920d22c1efb0b02"
             },
             {
               "from": "packages/pocket_camera/lib/pocket_camera.dart",
@@ -259,7 +259,7 @@
             {
               "file": "packages/pocket_dio/lib/pocket_dio.dart",
               "declarations": [],
-              "sourceSha256": "418083fb4cc231780829c98bd86e12e61fd433f4bf17bdc5d8ef930d4baf2947"
+              "sourceSha256": "b49641fea33eb8ff46ef988e6febb042a7b18432ba74805f78cbf72eee767ae3"
             },
             {
               "from": "packages/pocket_dio/lib/pocket_dio.dart",
@@ -271,7 +271,19 @@
               "declarations": [
                 "PocketDioPlugin"
               ],
-              "sourceSha256": "d640a090c4be348475a5a3f90b2411c07845ebd884b3e42d9c8fd5ec59f3b715"
+              "sourceSha256": "5f3b5c26785df4fc2c9dc557d4e2d480946d689cf1039dee0cf2ab4de24aba7e"
+            },
+            {
+              "from": "packages/pocket_dio/lib/pocket_dio.dart",
+              "export": "src/dio_worker_http_bridge.dart",
+              "filter": ""
+            },
+            {
+              "file": "packages/pocket_dio/lib/src/dio_worker_http_bridge.dart",
+              "declarations": [
+                "PocketDioWorkerHttpBridge"
+              ],
+              "sourceSha256": "2dacdda3df01c57c74525396e22491fd7a3041e7e13a266bfa19ebc1def854e1"
             }
           ]
         }
@@ -532,7 +544,7 @@
                 "PocketRuntimeException",
                 "PocketRuntimeScheduling"
               ],
-              "sourceSha256": "88530d945856f0d57063b2c19730b1c38c9880511b61760d34e72a629c2dc1cd"
+              "sourceSha256": "98eaf76141089185c85d1b4260ce11abec3192e580b28314372f5837d5076e08"
             },
             {
               "from": "packages/pocket_flutter/lib/pocket_flutter.dart",
@@ -595,7 +607,7 @@
                 "PocketViewCapture",
                 "PocketViewController"
               ],
-              "sourceSha256": "cbb945672a2a38bf68f71f1e19e36f0966b3ad4e460c908eaee96a7999140d29"
+              "sourceSha256": "2f9e9e228af5af40301a12122b4f7bd849c4e7d2caa7d97f14ca0799846bfa73"
             },
             {
               "from": "packages/pocket_flutter/lib/pocket_flutter.dart",
@@ -690,7 +702,12 @@
             {
               "file": "packages/pocket_hardware_core/lib/pocket_hardware_core.dart",
               "declarations": [],
-              "sourceSha256": "1e0bc31875e671037faf32b3cf1a0bfac4ae2c3161e0ac68279e28e7e924aac9"
+              "sourceSha256": "59c609f51d3965f996d55579ce17cfba5a31e393234a06b70b5e142701ef9366"
+            },
+            {
+              "from": "packages/pocket_hardware_core/lib/pocket_hardware_core.dart",
+              "export": "package:pocket_services/pocket_services.dart",
+              "filter": "show PocketPluginDescriptor"
             },
             {
               "from": "packages/pocket_hardware_core/lib/pocket_hardware_core.dart",
@@ -713,7 +730,7 @@
                 "HardwareWeatherFetcher",
                 "MethodChannelHardwarePlatform"
               ],
-              "sourceSha256": "a3ca3210f2403741352652486628455d4b4c8935a1d627de692d91d505c2eca8"
+              "sourceSha256": "d4e1b16796d2ce068405a7e4fb898a84c62b8800099636bde26fe2c6bafb6ce5"
             }
           ]
         }
@@ -781,7 +798,7 @@
               "declarations": [
                 "PocketLocationPlugin"
               ],
-              "sourceSha256": "fce1d8fcecb926614dc8141ddd15a67134671a423551ce6f282c9ef47a72d229"
+              "sourceSha256": "e2c84e4fd4a88ff30436dea2ceec5b8fb3dc025831a187b77e32af01dd8689b4"
             },
             {
               "from": "packages/pocket_location/lib/pocket_location.dart",
@@ -819,7 +836,7 @@
                 "PocketPermissionsPlugin",
                 "PocketSystemPermissions"
               ],
-              "sourceSha256": "9f0c5ece5d775524b69694ed19d0ab3a706990ba920aefbc041971102afebf23"
+              "sourceSha256": "5128667d702476841f7980c317ec17d16cdef0a07383e3f689201027aa9e2d9e"
             }
           ]
         }
@@ -1021,6 +1038,7 @@
             {
               "file": "packages/pocket_services/lib/src/pocket_plugin.dart",
               "declarations": [
+                "PocketLazyPlugin",
                 "PocketPermissionRequest",
                 "PocketPermissionRequestHandler",
                 "PocketPlugin",
@@ -1037,7 +1055,7 @@
                 "PocketPluginSchemaType",
                 "PocketPluginSession"
               ],
-              "sourceSha256": "ffcae2a2d3e0da8c1e0a7fccdfb4c27796d9fac541f23c203b69bf520c9c0e7c"
+              "sourceSha256": "ffc07ee39c14e006c05018774c1c3526937ab753d6c2c79a98d9bd7f3a6c07de"
             },
             {
               "from": "packages/pocket_services/lib/pocket_services.dart",
@@ -1047,6 +1065,7 @@
             {
               "file": "packages/pocket_services/lib/src/pocket_update.dart",
               "declarations": [
+                "DioPocketUpdateTransport",
                 "HttpPocketUpdateTransport",
                 "PocketDownloadResponse",
                 "PocketPreparedPackage",
@@ -1060,7 +1079,7 @@
                 "PocketUpdateTarget",
                 "PocketUpdateTransport"
               ],
-              "sourceSha256": "7beceef94a9ba7f08e225fb100afce3e5729340a7cb50a95daf7bb9e6b10bf6b"
+              "sourceSha256": "37278e9b4ec6b90ff7ef283e2d42d3069f5504e43b0eb5383b057fa71fcdde31"
             }
           ]
         }
@@ -1190,7 +1209,7 @@
               "declarations": [
                 "PocketSyncPlugin"
               ],
-              "sourceSha256": "c99da4c347db1643a89fe0f911a8e669db4fc28c3507f415aa81f7162d65d29b"
+              "sourceSha256": "3879871900d586f0824d38a5327f3d4566d96c7f05504a9f580c170998049a75"
             }
           ]
         }
@@ -1208,7 +1227,7 @@
               "declarations": [
                 "PocketWeatherPlugin"
               ],
-              "sourceSha256": "02dd3bbde770334047f17afb4446e0d638e22206ac9d82574a87771da712bd2e"
+              "sourceSha256": "ee1549c8dab865b000dc5d0bb9dd61a77b41e61f41d77919a0883149e6b36aa7"
             },
             {
               "from": "packages/pocket_weather/lib/pocket_weather.dart",
@@ -1229,7 +1248,7 @@
             {
               "file": "lib/pocket_sdk.dart",
               "declarations": [],
-              "sourceSha256": "c203f0b7ccd36ff4ac9988c223ab211b3c1f643d296f30e892ba7ce7ab3b011b"
+              "sourceSha256": "aa859c42ad4e3c6d3e1adbe9dd108a4f1e00f0d76a79b4b742c08511cd98d189"
             },
             {
               "from": "lib/pocket_sdk.dart",
@@ -1239,7 +1258,7 @@
             {
               "from": "lib/pocket_sdk.dart",
               "export": "package:pocket_services/pocket_services.dart",
-              "filter": "show PocketPlugin, PocketPluginContext, PocketPluginDescriptor, PocketPluginCapability, PocketPluginMethod, PocketPluginLimits, PocketPermissionRequest, PocketPermissionRequestHandler, PocketUpdateProgress, PocketUpdateStage, PocketPackagePreparationStage, PocketPackagePreparationProgress, PocketCancellationToken, PocketUpdateCancellation, PocketCapabilityKind, PocketCapabilityException, PocketHostStreamContext"
+              "filter": "show PocketPlugin, PocketLazyPlugin, PocketPluginContext, PocketPluginDescriptor, PocketPluginCapability, PocketPluginMethod, PocketPluginLimits, PocketPermissionRequest, PocketPermissionRequestHandler, PocketUpdateProgress, PocketUpdateStage, PocketPackagePreparationStage, PocketPackagePreparationProgress, PocketCancellationToken, PocketUpdateCancellation, PocketCapabilityKind, PocketCapabilityException, PocketHostStreamContext"
             },
             {
               "from": "lib/pocket_sdk.dart",
@@ -1338,7 +1357,7 @@
                 "PocketSessionEventListener",
                 "PocketSessionGenerationMountHook"
               ],
-              "sourceSha256": "4ad8b0e5bf1e6180bb98550d973bcf3aed48e49050b50dc7585c55639e1c00a9"
+              "sourceSha256": "e680a3cbeb44c6301f863e3a633bd1946efde231f7e3350ea46676da23d1f5e3"
             },
             {
               "from": "lib/pocket_sdk.dart",
@@ -1350,7 +1369,7 @@
               "declarations": [
                 "PerformanceHistory"
               ],
-              "sourceSha256": "bdedd031d7d357cd0f5fe886f474eb12beda6485911b5fb5d86b9be17b1e849e"
+              "sourceSha256": "8e329f064d64bc89a3571f1ff3887c776031badd05a375d9ecefdc483487b150"
             },
             {
               "from": "lib/pocket_sdk.dart",
@@ -1399,7 +1418,7 @@
                 "PocketSystemLaunchRequest",
                 "PocketSystemLaunchResult"
               ],
-              "sourceSha256": "e9096936292c2021961b07e82a2f3561ac719e0a591b2e07deb21737b228ddab"
+              "sourceSha256": "3570cc630592748a7caeb2a6dcbdf9d1f267973c41e807b58484c3faca4d8ae2"
             },
             {
               "from": "lib/pocket_sdk.dart",

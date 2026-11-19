@@ -3,24 +3,43 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart'
-    show MissingPluginException, PlatformException;
+    show MethodChannel, MissingPluginException, PlatformException;
 import 'package:path_provider/path_provider.dart';
-import 'package:pocket_archive/pocket_archive.dart';
 import 'package:pocket_services/pocket_services.dart';
 
 import 'pocket_config.dart';
 import 'pocket_distribution.dart';
 
+const MethodChannel _pocketNativeArchiveChannel = MethodChannel(
+  'dev.pocketjs/pocket_archive',
+);
+
+/// Invokes the optional `pocket_archive` native 7z extractor when linked by
+/// the host app. Standard `.zip` and granular OTA bundles already decode in a
+/// pure-Dart isolate inside `PocketPackageStore` with zero native C plugin.
 Future<void> extractPocketNativeArchive({
   required String archivePath,
   required String destinationPath,
   required int maxOutputBytes,
 }) async {
+  if (archivePath.isEmpty || destinationPath.isEmpty) {
+    throw ArgumentError('Archive and destination paths must not be empty.');
+  }
+  if (maxOutputBytes <= 0) {
+    throw ArgumentError.value(
+      maxOutputBytes,
+      'maxOutputBytes',
+      'Must be greater than zero.',
+    );
+  }
   try {
-    await PocketNativeArchive.extract(
-      archivePath: archivePath,
-      destinationPath: destinationPath,
-      maxOutputBytes: maxOutputBytes,
+    await _pocketNativeArchiveChannel.invokeMethod<void>(
+      'extract',
+      <String, Object?>{
+        'archivePath': archivePath,
+        'destinationPath': destinationPath,
+        'maxOutputBytes': maxOutputBytes,
+      },
     );
   } on MissingPluginException catch (error) {
     throw PocketPackageException(

@@ -4,7 +4,8 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:http/http.dart' as http;
+// ignore: invalid_use_of_internal_member
+import 'package:dio/dio.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:pocket_flutter/src/pocket_package.dart'
     show PocketPackageSource;
@@ -27,14 +28,18 @@ abstract interface class PocketUpdateTransport {
   void close() {}
 }
 
-final class HttpPocketUpdateTransport implements PocketUpdateTransport {
-  HttpPocketUpdateTransport({
-    http.Client? client,
+/// Dio-backed HTTP(S) transport for signed package updates across all Flutter
+/// platforms, eliminating the redundant `package:http` dependency.
+final class DioPocketUpdateTransport implements PocketUpdateTransport {
+  DioPocketUpdateTransport({
+    Dio? dio,
     this.requestTimeout = const Duration(seconds: 20),
     this.bodyTimeout = const Duration(seconds: 20),
-  }) : _client = client ?? http.Client();
+  }) : _dio = dio ?? Dio(),
+       _ownsDio = dio == null;
 
-  http.Client _client;
+  Dio _dio;
+  final bool _ownsDio;
   final Duration requestTimeout;
   final Duration bodyTimeout;
   bool _closed = false;
@@ -46,28 +51,54 @@ final class HttpPocketUpdateTransport implements PocketUpdateTransport {
   }) async {
     if (_closed) throw StateError('update transport is closed');
     cancellation.throwIfCancelled();
-    late final http.StreamedResponse response;
+    final cancelToken = CancelToken();
+    var settled = false;
+    unawaited(
+      cancellation.whenCancelled.then((_) {
+        if (!settled && !cancelToken.isCancelled) {
+          Zone.root.run(() => cancelToken.cancel('Pocket update cancelled'));
+        }
+      }),
+    );
+    late final Response<ResponseBody> response;
     try {
       response = await _guard(
-        _client.send(http.Request('GET', uri)),
+        _dio.getUri<ResponseBody>(
+          uri,
+          options: Options(
+            responseType: ResponseType.stream,
+            validateStatus: (_) => true,
+          ),
+          cancelToken: cancelToken,
+        ),
         cancellation,
         requestTimeout,
         'HTTP request timeout',
       );
     } catch (_) {
-      _resetClient();
+      settled = true;
+      if (!cancelToken.isCancelled) {
+        Zone.root.run(() => cancelToken.cancel('HTTP request aborted'));
+      }
+      _resetDio();
       rethrow;
     }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      _resetClient();
+    final statusCode = response.statusCode ?? 0;
+    final body = response.data;
+    if (statusCode < 200 || statusCode >= 300 || body == null) {
+      settled = true;
+      // ignore: invalid_use_of_internal_member
+      body?.close();
+      _resetDio();
       throw PocketPackageException(
-        'HTTP ${response.statusCode} for $uri',
+        'HTTP $statusCode for $uri',
         code: 'http',
       );
     }
+    final declaredLength = body.contentLength;
     return PocketDownloadResponse(
-      bytes: _body(response.stream, uri, cancellation),
-      contentLength: response.contentLength,
+      bytes: _body(body, cancelToken, () => settled = true, uri, cancellation),
+      contentLength: declaredLength >= 0 ? declaredLength : null,
     );
   }
 
@@ -75,20 +106,25 @@ final class HttpPocketUpdateTransport implements PocketUpdateTransport {
   void close() {
     if (_closed) return;
     _closed = true;
-    _client.close();
+    if (_ownsDio) {
+      _dio.close(force: true);
+    }
   }
 
-  void _resetClient() {
-    _client.close();
-    if (!_closed) _client = http.Client();
+  void _resetDio() {
+    if (!_ownsDio) return;
+    _dio.close(force: true);
+    if (!_closed) _dio = Dio();
   }
 
   Stream<List<int>> _body(
-    Stream<List<int>> source,
+    ResponseBody responseBody,
+    CancelToken cancelToken,
+    void Function() onSettled,
     Uri uri,
     PocketCancellationToken cancellation,
   ) async* {
-    final iterator = StreamIterator<List<int>>(source);
+    final iterator = StreamIterator<List<int>>(responseBody.stream);
     try {
       while (await _guard(
         iterator.moveNext(),
@@ -99,7 +135,13 @@ final class HttpPocketUpdateTransport implements PocketUpdateTransport {
         yield iterator.current;
       }
     } finally {
+      onSettled();
+      if (!cancelToken.isCancelled) {
+        Zone.root.run(() => cancelToken.cancel('HTTP stream closed'));
+      }
       await iterator.cancel();
+      // ignore: invalid_use_of_internal_member
+      responseBody.close();
     }
   }
 
@@ -109,18 +151,36 @@ final class HttpPocketUpdateTransport implements PocketUpdateTransport {
     Duration timeout,
     String message,
   ) {
-    return Future.any(<Future<T>>[
-      operation,
-      cancellation.whenCancelled.then<T>(
-        (_) => throw const PocketUpdateCancellation(),
-      ),
-    ]).timeout(
-      timeout,
-      onTimeout: () =>
-          throw PocketPackageException(message, code: 'http-timeout'),
-    );
+    final result = Completer<T>();
+    late final Timer timer;
+    void finishValue(T value) {
+      if (result.isCompleted) return;
+      timer.cancel();
+      result.complete(value);
+    }
+
+    void finishError(Object error, StackTrace stackTrace) {
+      if (result.isCompleted) return;
+      timer.cancel();
+      result.completeError(error, stackTrace);
+    }
+
+    timer = Timer(timeout, () {
+      finishError(
+        PocketPackageException(message, code: 'http-timeout'),
+        StackTrace.current,
+      );
+    });
+    operation.then(finishValue, onError: finishError);
+    cancellation.whenCancelled.then((_) {
+      finishError(const PocketUpdateCancellation(), StackTrace.current);
+    });
+    return result.future;
   }
 }
+
+/// Source-compatible alias for existing callers and tests.
+typedef HttpPocketUpdateTransport = DioPocketUpdateTransport;
 
 enum PocketUpdateStage {
   checking,

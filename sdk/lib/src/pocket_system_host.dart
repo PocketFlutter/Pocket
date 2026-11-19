@@ -783,6 +783,7 @@ final class _PocketSystemHostApplicationState
                     onCloseWithResult: widget.onCloseWithResult,
                     initialLaunch: widget.initialLaunch,
                     active: effectiveActive,
+                    backgroundColor: widget.backgroundColor,
                     nativeEdgeExitEnabled: widget.nativeEdgeExitEnabled,
                     nativeExitRoute: nativeExitRoute,
                   )
@@ -796,6 +797,7 @@ final class _PocketSystemHostApplicationState
                     onCloseWithResult: widget.onCloseWithResult,
                     initialLaunch: widget.initialLaunch,
                     active: effectiveActive,
+                    backgroundColor: widget.backgroundColor,
                     nativeEdgeExitEnabled: widget.nativeEdgeExitEnabled,
                     nativeExitRoute: nativeExitRoute,
                     approveSystemUI:

@@ -6,7 +6,7 @@ This catalog lists declarations importable from each package library after apply
 
 Source-first reuse note: outside the retained parent `pocket_host/`, this work checked `README.md`, `docs/02_ARCHITECTURE_AND_MEMORY_DESIGN.md`, `docs/03_DUAL_HOST_UI_COMPONENTS_SPEC.md`, `docs/04_DEVELOPER_GUIDE_AND_VERIFICATION.md`, and `docs/04_BIDIRECTIONAL_FFI_WASM_AND_YOOASSET_HOTUPDATE.md` in `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo`. These preserve the earlier Flutter/WeChat host split, component-to-host projections, and run/regression scenarios. The necessary adaptation is to use only current SDK library exports and apply every Dart `show`/`hide`, keeping app UI policy and composition in JS and Dart at the rendering/input/lifecycle/native boundary. Validation checks the biometrics and root SDK facade filters, default parameter signatures, and current source SHA markers.
 
-Coverage: 609 public declarations and 3041 declared members across 22 library entrances; 108 inventoried source digests.
+Coverage: 615 public declarations and 3098 declared members across 22 library entrances; 109 inventoried source digests.
 
 ## Packages and imports
 
@@ -257,6 +257,7 @@ Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages
 **Class** `final class PocketBiometricsPlugin extends HardwareCapabilityPlugin`
 
 Members:
+- `static PocketPluginDescriptor get pluginDescriptor`
 - `PocketBiometricsPlugin({ HardwarePlatform? platform, Duration requestTimeout = const Duration(seconds: 16), })`
 
 Source: [packages/pocket_biometrics/lib/pocket_biometrics.dart](../packages/pocket_biometrics/lib/pocket_biometrics.dart#L15)
@@ -361,6 +362,7 @@ Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages
 **Class** `final class PocketBluetoothPlugin extends HardwareCapabilityPlugin`
 
 Members:
+- `static PocketPluginDescriptor get pluginDescriptor`
 - `PocketBluetoothPlugin({ HardwarePlatform? platform, Duration requestTimeout = const Duration(seconds: 16), })`
 
 Source: [packages/pocket_bluetooth/lib/pocket_bluetooth.dart](../packages/pocket_bluetooth/lib/pocket_bluetooth.dart#L15)
@@ -465,6 +467,7 @@ Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages
 **Class** `final class PocketCameraPlugin extends HardwareCapabilityPlugin`
 
 Members:
+- `static PocketPluginDescriptor get pluginDescriptor`
 - `PocketCameraPlugin({ HardwarePlatform? platform, HardwareTextureCallback? onTextureRegistered, HardwareTextureCallback? onTextureReleased, Duration requestTimeout = const Duration(seconds: 16), })`
 
 Source: [packages/pocket_camera/lib/pocket_camera.dart](../packages/pocket_camera/lib/pocket_camera.dart#L15)
@@ -1184,6 +1187,7 @@ Members:
 - `final int maxResponseBytes`
 - `Set<String> get allowedOrigins`
 - `int get inFlightCount`
+- `static const PocketPluginDescriptor pluginDescriptor = PocketPluginDescriptor(id: pocketDioPluginId, version: '0.1.0', description: 'Bounded Dio HTTP requests for explicitly allowed origins', permissions: <String>{pocketDioNetworkPermission}, limits: PocketPluginLimits(maxConcurrentRequests: 8, maxResponseBytes: _hardMaxResponseBytes), capabilities: <String, PocketPluginCapability>{pocketDioRequestCapability : PocketPluginCapability(name: pocketDioRequestCapability, kind: PocketCapabilityKind.request, schema: _dioCapabilitySchema)})`
 - `PocketPluginDescriptor get descriptor`
 - `void register(PocketPluginContext context)`
 - `Future<Object?> request(Map<String, dynamic> params)`
@@ -1191,6 +1195,17 @@ Members:
 - `Future<void> dispose()`
 
 Source: [packages/pocket_dio/lib/src/dio_plugin.dart](../packages/pocket_dio/lib/src/dio_plugin.dart#L65)
+
+### `PocketDioWorkerHttpBridge`
+
+**Class** `final class PocketDioWorkerHttpBridge`
+
+Members:
+- `static bool get isInstalled`
+- `static bool install({Dio Function()? dioFactory})`
+- `static void uninstall()`
+
+Source: [packages/pocket_dio/lib/src/dio_worker_http_bridge.dart](../packages/pocket_dio/lib/src/dio_worker_http_bridge.dart#L53)
 
 ### `pocketDioNetworkPermission`
 
@@ -1684,7 +1699,7 @@ Source: [packages/pocket_flutter/lib/src/pocket_duplex.dart](../packages/pocket_
 
 **Typedef** `typedef PocketDuplexEventCallback = void Function(PocketDuplexEvent event);`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L41)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L42)
 
 ### `PocketDuplexMessage`
 
@@ -1718,7 +1733,7 @@ Source: [packages/pocket_flutter/lib/src/pocket_model.dart](../packages/pocket_f
 
 **Typedef** `typedef PocketEventCallback = void Function(PocketEvent event);`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L40)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L41)
 
 ### `PocketFrame`
 
@@ -1853,7 +1868,7 @@ Source: [packages/pocket_flutter/lib/src/pocket_model.dart](../packages/pocket_f
 
 **Typedef** `typedef PocketImageResourceDecoder = Future<ui.Image> Function(PocketImageResource resource);`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L80)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L81)
 
 ### `PocketLoadingBuilder`
 
@@ -2347,7 +2362,7 @@ Source: [packages/pocket_flutter/lib/src/pocket_recording.dart](../packages/pock
 Members:
 - `Future<PocketReplayResult> replay({ required PocketReplayAssets assets, PocketReplayRuntimeFactory? runtimeFactory, })`
 
-Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L4144)
+Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L4145)
 
 ### `PocketRectOp`
 
@@ -2418,13 +2433,13 @@ Members:
 - `final PocketReplayRuntimeFactory? runtimeFactory`
 - `Future<PocketReplayResult> run( PocketRecording recording, { required PocketReplayAssets assets, })`
 
-Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L3223)
+Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L3224)
 
 ### `PocketReplayRuntimeFactory`
 
 **Typedef** `typedef PocketReplayRuntimeFactory = FfiPocketRuntime Function(PocketRecordingMetadata metadata);`
 
-Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L3217)
+Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L3218)
 
 ### `PocketRoundedGradientOp`
 
@@ -2693,7 +2708,7 @@ Members:
 - `final PocketPerformanceSampleCallback? onPerformanceSample`
 - `State<PocketView> createState()`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L569)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L570)
 
 ### `PocketViewCapture`
 
@@ -2704,7 +2719,7 @@ Members:
 - `final int width`
 - `final int height`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L54)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L55)
 
 ### `PocketViewController`
 
@@ -2738,7 +2753,7 @@ Members:
 - `void notifyWork()`
 - `PocketViewController()` _(implicit)_
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L88)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L89)
 
 ### `PocketWorkerLimits`
 
@@ -2788,37 +2803,37 @@ Source: [packages/pocket_flutter/lib/src/pocket_worker_runtime.dart](../packages
 
 **Top-level variable** `void Function({double? buildMs, double? paintMs})? debugOnPocketFrameStageAttribution`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L871)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L872)
 
 ### `debugOnPocketTickAttribution`
 
 **Top-level variable** `void Function({required double nativeMs, required double decodeMs, required double diffMs, PocketNativeStageTimings nativeStages})? debugOnPocketTickAttribution`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L867)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L868)
 
 ### `debugPocketFirstFrameResourceTimeoutOverride`
 
 **Top-level variable** `Duration? debugPocketFirstFrameResourceTimeoutOverride`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L879)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L880)
 
 ### `debugPocketFrameDeltaAtOverride`
 
 **Top-level variable** `PocketFrame? Function(PocketRuntime runtime, double deltaMilliseconds)? debugPocketFrameDeltaAtOverride`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L852)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L853)
 
 ### `debugPocketNativeFrameDurationOverride`
 
 **Top-level variable** `Duration Function()? debugPocketNativeFrameDurationOverride`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L855)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L856)
 
 ### `debugPocketSelfOwnedRuntimeFactory`
 
 **Top-level variable** `PocketRuntime Function(Size viewport)? debugPocketSelfOwnedRuntimeFactory`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L858)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L859)
 
 ### `measurePocketHostScalarAdvance`
 
@@ -2986,7 +3001,7 @@ Source: [packages/pocket_flutter/lib/src/pocket_recording.dart](../packages/pock
 
 **function** `void pocketSetSchedulerPaused(PocketRuntime runtime, bool paused)`
 
-Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L4457)
+Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L4458)
 
 ### `pocketSha256`
 
@@ -3046,7 +3061,7 @@ Source: [packages/pocket_flutter/lib/src/pocket_recording.dart](../packages/pock
 
 **function** `Future<PocketReplayResult> replayPocketRecording( PocketRecording recording, { required PocketReplayAssets assets, PocketReplayRuntimeFactory? runtimeFactory, })`
 
-Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L4156)
+Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L4157)
 
 ### `syncPocketHostFonts`
 
@@ -3100,6 +3115,7 @@ Members:
 - `final HardwareTextureCallback? onTextureRegistered`
 - `final HardwareTextureCallback? onTextureReleased`
 - `final Duration requestTimeout`
+- `static PocketPluginDescriptor descriptorFor({ Set<HardwareFeature> features = HardwareFeatures.all, String pluginId = hardwarePluginId, bool includeLegacyPermissions = false, })`
 - `PocketPluginDescriptor get descriptor`
 - `void register(PocketPluginContext context)`
 - `FutureOr<void> activate(PocketPluginContext context)`
@@ -3224,6 +3240,28 @@ Members:
 
 Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L291)
 
+### `PocketPluginDescriptor`
+
+**Class** `final class PocketPluginDescriptor`
+
+Members:
+- `const PocketPluginDescriptor({ required this.id, required this.version, required this.capabilities, this.protocolVersion = currentProtocolVersion, this.kind = 'capability', this.permissions = const <String>{}, this.optionalPermissions = const <String>{}, this.limits = const PocketPluginLimits(), this.description = '', this.types = const <String, PocketPluginSchema>{}, })`
+- `static const int currentProtocolVersion = 1`
+- `final int protocolVersion`
+- `final String id`
+- `final String version`
+- `final String kind`
+- `final Set<String> permissions`
+- `final Set<String> optionalPermissions`
+- `final PocketPluginLimits limits`
+- `final Map<String, PocketPluginCapability> capabilities`
+- `final String description`
+- `final Map<String, PocketPluginSchema> types`
+- `Map<String, dynamic> toJson()`
+- `void validateSchemas()`
+
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L789)
+
 ### `createHardwarePlatform`
 
 **function** `HardwarePlatform createHardwarePlatform(Set<HardwareFeature> features)`
@@ -3294,6 +3332,7 @@ Members:
 - `final HardwareTextureCallback? onTextureRegistered`
 - `final HardwareTextureCallback? onTextureReleased`
 - `final Duration requestTimeout`
+- `static PocketPluginDescriptor descriptorFor({ Set<HardwareFeature> features = HardwareFeatures.all, String pluginId = hardwarePluginId, bool includeLegacyPermissions = false, })`
 - `PocketPluginDescriptor get descriptor`
 - `void register(PocketPluginContext context)`
 - `FutureOr<void> activate(PocketPluginContext context)`
@@ -3407,6 +3446,28 @@ Members:
 - `Future<Map<String, dynamic>> invoke( String method, [ Map<String, dynamic> arguments = const <String, dynamic>{}, ])`
 
 Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L291)
+
+### `PocketPluginDescriptor`
+
+**Class** `final class PocketPluginDescriptor`
+
+Members:
+- `const PocketPluginDescriptor({ required this.id, required this.version, required this.capabilities, this.protocolVersion = currentProtocolVersion, this.kind = 'capability', this.permissions = const <String>{}, this.optionalPermissions = const <String>{}, this.limits = const PocketPluginLimits(), this.description = '', this.types = const <String, PocketPluginSchema>{}, })`
+- `static const int currentProtocolVersion = 1`
+- `final int protocolVersion`
+- `final String id`
+- `final String version`
+- `final String kind`
+- `final Set<String> permissions`
+- `final Set<String> optionalPermissions`
+- `final PocketPluginLimits limits`
+- `final Map<String, PocketPluginCapability> capabilities`
+- `final String description`
+- `final Map<String, PocketPluginSchema> types`
+- `Map<String, dynamic> toJson()`
+- `void validateSchemas()`
+
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L789)
 
 ### `createHardwarePlatform`
 
@@ -3768,6 +3829,7 @@ Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages
 **Class** `final class PocketLocationPlugin extends HardwareCapabilityPlugin`
 
 Members:
+- `static PocketPluginDescriptor get pluginDescriptor`
 - `PocketLocationPlugin({ HardwarePlatform? platform, Duration requestTimeout = const Duration(seconds: 16), })`
 
 Source: [packages/pocket_location/lib/pocket_location.dart](../packages/pocket_location/lib/pocket_location.dart#L15)
@@ -3845,6 +3907,7 @@ Members:
 - `PocketPermissionsPlugin({ Iterable<String> allowedPermissions = const <String>[], PocketSystemPermissions? service, PermissionHandlerPlatform? platform, PocketDeviceInfo? deviceInfo, })`
 - `final PocketSystemPermissions service`
 - `Set<String> get allowedPermissions`
+- `static PocketPluginDescriptor descriptorFor({ Iterable<String> allowedPermissions = const <String>[], })`
 - `PocketPluginDescriptor get descriptor`
 - `void register(PocketPluginContext context)`
 - `Future<void> dispose()`
@@ -4174,6 +4237,19 @@ Source: [packages/pocket_sensors/lib/pocket_sensors.dart](../packages/pocket_sen
 
 Entry: [packages/pocket_services/lib/pocket_services.dart](../packages/pocket_services/lib/pocket_services.dart)
 
+### `DioPocketUpdateTransport`
+
+**Class** `final class DioPocketUpdateTransport implements PocketUpdateTransport`
+
+Members:
+- `DioPocketUpdateTransport({ Dio? dio, this.requestTimeout = const Duration(seconds: 20), this.bodyTimeout = const Duration(seconds: 20), })`
+- `final Duration requestTimeout`
+- `final Duration bodyTimeout`
+- `Future<PocketDownloadResponse> open( Uri uri, { required PocketCancellationToken cancellation, })`
+- `void close()`
+
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L33)
+
 ### `GuestManifest`
 
 **Typedef** `typedef GuestManifest = PocketGuestManifest;`
@@ -4182,16 +4258,9 @@ Source: [packages/pocket_services/lib/src/pocket_guest_manifest.dart](../package
 
 ### `HttpPocketUpdateTransport`
 
-**Class** `final class HttpPocketUpdateTransport implements PocketUpdateTransport`
+**Typedef** `typedef HttpPocketUpdateTransport = DioPocketUpdateTransport;`
 
-Members:
-- `HttpPocketUpdateTransport({ http.Client? client, this.requestTimeout = const Duration(seconds: 20), this.bodyTimeout = const Duration(seconds: 20), })`
-- `final Duration requestTimeout`
-- `final Duration bodyTimeout`
-- `Future<PocketDownloadResponse> open( Uri uri, { required PocketCancellationToken cancellation, })`
-- `void close()`
-
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L30)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L183)
 
 ### `PocketArchiveExtractor`
 
@@ -4293,7 +4362,7 @@ Members:
 - `final Stream<List<int>> bytes`
 - `final int? contentLength`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L15)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L16)
 
 ### `PocketDuplexStream`
 
@@ -4398,6 +4467,22 @@ Members:
 - `Stream<Object?> get incoming`
 
 Source: [packages/pocket_services/lib/src/pocket_host.dart](../packages/pocket_services/lib/src/pocket_host.dart#L108)
+
+### `PocketLazyPlugin`
+
+**Class** `final class PocketLazyPlugin extends PocketPlugin`
+
+Members:
+- `PocketLazyPlugin({ required this.descriptor, required PocketPlugin Function() create, this.backgroundSafe = false, })`
+- `final PocketPluginDescriptor descriptor`
+- `final bool backgroundSafe`
+- `bool get isInstantiated`
+- `void register(PocketPluginContext context)`
+- `Future<void> activate(PocketPluginContext context)`
+- `Future<void> deactivate(PocketPluginContext context)`
+- `Future<void> dispose()`
+
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L24)
 
 ### `PocketManifestAsset`
 
@@ -4679,13 +4764,13 @@ Members:
 - `final Set<String> requested`
 - `final String reason`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L21)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L262)
 
 ### `PocketPermissionRequestHandler`
 
 **Typedef** `typedef PocketPermissionRequestHandler = FutureOr<Set<String>> Function(PocketPermissionRequest request);`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L35)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L276)
 
 ### `PocketPlugin`
 
@@ -4714,7 +4799,7 @@ Members:
 - `final int maxStreamEventBytes`
 - `void validate()`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L652)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L893)
 
 ### `PocketPluginCapability`
 
@@ -4730,7 +4815,7 @@ Members:
 - `final PocketPluginCapabilitySchema? schema`
 - `Map<String, dynamic> toJson()`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L481)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L722)
 
 ### `PocketPluginCapabilitySchema`
 
@@ -4745,7 +4830,7 @@ Members:
 - `Map<String, dynamic> toJson()`
 - `factory PocketPluginCapabilitySchema.fromJson(Object? value)`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L438)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L679)
 
 ### `PocketPluginContext`
 
@@ -4768,7 +4853,7 @@ Members:
 - `void revoke()`
 - `void dispose()`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L678)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L919)
 
 ### `PocketPluginDescriptor`
 
@@ -4790,7 +4875,7 @@ Members:
 - `Map<String, dynamic> toJson()`
 - `void validateSchemas()`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L548)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L789)
 
 ### `PocketPluginLimits`
 
@@ -4807,7 +4892,7 @@ Members:
 - `bool get isEmpty`
 - `Map<String, dynamic> toJson()`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L512)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L753)
 
 ### `PocketPluginManager`
 
@@ -4834,19 +4919,19 @@ Members:
 - `Set<String> grantedPermissionsFor(String pluginId)`
 - `Future<Object?> invoke( String capabilityName, [ Map<String, dynamic> params = const <String, dynamic>{}, ])`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L983)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L1224)
 
 ### `PocketPluginMethod`
 
 **Typedef** `typedef PocketPluginMethod = PocketPluginCapability;`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L510)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L751)
 
 ### `PocketPluginRegistry`
 
 **Typedef** `typedef PocketPluginRegistry = PocketPluginManager;`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L1424)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L1665)
 
 ### `PocketPluginSchema`
 
@@ -4879,7 +4964,7 @@ Members:
 - `factory PocketPluginSchema.fromJson(Object? value)`
 - `void validate()`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L60)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L301)
 
 ### `PocketPluginSchemaType`
 
@@ -4897,7 +4982,7 @@ Values:
 - `reference`
 - `unknown`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L41)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L282)
 
 ### `PocketPluginSession`
 
@@ -4911,7 +4996,7 @@ Members:
 - `Future<void> unmountGuest()`
 - `Future<void> dispose()`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L1426)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L1667)
 
 ### `PocketPreparedPackage`
 
@@ -4935,7 +5020,7 @@ Members:
 - `Future<PocketPackageArtifact> readArtifact()`
 - `Map<String, dynamic> toSummaryJson()`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L191)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L251)
 
 ### `PocketReleaseKey`
 
@@ -5153,7 +5238,7 @@ Members:
 - `Future<void> rollback({String? versionId})`
 - `Future<void> resetToEmbedded()`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L275)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L335)
 
 ### `PocketUpdateInspection`
 
@@ -5171,7 +5256,7 @@ Members:
 - `final String? baselineVersionId`
 - `bool get updateAvailable`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L244)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L304)
 
 ### `PocketUpdateMode`
 
@@ -5182,7 +5267,7 @@ Values:
 - `zip`
 - `granular`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L164)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L224)
 
 ### `PocketUpdateProgress`
 
@@ -5199,13 +5284,13 @@ Members:
 - `final PocketPackagePreparationProgress? preparationProgress`
 - `double? get fraction`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L135)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L195)
 
 ### `PocketUpdateProgressCallback`
 
 **Typedef** `typedef PocketUpdateProgressCallback = void Function(PocketUpdateProgress progress);`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L161)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L221)
 
 ### `PocketUpdateScope`
 
@@ -5216,7 +5301,7 @@ Values:
 - `code`
 - `resource`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L166)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L226)
 
 ### `PocketUpdateStage`
 
@@ -5231,7 +5316,7 @@ Values:
 - `error`
 - `retry`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L125)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L185)
 
 ### `PocketUpdateTarget`
 
@@ -5244,7 +5329,7 @@ Members:
 - `final PocketUpdateScope scope`
 - `final String? resource`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L168)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L228)
 
 ### `PocketUpdateTransport`
 
@@ -5254,7 +5339,7 @@ Members:
 - `Future<PocketDownloadResponse> open( Uri uri, { required PocketCancellationToken cancellation, })`
 - `void close()`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L22)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L23)
 
 ### `PocketVersionInfo`
 
@@ -5518,6 +5603,7 @@ Members:
 - `final String? storageDirectoryPath`
 - `final Duration requestTimeout`
 - `bool get backgroundSafe`
+- `static const PocketPluginDescriptor pluginDescriptor = PocketPluginDescriptor(id: pocketSyncPluginId, version: '0.1.0', description: 'Embedded HTTP/WebSocket CRDT sync server and multi-endpoint cross-subnet client', permissions: <String>{pocketSyncNetworkPermission}, limits: PocketPluginLimits(maxConcurrentRequests: 8, maxActiveStreams: 4, maxResponseBytes: _hardMaxBridgeBytes, maxStreamEventBytes: _hardMaxBridgeBytes), capabilities: <String, PocketPluginCapability>{pocketSyncServerStartCapability : PocketPluginCapability(name: pocketSyncServerStartCapability, kind: PocketCapabilityKind.request, description: 'Start or reconfigure embedded sync server'), pocketSyncServerStopCapability : PocketPluginCapability(name: pocketSyncServerStopCapability, kind: PocketCapabilityKind.request, description: 'Stop embedded sync server'), pocketSyncServerStatusCapability : PocketPluginCapability(name: pocketSyncServerStatusCapability, kind: PocketCapabilityKind.request, description: 'Query embedded sync server status and LAN/Overlay URLs'), pocketSyncServerIngestCapability : PocketPluginCapability(name: pocketSyncServerIngestCapability, kind: PocketCapabilityKind.request, description: 'Ingest locally authored CRDT operations into embedded server'), pocketSyncServerEventsCapability : PocketPluginCapability(name: pocketSyncServerEventsCapability, kind: PocketCapabilityKind.stream, description: 'Stream remotely ingested CRDT operations to guest runtime'), pocketSyncClientRequestCapability : PocketPluginCapability(name: pocketSyncClientRequestCapability, kind: PocketCapabilityKind.request, description: 'Execute bounded sync protocol request to LAN, Tailscale/WireGuard Overlay, or HTTPS WAN endpoint')})`
 - `PocketPluginDescriptor get descriptor`
 - `void register(PocketPluginContext context)`
 - `Future<void> deactivate(PocketPluginContext context)`
@@ -5673,6 +5759,7 @@ Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages
 **Class** `final class PocketWeatherPlugin extends HardwareCapabilityPlugin`
 
 Members:
+- `static PocketPluginDescriptor get pluginDescriptor`
 - `PocketWeatherPlugin({ HardwarePlatform? platform, HardwareWeatherFetcher? weatherFetcher, Duration requestTimeout = const Duration(seconds: 16), })`
 
 Source: [packages/pocket_weather/lib/pocket_weather.dart](../packages/pocket_weather/lib/pocket_weather.dart#L15)
@@ -6327,7 +6414,7 @@ Source: [packages/pocket_flutter/lib/src/pocket_duplex.dart](../packages/pocket_
 
 **Typedef** `typedef PocketDuplexEventCallback = void Function(PocketDuplexEvent event);`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L41)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L42)
 
 ### `PocketDuplexMessage`
 
@@ -6479,6 +6566,22 @@ Source: [packages/pocket_services/lib/src/pocket_host.dart](../packages/pocket_s
 **Typedef** `typedef PocketHostSurfaceBuilder = Widget? Function(PocketCompositorSlot slot);`
 
 Source: [packages/pocket_flutter/lib/src/pocket_compositor.dart](../packages/pocket_flutter/lib/src/pocket_compositor.dart#L62)
+
+### `PocketLazyPlugin`
+
+**Class** `final class PocketLazyPlugin extends PocketPlugin`
+
+Members:
+- `PocketLazyPlugin({ required this.descriptor, required PocketPlugin Function() create, this.backgroundSafe = false, })`
+- `final PocketPluginDescriptor descriptor`
+- `final bool backgroundSafe`
+- `bool get isInstantiated`
+- `void register(PocketPluginContext context)`
+- `Future<void> activate(PocketPluginContext context)`
+- `Future<void> deactivate(PocketPluginContext context)`
+- `Future<void> dispose()`
+
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L24)
 
 ### `PocketLoadingBuilder`
 
@@ -6674,13 +6777,13 @@ Members:
 - `final Set<String> requested`
 - `final String reason`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L21)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L262)
 
 ### `PocketPermissionRequestHandler`
 
 **Typedef** `typedef PocketPermissionRequestHandler = FutureOr<Set<String>> Function(PocketPermissionRequest request);`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L35)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L276)
 
 ### `PocketPlugin`
 
@@ -6710,7 +6813,7 @@ Members:
 - `final PocketPluginCapabilitySchema? schema`
 - `Map<String, dynamic> toJson()`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L481)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L722)
 
 ### `PocketPluginContext`
 
@@ -6733,7 +6836,7 @@ Members:
 - `void revoke()`
 - `void dispose()`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L678)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L919)
 
 ### `PocketPluginDescriptor`
 
@@ -6755,7 +6858,7 @@ Members:
 - `Map<String, dynamic> toJson()`
 - `void validateSchemas()`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L548)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L789)
 
 ### `PocketPluginFactory`
 
@@ -6778,13 +6881,13 @@ Members:
 - `bool get isEmpty`
 - `Map<String, dynamic> toJson()`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L512)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L753)
 
 ### `PocketPluginMethod`
 
 **Typedef** `typedef PocketPluginMethod = PocketPluginCapability;`
 
-Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L510)
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L751)
 
 ### `PocketRecording`
 
@@ -6915,7 +7018,7 @@ Source: [packages/pocket_flutter/lib/src/pocket_recording.dart](../packages/pock
 Members:
 - `Future<PocketReplayResult> replay({ required PocketReplayAssets assets, PocketReplayRuntimeFactory? runtimeFactory, })`
 
-Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L4144)
+Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L4145)
 
 ### `PocketReplayAssets`
 
@@ -6976,7 +7079,7 @@ Members:
 - `final PocketReplayRuntimeFactory? runtimeFactory`
 - `Future<PocketReplayResult> run( PocketRecording recording, { required PocketReplayAssets assets, })`
 
-Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L3223)
+Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L3224)
 
 ### `PocketSession`
 
@@ -7091,7 +7194,7 @@ Members:
 - `final TransitionRoute<dynamic>? nativeExitRoute`
 - `State<PocketSystemHost> createState()`
 
-Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L917)
+Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L919)
 
 ### `PocketSystemHostAppBuilder`
 
@@ -7178,7 +7281,7 @@ Members:
 - `Future<bool> requestBack()`
 - `bool requestLaunchApp(PocketSystemLaunchRequest request)`
 
-Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L1108)
+Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L1110)
 
 ### `PocketSystemHostSystemUIApprover`
 
@@ -7210,7 +7313,7 @@ Members:
 - `final bool isPresented`
 - `final bool compositorFocused`
 
-Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L1171)
+Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L1173)
 
 ### `PocketSystemLaunchRequest`
 
@@ -7293,7 +7396,7 @@ Members:
 - `final PocketPackagePreparationProgress? preparationProgress`
 - `double? get fraction`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L135)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L195)
 
 ### `PocketUpdateStage`
 
@@ -7308,7 +7411,7 @@ Values:
 - `error`
 - `retry`
 
-Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L125)
+Source: [packages/pocket_services/lib/src/pocket_update.dart](../packages/pocket_services/lib/src/pocket_update.dart#L185)
 
 ### `PocketViewController`
 
@@ -7342,7 +7445,7 @@ Members:
 - `void notifyWork()`
 - `PocketViewController()` _(implicit)_
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L88)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L89)
 
 ### `PocketWorkerArtifact`
 
@@ -7634,7 +7737,7 @@ Source: [lib/src/pocket_distribution.dart](../lib/src/pocket_distribution.dart#L
 
 **function** `Future<PocketReplayResult> replayPocketRecording( PocketRecording recording, { required PocketReplayAssets assets, PocketReplayRuntimeFactory? runtimeFactory, })`
 
-Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L4156)
+Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket_flutter/lib/src/pocket_runtime.dart#L4157)
 
 ### `resolveNormalizationLimits`
 
@@ -7658,9 +7761,9 @@ Source: [packages/pocket_diagnostics/lib/src/normalize.dart](../packages/pocket_
 
 Every API_SURFACE source file and Dart package manifest is marked, including files that only re-export declarations. Markers are refreshed from the current source bytes.
 
-<!-- api-source: lib/pocket_sdk.dart c203f0b7ccd36ff4ac9988c223ab211b3c1f643d296f30e892ba7ce7ab3b011b -->
+<!-- api-source: lib/pocket_sdk.dart aa859c42ad4e3c6d3e1adbe9dd108a4f1e00f0d76a79b4b742c08511cd98d189 -->
 <!-- api-source: lib/src/package_info_plugin.dart dd2b8837f117d798568fb575f8c3d640a2dac5b6934644d546cedc4d6eb43b66 -->
-<!-- api-source: lib/src/performance_history.dart bdedd031d7d357cd0f5fe886f474eb12beda6485911b5fb5d86b9be17b1e849e -->
+<!-- api-source: lib/src/performance_history.dart 8e329f064d64bc89a3571f1ff3887c776031badd05a375d9ecefdc483487b150 -->
 <!-- api-source: lib/src/pocket_app.dart def228fcbc3d241079831445cf1e2fe8a550b362c8d174ab0d3ca56dd2a3b98b -->
 <!-- api-source: lib/src/pocket_bundled_application_catalog.dart 6435fe06ef162cd0af60c68f574dd44926e27576f45638637fa2c5d0d41a7ec4 -->
 <!-- api-source: lib/src/pocket_config.dart ec24fb4afed296175e8f7b36620d3be8c83f12a495c801f9de7c3a66eee44a69 -->
@@ -7668,19 +7771,19 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: lib/src/pocket_distribution.dart 8580d9a4e3392a10506c9ca202a9d9f602a358ef1952f06c165320c83a6404d0 -->
 <!-- api-source: lib/src/pocket_host_config.dart eabb17c27a7913f4c1867ca9d7ad723050d0de18e7567ccdebba6a61695cd22b -->
 <!-- api-source: lib/src/pocket_recordings.dart f1752b58909af49504a9f4aa160a0f3f41dd0a9b8f10dc19dfa966ffd1e6e522 -->
-<!-- api-source: lib/src/pocket_session.dart 4ad8b0e5bf1e6180bb98550d973bcf3aed48e49050b50dc7585c55639e1c00a9 -->
-<!-- api-source: lib/src/pocket_system_host.dart e9096936292c2021961b07e82a2f3561ac719e0a591b2e07deb21737b228ddab -->
+<!-- api-source: lib/src/pocket_session.dart e680a3cbeb44c6301f863e3a633bd1946efde231f7e3350ea46676da23d1f5e3 -->
+<!-- api-source: lib/src/pocket_system_host.dart 3570cc630592748a7caeb2a6dcbdf9d1f267973c41e807b58484c3faca4d8ae2 -->
 <!-- api-source: lib/src/pocket_worker.dart 7b8fe3cbf435f21882a8ef7939e421297b938bc8c07131495d118ff621e93f0e -->
 <!-- api-source: packages/pocket_archive/lib/pocket_archive.dart 3ae77c255d6b4d4fb82a990e129552a9c23260efe9cefcc7ced6463b977b9299 -->
 <!-- api-source: packages/pocket_archive/pubspec.yaml 1e215ad281ef0637572e9a82d2c82b8f7da23872aeb81f7d4a7b85bb57c38fd7 -->
 <!-- api-source: packages/pocket_audio/lib/pocket_audio.dart 276a3162863c658bd8ab6f329fcaa77cea14b97e010434c9c2443d2203daf2d3 -->
 <!-- api-source: packages/pocket_audio/lib/src/pocket_audio_plugin.dart ceefa56dbc5b4df7d0d42d62ac198565bd874a75bb10f3753e9c779c86387edc -->
 <!-- api-source: packages/pocket_audio/pubspec.yaml 304e2669cc59edc35ed35ff7e902b379857508b6467f27de014bdf1a7cc62870 -->
-<!-- api-source: packages/pocket_biometrics/lib/pocket_biometrics.dart ffb16d1449e27240917252fee9dc931934a3d97f34c00aba9d7de7bb323c7ddc -->
+<!-- api-source: packages/pocket_biometrics/lib/pocket_biometrics.dart 2728e5e930c63579fd583a0b3df59e49dec0fe26bf5b5df4702ab19e47ba3228 -->
 <!-- api-source: packages/pocket_biometrics/pubspec.yaml 15ccc0799e317983c441ccb8b6a114293a69a29d32b74de0f0bdb8048ef01a63 -->
-<!-- api-source: packages/pocket_bluetooth/lib/pocket_bluetooth.dart 00eb6bbf6c2b19c6096ae8c2af277dbbdc7a36a6ef5260aa623656b02744e60e -->
+<!-- api-source: packages/pocket_bluetooth/lib/pocket_bluetooth.dart 58c2deb00d795c68e1e65be2df93084fa03ee2b0b58ee6d36ba99670ca6ea4fb -->
 <!-- api-source: packages/pocket_bluetooth/pubspec.yaml 80bc3b3c9501589a3a03aa8cb1d4595a1532081b88f047b98d5bafe241ea23ab -->
-<!-- api-source: packages/pocket_camera/lib/pocket_camera.dart c43fc6971f3233c71271ce0da2aa587329d880cce8c246bbe0ecb7234fda9bd9 -->
+<!-- api-source: packages/pocket_camera/lib/pocket_camera.dart 83ed4c5e1a9ab2802f34ddac9f364f48686513ec8a5b78582920d22c1efb0b02 -->
 <!-- api-source: packages/pocket_camera/pubspec.yaml cde763acdc9cc8a15a34e1d97edee1a43afae0de1c44557bb30a4f424f03cb65 -->
 <!-- api-source: packages/pocket_clipboard/lib/pocket_clipboard.dart 2787bfe2c65f08be072ff932e9e3480c363604f2b8b4eed0e8758abd23733598 -->
 <!-- api-source: packages/pocket_clipboard/lib/src/clipboard_plugin.dart b66619ad85dc694bbc8517768599b14b5a2727c2189270f0aaf20e0d3899e040 -->
@@ -7692,8 +7795,9 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: packages/pocket_diagnostics/lib/src/normalize.dart 33d58e721a5c3168ab889775413af4a07371579d55c6c21a4c7b1dbb2a38e9b0 -->
 <!-- api-source: packages/pocket_diagnostics/lib/src/types.dart eea289725c15f2b35bb0c3816dbd68ffd3c1986ad94664841f45aef8cdc1343c -->
 <!-- api-source: packages/pocket_diagnostics/pubspec.yaml 034064b045f8861b1e9cc6148b9325575acd706f088965d6e52ee27c5d1fff75 -->
-<!-- api-source: packages/pocket_dio/lib/pocket_dio.dart 418083fb4cc231780829c98bd86e12e61fd433f4bf17bdc5d8ef930d4baf2947 -->
-<!-- api-source: packages/pocket_dio/lib/src/dio_plugin.dart d640a090c4be348475a5a3f90b2411c07845ebd884b3e42d9c8fd5ec59f3b715 -->
+<!-- api-source: packages/pocket_dio/lib/pocket_dio.dart b49641fea33eb8ff46ef988e6febb042a7b18432ba74805f78cbf72eee767ae3 -->
+<!-- api-source: packages/pocket_dio/lib/src/dio_plugin.dart 5f3b5c26785df4fc2c9dc557d4e2d480946d689cf1039dee0cf2ab4de24aba7e -->
+<!-- api-source: packages/pocket_dio/lib/src/dio_worker_http_bridge.dart 2dacdda3df01c57c74525396e22491fd7a3041e7e13a266bfa19ebc1def854e1 -->
 <!-- api-source: packages/pocket_dio/pubspec.yaml 643047eec5933780afea853763e7476cafd84ea720c4ccf53748eb89c6f1d1ac -->
 <!-- api-source: packages/pocket_file_picker/lib/pocket_file_picker.dart 7711c8a7d6d79244607e165dee96c07e2780683d0fe0116f33982541a9863754 -->
 <!-- api-source: packages/pocket_file_picker/lib/src/file_picker_plugin.dart 0c6698d1aead0e33448dd2fa7f2f39fb10fa780fdc2d9e945c20491c7e0e52fa -->
@@ -7715,26 +7819,26 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_performance.dart af2c67b69ff7af25ccf8743b3250f79a94cf9c3ab3dec1c6f2f41f7ec48d33ce -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_raw_text_input.dart 2a9707448d23d8b298b169c6c358f535688d591bb4cdb43d136d099f55e3f56a -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_recording.dart a47e61017790e68a116b75ffc3807a77cd4b49389c33640e51f21c3aac23d920 -->
-<!-- api-source: packages/pocket_flutter/lib/src/pocket_runtime.dart 88530d945856f0d57063b2c19730b1c38c9880511b61760d34e72a629c2dc1cd -->
+<!-- api-source: packages/pocket_flutter/lib/src/pocket_runtime.dart 98eaf76141089185c85d1b4260ce11abec3192e580b28314372f5837d5076e08 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_startup_progress.dart 9bad727136e9aa06cb4b093b874df4a156df9476821df36867a6a330ec68e906 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_text_cache.dart dd2d6c89527fe86a19153873a5eed89e653c8d689a883b46e6d0ba453905d6d6 -->
-<!-- api-source: packages/pocket_flutter/lib/src/pocket_view.dart cbb945672a2a38bf68f71f1e19e36f0966b3ad4e460c908eaee96a7999140d29 -->
+<!-- api-source: packages/pocket_flutter/lib/src/pocket_view.dart 2f9e9e228af5af40301a12122b4f7bd849c4e7d2caa7d97f14ca0799846bfa73 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_worker_runtime.dart f2d67e2cab0c35fd3b6f52bb2a3227beac7c9077a7933378206e20f120780ae7 -->
-<!-- api-source: packages/pocket_flutter/pubspec.yaml 62330b87ac15d15a385f5e3906bb441664c8fc4795943fca4a53a13caa4c228d -->
+<!-- api-source: packages/pocket_flutter/pubspec.yaml 1a7401a5855c2e85a553120eab790e5dc32c140441b2fcb566820b16bb9c46d6 -->
 <!-- api-source: packages/pocket_hardware/lib/pocket_hardware.dart 67b30d7afa3ec5397822d64f62229370e2229b68ae9e632d25f2f975e776e8f4 -->
 <!-- api-source: packages/pocket_hardware/lib/src/hardware_plugin.dart 1dde06ce9e90f9941610a436e44a5531592009d8bd5b5669e940471b94aeb4ce -->
 <!-- api-source: packages/pocket_hardware/pubspec.yaml 0b72631a49736145104518b3a96921a55ac4a47cefede5b9ebec5921fe46d3d2 -->
-<!-- api-source: packages/pocket_hardware_core/lib/pocket_hardware_core.dart 1e0bc31875e671037faf32b3cf1a0bfac4ae2c3161e0ac68279e28e7e924aac9 -->
-<!-- api-source: packages/pocket_hardware_core/lib/src/hardware_plugin.dart a3ca3210f2403741352652486628455d4b4c8935a1d627de692d91d505c2eca8 -->
+<!-- api-source: packages/pocket_hardware_core/lib/pocket_hardware_core.dart 59c609f51d3965f996d55579ce17cfba5a31e393234a06b70b5e142701ef9366 -->
+<!-- api-source: packages/pocket_hardware_core/lib/src/hardware_plugin.dart d4e1b16796d2ce068405a7e4fb898a84c62b8800099636bde26fe2c6bafb6ce5 -->
 <!-- api-source: packages/pocket_hardware_core/pubspec.yaml 18dbacfe67748cb010332c49d67e7adf175b1cc37d63936ce9c9a09380bd9424 -->
 <!-- api-source: packages/pocket_live2d/lib/pocket_live2d.dart 7d4c47b545d993a5d8caebd1f788f8d7b59f7c654278fe12a8b771b2cd70d627 -->
 <!-- api-source: packages/pocket_live2d/lib/src/pocket_live2d_plugin.dart 48909d936d594d850978fd0372fceb47c2e2fbbe2cccf0dc1a1d5d6d0fabd310 -->
 <!-- api-source: packages/pocket_live2d/lib/src/pocket_live2d_types.dart d1fdf039417e4c3d0fb799c9e013a14badec7019996f339dafd5332e9c14b957 -->
 <!-- api-source: packages/pocket_live2d/pubspec.yaml f6cea28c56ce8df3d14bc42cc322e580d52af516203df70b5d73e08f43050130 -->
-<!-- api-source: packages/pocket_location/lib/pocket_location.dart fce1d8fcecb926614dc8141ddd15a67134671a423551ce6f282c9ef47a72d229 -->
+<!-- api-source: packages/pocket_location/lib/pocket_location.dart e2c84e4fd4a88ff30436dea2ceec5b8fb3dc025831a187b77e32af01dd8689b4 -->
 <!-- api-source: packages/pocket_location/pubspec.yaml a47a5197e1e36a3cf5e21d6cbaa9b6175dfcdba58bc6e22d3ab9e78b54b96cd4 -->
 <!-- api-source: packages/pocket_permissions/lib/pocket_permissions.dart aa355337467a81b1a9276fba3b97ea493d1984294f6e8b5d604625739ed60bf0 -->
-<!-- api-source: packages/pocket_permissions/lib/src/permissions_plugin.dart 9f0c5ece5d775524b69694ed19d0ab3a706990ba920aefbc041971102afebf23 -->
+<!-- api-source: packages/pocket_permissions/lib/src/permissions_plugin.dart 5128667d702476841f7980c317ec17d16cdef0a07383e3f689201027aa9e2d9e -->
 <!-- api-source: packages/pocket_permissions/pubspec.yaml cc78fad3a484222faa76cf90fbfc47300d9f1e6dea0582d1224ef83aa7932629 -->
 <!-- api-source: packages/pocket_platform/lib/pocket_platform.dart 411c6628bd3b1e1856e99e3ef1f9134ac866f3025675656f7f81efc7dfcfebf9 -->
 <!-- api-source: packages/pocket_platform/lib/src/platform_plugin.dart fe9397498342991ab5ca37c36318b2153e9230dd0e2fad302c1da702c7f21846 -->
@@ -7746,11 +7850,11 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: packages/pocket_services/lib/src/pocket_guest_manifest.dart 89a17d4d424d718514770262f4f2aefa82693ac0c9c108677f823e520371aec2 -->
 <!-- api-source: packages/pocket_services/lib/src/pocket_host.dart 4cfd7fe04bd456a59ecf4a0abdfc12159f492f1913e884411881df915f1caf1e -->
 <!-- api-source: packages/pocket_services/lib/src/pocket_package.dart be983909fadf919ffc36ad0ea10ecc21e9384731f27580858d8b5a0ec0e5ddbb -->
-<!-- api-source: packages/pocket_services/lib/src/pocket_plugin.dart ffcae2a2d3e0da8c1e0a7fccdfb4c27796d9fac541f23c203b69bf520c9c0e7c -->
+<!-- api-source: packages/pocket_services/lib/src/pocket_plugin.dart ffc07ee39c14e006c05018774c1c3526937ab753d6c2c79a98d9bd7f3a6c07de -->
 <!-- api-source: packages/pocket_services/lib/src/pocket_stream.dart 82b370c0b92327a0418239140cf83d8964d367dae015eae82b62d9968b0300eb -->
 <!-- api-source: packages/pocket_services/lib/src/pocket_trust.dart f374fd9b466ad4176ff4309382224a51739ab77140e0327521d6b347fb67203e -->
-<!-- api-source: packages/pocket_services/lib/src/pocket_update.dart 7beceef94a9ba7f08e225fb100afce3e5729340a7cb50a95daf7bb9e6b10bf6b -->
-<!-- api-source: packages/pocket_services/pubspec.yaml 16dfd9333dd0a59cf6fa5861941d802173cfa3cd219f8a078c88240b40523ebc -->
+<!-- api-source: packages/pocket_services/lib/src/pocket_update.dart 37278e9b4ec6b90ff7ef283e2d42d3069f5504e43b0eb5383b057fa71fcdde31 -->
+<!-- api-source: packages/pocket_services/pubspec.yaml 9323f71c8202a3f89df45e45b8f06c39bc6d2ad17ee73ba4e60b94f36a071e4b -->
 <!-- api-source: packages/pocket_studio/lib/pocket_studio.dart dfda90c68559614b746ac7fef4faba3aaef8d56037b05090346b2f5d7739d047 -->
 <!-- api-source: packages/pocket_studio/lib/src/studio_config.dart c9fe710a1af51a6bcdbf47b2d0aab32e07648a84ba440918e50bc04cb7633363 -->
 <!-- api-source: packages/pocket_studio/lib/src/studio_image.dart b91c50bf532cc7c1073992ce8e359eefe4ff4381e105ca40487788d7410adce9 -->
@@ -7761,8 +7865,8 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: packages/pocket_studio/lib/src/studio_service.dart fd6ebeceaa3d76eed8f34892207c607eeada80cb55b8b918dbf33b10b749e046 -->
 <!-- api-source: packages/pocket_studio/pubspec.yaml 4bb996eb50a056da75aead66e470aaf4c2164c0fc2241577d857f1ecd6cbce46 -->
 <!-- api-source: packages/pocket_sync/lib/pocket_sync.dart 86ca2abbcdd20ea681a3256863a0f7a4cf967277ac0b6b335533dde1976ee255 -->
-<!-- api-source: packages/pocket_sync/lib/src/sync_plugin.dart c99da4c347db1643a89fe0f911a8e669db4fc28c3507f415aa81f7162d65d29b -->
+<!-- api-source: packages/pocket_sync/lib/src/sync_plugin.dart 3879871900d586f0824d38a5327f3d4566d96c7f05504a9f580c170998049a75 -->
 <!-- api-source: packages/pocket_sync/pubspec.yaml f36b8909e5c3673c6a048b48a7b00129b17347f2951133652cfcf832f9c07f30 -->
-<!-- api-source: packages/pocket_weather/lib/pocket_weather.dart 02dd3bbde770334047f17afb4446e0d638e22206ac9d82574a87771da712bd2e -->
+<!-- api-source: packages/pocket_weather/lib/pocket_weather.dart ee1549c8dab865b000dc5d0bb9dd61a77b41e61f41d77919a0883149e6b36aa7 -->
 <!-- api-source: packages/pocket_weather/pubspec.yaml 4e9590bea2097782d5f6268cb19b7db4bfd948485707f9063b0bdcbb63cfdd34 -->
-<!-- api-source: pubspec.yaml f7af10e918f09142222ee791f0fa3302dc823232e4b5c9546b8baa178e5aba03 -->
+<!-- api-source: pubspec.yaml d24d3e2426a3533a618fdfa7d7c913815ca83443a82d6390347e3e634f0b571f -->

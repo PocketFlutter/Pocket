@@ -13,6 +13,12 @@ export 'package:pocket_hardware_core/pocket_hardware_core.dart'
         HardwareWeatherFetcher;
 
 final class PocketWeatherPlugin extends HardwareCapabilityPlugin {
+  static PocketPluginDescriptor get pluginDescriptor =>
+      HardwareCapabilityPlugin.descriptorFor(
+        features: const {HardwareFeature.weather},
+        pluginId: 'dart.weather',
+      );
+
   PocketWeatherPlugin({
     HardwarePlatform? platform,
     HardwareWeatherFetcher? weatherFetcher,

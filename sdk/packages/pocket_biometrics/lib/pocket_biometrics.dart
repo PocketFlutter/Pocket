@@ -13,6 +13,12 @@ export 'package:pocket_hardware_core/pocket_hardware_core.dart'
         HardwareWeatherFetcher;
 
 final class PocketBiometricsPlugin extends HardwareCapabilityPlugin {
+  static PocketPluginDescriptor get pluginDescriptor =>
+      HardwareCapabilityPlugin.descriptorFor(
+        features: const {HardwareFeature.biometrics},
+        pluginId: 'flutter.biometrics',
+      );
+
   PocketBiometricsPlugin({
     HardwarePlatform? platform,
     Duration requestTimeout = const Duration(seconds: 16),

@@ -13,6 +13,12 @@ export 'package:pocket_hardware_core/pocket_hardware_core.dart'
         HardwareWeatherFetcher;
 
 final class PocketCameraPlugin extends HardwareCapabilityPlugin {
+  static PocketPluginDescriptor get pluginDescriptor =>
+      HardwareCapabilityPlugin.descriptorFor(
+        features: const {HardwareFeature.camera},
+        pluginId: 'flutter.camera',
+      );
+
   PocketCameraPlugin({
     HardwarePlatform? platform,
     HardwareTextureCallback? onTextureRegistered,

@@ -18,6 +18,247 @@ abstract class PocketPlugin {
   FutureOr<void> dispose() {}
 }
 
+/// On-demand wrapper that defers constructing and activating an underlying
+/// [PocketPlugin] (and its `MethodChannel`s, `EventChannel`s, or `Isolate`s)
+/// until a guest actually invokes one of its capabilities.
+final class PocketLazyPlugin extends PocketPlugin {
+  PocketLazyPlugin({
+    required this.descriptor,
+    required PocketPlugin Function() create,
+    this.backgroundSafe = false,
+  }) : _create = create;
+
+  @override
+  final PocketPluginDescriptor descriptor;
+
+  @override
+  final bool backgroundSafe;
+
+  final PocketPlugin Function() _create;
+  PocketPluginContext? _outerContext;
+  PocketHostRegistry? _innerRegistry;
+  PocketPluginContext? _innerContext;
+  PocketPlugin? _delegate;
+  Future<PocketPlugin>? _initializing;
+  bool _active = false;
+  bool _disposed = false;
+
+  /// Whether the underlying plugin instance has been constructed.
+  bool get isInstantiated => _delegate != null;
+
+  @override
+  void register(PocketPluginContext context) {
+    _outerContext = context;
+    for (final entry in descriptor.capabilities.entries) {
+      final name = entry.key;
+      if (entry.value.kind == PocketCapabilityKind.request) {
+        context.registerRequest(
+          name,
+          (params) => _dispatchRequest(name, params),
+        );
+      } else {
+        context.registerStream(
+          name,
+          (remote) => _dispatchStream(name, remote),
+        );
+      }
+    }
+  }
+
+  @override
+  Future<void> activate(PocketPluginContext context) async {
+    if (_disposed) throw StateError('${descriptor.id} is disposed');
+    _outerContext = context;
+    _active = true;
+    final delegate = _delegate;
+    final innerContext = _innerContext;
+    if (delegate != null && innerContext != null) {
+      await delegate.activate(innerContext);
+      innerContext.restore();
+    }
+  }
+
+  @override
+  Future<void> deactivate(PocketPluginContext context) async {
+    _active = false;
+    final pending = _initializing;
+    if (pending != null) {
+      try {
+        await pending;
+      } catch (_) {}
+    }
+    final delegate = _delegate;
+    final innerContext = _innerContext;
+    if (delegate != null && innerContext != null) {
+      innerContext.revoke();
+      await delegate.deactivate(innerContext);
+    }
+  }
+
+  @override
+  Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
+    _active = false;
+    final pending = _initializing;
+    if (pending != null) {
+      try {
+        await pending;
+      } catch (_) {}
+    }
+    final delegate = _delegate;
+    final innerContext = _innerContext;
+    _delegate = null;
+    _innerContext = null;
+    _innerRegistry = null;
+    _outerContext = null;
+    if (innerContext != null) {
+      innerContext.dispose();
+    }
+    if (delegate != null) {
+      await delegate.dispose();
+    }
+  }
+
+  Future<PocketPlugin> _ensureDelegate() {
+    if (_disposed) {
+      return Future<PocketPlugin>.error(
+        PocketCapabilityException(
+          'plugin_disposed',
+          '${descriptor.id} is disposed',
+        ),
+      );
+    }
+    final existing = _delegate;
+    if (existing != null) return Future<PocketPlugin>.value(existing);
+    final inflight = _initializing;
+    if (inflight != null) return inflight;
+    final future = _createAndActivateDelegate();
+    _initializing = future;
+    unawaited(
+      future.whenComplete(() {
+        if (identical(_initializing, future)) _initializing = null;
+      }),
+    );
+    return future;
+  }
+
+  Future<PocketPlugin> _createAndActivateDelegate() async {
+    final outer = _outerContext;
+    if (outer == null || _disposed) {
+      throw PocketCapabilityException(
+        'plugin_revoked',
+        '${descriptor.id} has no active host context',
+      );
+    }
+    final delegate = _create();
+    if (delegate.descriptor.id != descriptor.id) {
+      await delegate.dispose();
+      throw StateError(
+        'PocketLazyPlugin descriptor mismatch: '
+        'expected ${descriptor.id}, got ${delegate.descriptor.id}',
+      );
+    }
+    final innerRegistry = PocketHostRegistry();
+    final innerContext = PocketPluginContext(
+      plugin: delegate.descriptor,
+      appId: outer.appId,
+      sessionId: outer.sessionId,
+      registry: innerRegistry,
+      budget: outer.budget,
+      grantedPermissionsLookup: () => outer.grantedPermissions,
+    );
+    try {
+      delegate.register(innerContext);
+      if (_active && !_disposed) {
+        await delegate.activate(innerContext);
+        innerContext.restore();
+      }
+      if (_disposed) {
+        innerContext.dispose();
+        await delegate.dispose();
+        throw PocketCapabilityException(
+          'plugin_disposed',
+          '${descriptor.id} was disposed during initialization',
+        );
+      }
+      _innerRegistry = innerRegistry;
+      _innerContext = innerContext;
+      _delegate = delegate;
+      return delegate;
+    } catch (_) {
+      innerContext.dispose();
+      try {
+        await delegate.dispose();
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  Future<Object?> _dispatchRequest(
+    String capabilityName,
+    Map<String, dynamic> params,
+  ) async {
+    await _ensureDelegate();
+    final handler = _innerRegistry?.registrationFor(capabilityName)?.request;
+    if (handler == null) {
+      throw PocketCapabilityException(
+        'capability_unavailable',
+        'request capability $capabilityName is unavailable on ${descriptor.id}',
+      );
+    }
+    return handler(params);
+  }
+
+  Stream<Object?> _dispatchStream(
+    String capabilityName,
+    PocketHostStreamContext remote,
+  ) {
+    final controller = StreamController<Object?>(sync: true);
+    StreamSubscription<Object?>? sub;
+    var cancelled = false;
+    controller.onListen = () {
+      unawaited(() async {
+        try {
+          await _ensureDelegate();
+          if (cancelled || controller.isClosed) return;
+          final streamHandler =
+              _innerRegistry?.registrationFor(capabilityName)?.stream;
+          if (streamHandler == null) {
+            throw PocketCapabilityException(
+              'capability_unavailable',
+              'stream capability $capabilityName is unavailable on ${descriptor.id}',
+            );
+          }
+          sub = streamHandler(remote).listen(
+            (event) {
+              if (!controller.isClosed) controller.add(event);
+            },
+            onError: (Object err, StackTrace st) {
+              if (!controller.isClosed) controller.addError(err, st);
+            },
+            onDone: () {
+              if (!controller.isClosed) unawaited(controller.close());
+            },
+          );
+        } catch (err, st) {
+          if (!controller.isClosed) {
+            controller.addError(err, st);
+            await controller.close();
+          }
+        }
+      }());
+    };
+    controller.onCancel = () async {
+      cancelled = true;
+      final activeSub = sub;
+      sub = null;
+      if (activeSub != null) await activeSub.cancel();
+    };
+    return controller.stream;
+  }
+}
+
 final class PocketPermissionRequest {
   PocketPermissionRequest({
     required this.appId,

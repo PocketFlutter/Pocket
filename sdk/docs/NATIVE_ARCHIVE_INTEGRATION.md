@@ -1,6 +1,6 @@
-# Default native archive extraction
+# Optional native archive extraction
 
-Pocket SDK installs `pocket_archive` as a regular Flutter plugin dependency. `PocketSession` passes its native extractor to the existing package store for 7z bundles; consumers do not register another provider or import FunApp code. The resource IO boundary stays in Dart/native code, while application UI, state and routing remain JS-owned.
+`pocket_archive` is an **optional** native `.7z` extraction plugin (`dev.pocketjs/pocket_archive` `MethodChannel`, linked explicitly in the host `pubspec.yaml` when `.7z` extraction is needed) rather than a default dependency of `pocket_sdk`. Standard `.zip` and granular OTA bundles decode in a pure-Dart isolate inside `PocketPackageStore`. When `.7z` bundles are used and `pocket_archive` is linked in the host app, `PocketSession` passes the `dev.pocketjs/pocket_archive` native extractor to the package store; consumers do not register another provider or import FunApp code. The resource IO boundary stays in Dart/native code, while application UI, state and routing remain JS-owned.
 
 ## Source and consolidation
 

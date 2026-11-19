@@ -491,7 +491,7 @@ class HardwareCapabilityPlugin extends PocketPlugin {
     }
   }
 
-  PocketPluginDescriptor get _fullDescriptor => const PocketPluginDescriptor(
+  static const PocketPluginDescriptor _fullDescriptor = PocketPluginDescriptor(
     id: hardwarePluginId,
     version: '1.0.0',
     description:
@@ -709,24 +709,62 @@ class HardwareCapabilityPlugin extends PocketPlugin {
     },
   );
 
-  @override
-  PocketPluginDescriptor get descriptor {
-    final full = _fullDescriptor;
+  /// Builds the exact descriptor for [features] and [pluginId] without
+  /// constructing native `MethodChannel` or `EventChannel` bridges at boot.
+  static PocketPluginDescriptor descriptorFor({
+    Set<HardwareFeature> features = HardwareFeatures.all,
+    String pluginId = hardwarePluginId,
+    bool includeLegacyPermissions = false,
+  }) {
+    bool enabled(String capability) {
+      if (capability == HardwareCapabilities.permissions ||
+          capability == HardwareCapabilities.requestPermission) {
+        return includeLegacyPermissions;
+      }
+      return features.any(
+        (feature) => HardwareFeatures.capabilities(feature).contains(capability),
+      );
+    }
+
+    Set<String> selectedOpts(Set<String> permissions) =>
+        Set<String>.unmodifiable(
+          permissions.where(
+            (permission) =>
+                permission != HardwarePermissions.location ||
+                features.contains(HardwareFeature.location),
+          ),
+        );
+
+    PocketPluginCapability selectedCap(PocketPluginCapability capability) {
+      final optionalPermissions = selectedOpts(capability.optionalPermissions);
+      if (optionalPermissions.length == capability.optionalPermissions.length) {
+        return capability;
+      }
+      return PocketPluginCapability(
+        name: capability.name,
+        kind: capability.kind,
+        description: capability.description,
+        permissions: capability.permissions,
+        optionalPermissions: optionalPermissions,
+        schema: capability.schema,
+      );
+    }
+
+    const full = _fullDescriptor;
     final selectedPermissions = <String>{
-      if (includeLegacyPermissions)
-        ..._selectedOptionalPermissions(HardwarePermissions.all),
+      if (includeLegacyPermissions) ...selectedOpts(HardwarePermissions.all),
       for (final entry in full.capabilities.entries)
-        if (_enabled(entry.key) &&
+        if (enabled(entry.key) &&
             entry.key != HardwareCapabilities.requestPermission)
           ...?entry.value.permissions,
       for (final entry in full.capabilities.entries)
-        if (_enabled(entry.key) &&
+        if (enabled(entry.key) &&
             entry.key != HardwareCapabilities.requestPermission)
-          ..._selectedOptionalPermissions(entry.value.optionalPermissions),
+          ...selectedOpts(entry.value.optionalPermissions),
     };
     final capabilities = <String, PocketPluginCapability>{
       for (final entry in full.capabilities.entries)
-        if (_enabled(entry.key))
+        if (enabled(entry.key))
           entry.key: entry.key == HardwareCapabilities.requestPermission
               ? PocketPluginCapability(
                   name: entry.key,
@@ -734,7 +772,7 @@ class HardwareCapabilityPlugin extends PocketPlugin {
                   permissions: const {},
                   optionalPermissions: selectedPermissions,
                 )
-              : _selectedCapability(entry.value),
+              : selectedCap(entry.value),
     };
     return PocketPluginDescriptor(
       id: pluginId,
@@ -745,6 +783,13 @@ class HardwareCapabilityPlugin extends PocketPlugin {
       capabilities: capabilities,
     );
   }
+
+  @override
+  PocketPluginDescriptor get descriptor => descriptorFor(
+    features: features,
+    pluginId: pluginId,
+    includeLegacyPermissions: includeLegacyPermissions,
+  );
 
   Set<String> _selectedOptionalPermissions(Set<String> permissions) =>
       Set<String>.unmodifiable(
