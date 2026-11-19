@@ -533,6 +533,12 @@ export function LiquidGlassSwitch(props: {
     "scale",
     { preset: "tactile", reducedMotion: ctx.reducedMotion },
   );
+  // 0 = opaque resting pill, 1 = lifted clear magnifying droplet.
+  const thumbLift = createGlassSpring(() => (holding() ? 1 : 0), {
+    preset: "tactile",
+    reducedMotion: ctx.reducedMotion,
+    quantizeStep: 0.01,
+  });
 
   createGesture({
     axis: "x",
@@ -594,50 +600,55 @@ export function LiquidGlassSwitch(props: {
           hitPass: 1,
         }}
       >
-        <Show
-          when={holding()}
-          fallback={
-            <View
+        <View
               class="relative w-[36] h-[24]"
-              style={{
-                posType: 0,
-                width: 36,
-                height: 24,
-                bgColor: "#FFFFFF",
-                borderColor: ctx.palette().contourOuter,
-                borderWidth: 1,
-                radius: 999,
-                hitPass: 1,
-              }}
+              style={{ posType: 0, width: 36, height: 24, hitPass: 1 }}
             >
+              {/* One persistent droplet: the clear refractive lens fades in
+                  under the opaque resting pill instead of remounting. */}
+              <LiquidGlassSurface
+                material="clear"
+                priority="high"
+                shape="pill"
+                radius={999}
+                opacity={thumbLift}
+                magnification={() => 1 + 0.18 * thumbLift()}
+                class="absolute w-[36] h-[24]"
+                contentClass="w-[36] h-[24] p-0"
+                style={{ posType: 1, insetL: 0, insetT: 0, width: 36, height: 24, hitPass: 1 }}
+              />
               <View
-                class="absolute left-[7] top-[3] w-[16] h-[3]"
+                class="absolute w-[36] h-[24]"
                 style={{
                   posType: 1,
-                  insetL: 7,
-                  insetT: 3,
-                  width: 16,
-                  height: 3,
+                  insetL: 0,
+                  insetT: 0,
+                  width: 36,
+                  height: 24,
                   bgColor: "#FFFFFF",
-                  opacity: 0.95,
+                  borderColor: ctx.palette().contourOuter,
+                  borderWidth: 1,
                   radius: 999,
+                  opacity: quantizeOptical(1 - thumbLift(), 0.01, 1),
                   hitPass: 1,
                 }}
-              />
+              >
+                <View
+                  class="absolute left-[7] top-[3] w-[16] h-[3]"
+                  style={{
+                    posType: 1,
+                    insetL: 7,
+                    insetT: 3,
+                    width: 16,
+                    height: 3,
+                    bgColor: "#FFFFFF",
+                    opacity: 0.95,
+                    radius: 999,
+                    hitPass: 1,
+                  }}
+                />
+              </View>
             </View>
-          }
-        >
-          <LiquidGlassSurface
-            material="clear"
-            priority="high"
-            shape="pill"
-            radius={999}
-            magnification={1.18}
-            class="w-[36] h-[24]"
-            contentClass="w-[36] h-[24] p-0"
-            style={{ width: 36, height: 24, hitPass: 1 }}
-          />
-        </Show>
       </View>
     </View>
   );
@@ -754,6 +765,11 @@ export function LiquidGlassSlider(props: {
     "scale",
     { preset: "tactile", reducedMotion: ctx.reducedMotion },
   );
+  const thumbLift = createGlassSpring(() => (dragging() ? 1 : 0), {
+    preset: "tactile",
+    reducedMotion: ctx.reducedMotion,
+    quantizeStep: 0.01,
+  });
   const fillScale = createImperativeSpring(
     () => Math.max(0.02, ratio()),
     "scaleX",
@@ -913,50 +929,55 @@ export function LiquidGlassSlider(props: {
               hitPass: 1,
             }}
           >
-            <Show
-              when={dragging()}
-              fallback={
-                <View
+            <View
                   class="relative w-[38] h-[24]"
-                  style={{
-                    posType: 0,
-                    width: thumbW,
-                    height: thumbH,
-                    bgColor: "#FFFFFF",
-                    borderColor: ctx.palette().contourOuter,
-                    borderWidth: 1,
-                    radius: 999,
-                    hitPass: 1,
-                  }}
+                  style={{ posType: 0, width: 38, height: 24, hitPass: 1 }}
                 >
+                  {/* One persistent droplet: the clear refractive lens fades in
+                      under the opaque resting pill instead of remounting. */}
+                  <LiquidGlassSurface
+                    material="clear"
+                    priority="high"
+                    shape="pill"
+                    radius={999}
+                    opacity={thumbLift}
+                    magnification={() => 1 + 0.22 * thumbLift()}
+                    class="absolute w-[38] h-[24]"
+                    contentClass="w-[38] h-[24] p-0"
+                    style={{ posType: 1, insetL: 0, insetT: 0, width: 38, height: 24, hitPass: 1 }}
+                  />
                   <View
-                    class="absolute left-[8] top-[3] w-[22] h-[3]"
+                    class="absolute w-[38] h-[24]"
                     style={{
                       posType: 1,
-                      insetL: 8,
-                      insetT: 3,
-                      width: 22,
-                      height: 3,
+                      insetL: 0,
+                      insetT: 0,
+                      width: 38,
+                      height: 24,
                       bgColor: "#FFFFFF",
-                      opacity: 0.95,
+                      borderColor: ctx.palette().contourOuter,
+                      borderWidth: 1,
                       radius: 999,
+                      opacity: quantizeOptical(1 - thumbLift(), 0.01, 1),
                       hitPass: 1,
                     }}
-                  />
+                  >
+                    <View
+                      class="absolute left-[8] top-[3] w-[22] h-[3]"
+                      style={{
+                        posType: 1,
+                        insetL: 8,
+                        insetT: 3,
+                        width: 22,
+                        height: 3,
+                        bgColor: "#FFFFFF",
+                        opacity: 0.95,
+                        radius: 999,
+                        hitPass: 1,
+                      }}
+                    />
+                  </View>
                 </View>
-              }
-            >
-              <LiquidGlassSurface
-                material="clear"
-                priority="high"
-                shape="pill"
-                radius={999}
-                magnification={1.22}
-                class="w-[38] h-[24]"
-                contentClass="w-[38] h-[24] p-0"
-                style={{ width: thumbW, height: thumbH, hitPass: 1 }}
-              />
-            </Show>
           </View>
         </View>
 
@@ -1038,6 +1059,13 @@ export function LiquidGlassSegmentedControl<T extends string = string>(props: {
     "scale",
     { preset: "tactile", reducedMotion: ctx.reducedMotion },
   );
+  const lensLift = createGlassSpring(() => (dragIndex() !== null ? 1 : 0), {
+    preset: "tactile",
+    reducedMotion: ctx.reducedMotion,
+    quantizeStep: 0.01,
+  });
+  // Accent/tinted lenses stay solid; the neutral lens becomes clear glass.
+  const glassLens = () => !props.accentActive && !props.tintColor;
 
   const resolveHoveredIndex = (vx: number, vy: number): number => {
     syncRailWidth();
@@ -1123,37 +1151,38 @@ export function LiquidGlassSegmentedControl<T extends string = string>(props: {
           hitPass: 1,
         }}
       >
-        <Show
-          when={!props.accentActive && !props.tintColor && dragIndex() !== null}
-          fallback={
-            <View
-              class="w-full h-[32]"
-              style={{
-                width: -1,
-                height: 32,
-                bgColor: activeBg(),
-                borderColor:
-                  props.accentActive || props.tintColor
-                    ? props.tintColor ?? ctx.palette().accentStrong
-                    : ctx.palette().rimHighlight,
-                borderWidth: 1,
-                radius: 999,
-                hitPass: 1,
-              }}
-            />
-          }
-        >
+        <Show when={glassLens()}>
           <LiquidGlassSurface
             material="clear"
             priority="high"
             shape="pill"
             radius={999}
-            magnification={1.12}
-            class="w-full h-[32]"
+            opacity={lensLift}
+            magnification={() => 1 + 0.12 * lensLift()}
+            class="absolute w-full h-[32]"
             contentClass="w-full h-[32] p-0"
-            style={{ width: -1, height: 32, hitPass: 1 }}
+            style={{ posType: 1, insetL: 0, insetT: 0, insetR: 0, height: 32, hitPass: 1 }}
           />
         </Show>
+        <View
+          class="absolute w-full h-[32]"
+          style={{
+            posType: 1,
+            insetL: 0,
+            insetT: 0,
+            insetR: 0,
+            height: 32,
+            bgColor: activeBg(),
+            borderColor:
+              props.accentActive || props.tintColor
+                ? props.tintColor ?? ctx.palette().accentStrong
+                : ctx.palette().rimHighlight,
+            borderWidth: 1,
+            radius: 999,
+            opacity: glassLens() ? quantizeOptical(1 - lensLift(), 0.01, 1) : 1,
+            hitPass: 1,
+          }}
+        />
       </View>
 
       <For each={props.items}>
@@ -1752,6 +1781,11 @@ export function LiquidGlassPageControl(props: {
     reducedMotion: ctx.reducedMotion,
     quantizeStep: 0.005,
   });
+  const platterLift = createGlassSpring(() => (scrubbing() ? 1 : 0), {
+    preset: "tactile",
+    reducedMotion: ctx.reducedMotion,
+    quantizeStep: 0.01,
+  });
 
   const scrubAt = (vx: number, vy: number): void => {
     const pt = resolveNodeLocalPoint(platterNode, vx, vy, scrollPage, 8);
@@ -1794,22 +1828,32 @@ export function LiquidGlassPageControl(props: {
       ref={(node) => {
         platterNode = node;
       }}
-      class="flex-row items-center justify-center gap-2 px-3.5 h-[28]"
+      class="relative flex-row items-center justify-center gap-2 px-3.5 h-[28]"
       style={{
         height: 28,
-        bgColor:
-          props.prominentPlatter !== false
-            ? scrubbing()
-              ? "#00000000"
-              : ctx.palette().surfaceRaised
-            : "#00000000",
-        borderColor:
-          props.prominentPlatter !== false ? ctx.palette().rimHighlight : "#00000000",
-        borderWidth: props.prominentPlatter !== false ? 1 : 0,
         radius: 999,
         scale: quantizeOptical(platterScale(), 0.005, 1),
       }}
     >
+      {/* Resting opaque platter fades out as the persistent glass fades in. */}
+      <Show when={props.prominentPlatter !== false}>
+        <View
+          class="absolute inset-0"
+          style={{
+            posType: 1,
+            insetL: 0,
+            insetT: 0,
+            insetR: 0,
+            insetB: 0,
+            bgColor: ctx.palette().surfaceRaised,
+            borderColor: ctx.palette().rimHighlight,
+            borderWidth: 1,
+            radius: 999,
+            opacity: quantizeOptical(1 - platterLift(), 0.01, 1),
+            hitPass: 1,
+          }}
+        />
+      </Show>
       <For each={visibleRange()}>
         {(entry) => {
           const active = () => entry.page === props.current;
@@ -1833,13 +1877,14 @@ export function LiquidGlassPageControl(props: {
 
   return (
     <View class="items-center justify-center">
-      <Show when={scrubbing() && props.prominentPlatter !== false} fallback={innerDots}>
+      <Show when={props.prominentPlatter !== false} fallback={innerDots}>
         <LiquidGlassSurface
           material="clear"
           priority="high"
           shape="pill"
           radius={999}
-          magnification={1.12}
+          opacity={platterLift}
+          magnification={() => 1 + 0.12 * platterLift()}
           class="items-center justify-center"
           contentClass="p-0"
         >

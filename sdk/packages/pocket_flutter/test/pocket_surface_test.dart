@@ -163,6 +163,98 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('glass surfaces share one backdrop capture unless an earlier '
+      'paint reaches their samples', (tester) async {
+    final runtime = _SurfaceRuntime();
+    PocketHostSurfaceOp glass(String id, double y, {double x = 20}) =>
+        PocketHostSurfaceOp(
+          x: x,
+          y: y,
+          width: 120,
+          height: 44,
+          id: id,
+          kind: 'glass',
+          parameters: const {
+            'material': 'clear',
+            'radius': 22,
+            'blur': 0,
+            'opticalInset': 0,
+            'rippleEffect': 0,
+          },
+        );
+    runtime.ops
+      ..clear()
+      ..addAll([
+        const PocketRectOp(
+          x: 0,
+          y: 0,
+          width: 320,
+          height: 480,
+          color: 0xff123456,
+        ),
+        glass('a', 20),
+        // Foreground label of `a`: inside its own quad, far from `b`.
+        const PocketTextOp(
+          x: 30,
+          y: 30,
+          width: 60,
+          height: 20,
+          text: 'A',
+          size: 12,
+          color: 0xffffffff,
+        ),
+        glass('b', 200),
+        // A card painted over the region `c` samples forces a new capture.
+        const PocketRectOp(
+          x: 0,
+          y: 320,
+          width: 320,
+          height: 80,
+          color: 0xffff0000,
+        ),
+        glass('c', 330),
+        // `d` overlaps `c` itself and must also capture separately.
+        glass('d', 350, x: 60),
+      ]);
+    Future<List<BackdropKey?>> keys() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 320,
+              height: 480,
+              child: PocketView(
+                runtime: runtime,
+                viewport: const Size(320, 480),
+                jsSource: '',
+                pakBytes: Uint8List(0),
+                showDebugFps: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 40));
+      return tester
+          .widgetList<BackdropFilter>(find.byType(BackdropFilter))
+          .map((filter) => filter.backdropGroupKey)
+          .toList();
+    }
+
+    final first = await keys();
+    expect(first, hasLength(4));
+    expect(first.every((key) => key != null), isTrue);
+    expect(first[1], same(first[0]), reason: 'a and b see the same backdrop');
+    expect(first[2], isNot(same(first[1])), reason: 'red card covers c');
+    expect(first[3], isNot(same(first[2])), reason: 'd samples c output');
+    final second = await keys();
+    for (var index = 0; index < first.length; index++) {
+      expect(second[index], same(first[index]), reason: 'keys are stable');
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   test('host surface requires a structured provider descriptor', () {
     expect(
       () => PocketOp.fromJson({'type': 'hostSurface', 'asset': '[]'}),

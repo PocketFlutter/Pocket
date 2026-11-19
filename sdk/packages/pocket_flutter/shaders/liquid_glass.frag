@@ -20,6 +20,10 @@ uniform float uMaterialVariant; // 23: 0 legacy, 1 regular, 2 clear
 uniform vec4 uDeformation;      // 24..27: anchorX, anchorY, offsetX, offsetY
 uniform float uDeformationRadius; // 28: local influence radius
 uniform float uMagnification; // 29: optional local lens scale, 1.0 = disabled
+// JS-owned crossfade alpha for the whole optical contribution (shadow, frost,
+// refraction and rim). A CompositorSurface is not affected by ancestor View
+// opacity, so overlays fade the glass through this uniform instead.
+uniform float uOpacity;         // 30: 0 = untouched backdrop, 1 = full glass
 
 uniform sampler2D uTexture;  // Sampler 0: Pre-rasterized L1-cached background scene texture
 
@@ -32,6 +36,14 @@ float sdRoundedBox(vec2 p, vec2 b, float r) {
 
 float sdCircle(vec2 p, float r) {
   return length(p) - r;
+}
+
+float sampleChannelR(vec2 uv) {
+  return texture(uTexture, clamp(uv, 0.002, 0.998)).r;
+}
+
+float sampleChannelB(vec2 uv) {
+  return texture(uTexture, clamp(uv, 0.002, 0.998)).b;
 }
 
 vec2 deformPosition(vec2 fragPos, vec2 lensCenter) {
@@ -82,16 +94,17 @@ void main() {
   vec3 rawBg = texture(uTexture, uv).rgb;
   float materialVariant = clamp(uMaterialVariant, 0.0, 2.0);
   bool optInMaterial = materialVariant > 0.5;
+  float surfaceOpacity = clamp(uOpacity, 0.0, 1.0);
 
   // Fast-path 1: Pixels outside the 16px shadow band skip all extra SDF & exp() calls!
-  if (d > 16.0) {
+  if (d > 16.0 || surfaceOpacity <= 0.002) {
     fragColor = vec4(rawBg, 1.0);
   } else if (d > 0.6) {
     // Fast-path 2: Narrow shadow band around glass silhouette (0.6 < d <= 16.0)
     float dShadow = deformedSceneSDF(fragPos - vec2(0.0, 4.5), lensCenter, halfSize, radius, shapeType);
     float shadowStrength = optInMaterial ? (materialVariant > 1.5 ? 0.08 : 0.12) : 0.30;
     float shadowFalloff = optInMaterial ? 5.0 : 8.0;
-    float shadow = exp(-max(0.0, dShadow) / shadowFalloff) * shadowStrength * smoothstep(0.0, 1.4, d);
+    float shadow = exp(-max(0.0, dShadow) / shadowFalloff) * shadowStrength * smoothstep(0.0, 1.4, d) * surfaceOpacity;
     fragColor = vec4(rawBg * (1.0 - shadow), 1.0);
   } else {
 
@@ -265,6 +278,20 @@ void main() {
     }
   }
 
+  // Opt-in chromatic dispersion: real glass refracts red less than blue, so
+  // the bevel splits the backdrop along its surface normal. Only the bevel
+  // band (r > 0) pays the two extra taps; the flat interior and the legacy
+  // variant 0 stay unchanged.
+  if (optInMaterial && r > 0.001) {
+    float dispersionStrength = (materialVariant > 1.5 ? 0.11 : 0.075) * rCurve;
+    vec2 dispersion = (refr.xy * opticalThickness * dispersionStrength) / uSurfaceSize;
+    float redShift = sampleChannelR(uvG - dispersion);
+    float blueShift = sampleChannelB(uvG + dispersion);
+    vec3 sharp = texture(uTexture, uvG).rgb;
+    glassColor.r += (redShift - sharp.r) * rCurve;
+    glassColor.b += (blueShift - sharp.b) * rCurve;
+  }
+
   // ============================================================================
   // 5. Pure Neutral iOS 26 Frosted Cushion & Razor-Sharp Specular Rim
   // ============================================================================
@@ -293,9 +320,15 @@ void main() {
   float dirTL = pow(max(dot(grad2D, lightDirTL), 0.0), 1.6) * 0.56;
   float dirBR = pow(max(dot(grad2D, lightDirBR), 0.0), 2.0) * 0.40;
   float dirBL = pow(max(dot(grad2D, lightDirBL), 0.0), 2.0) * 0.34;
-  float rimScale = optInMaterial ? (materialVariant > 1.5 ? 0.34 : 0.46) : 1.0;
+  float rimScale = optInMaterial ? (materialVariant > 1.5 ? 0.52 : 0.64) : 1.0;
   float rimHighlight = rimBand * (0.22 + dirTL + dirBR + dirBL) * rimScale;
   glassColor += vec3(rimHighlight);
+  // Opt-in Fresnel lift: grazing bevel normals reflect more of the bright
+  // environment. Reuses the bevel height already computed for refraction.
+  if (optInMaterial) {
+    float fresnel = pow(clamp(1.0 - zHeight, 0.0, 1.0), 2.2);
+    glassColor += vec3(fresnel * (materialVariant > 1.5 ? 0.16 : 0.12) * (0.55 + dirTL));
+  }
 
   // D) 0.85px Hairline Dark Outer Optical Contour
   float outerContourStrength = optInMaterial
@@ -306,6 +339,6 @@ void main() {
 
   // Anti-aliased silhouette blend with background
   float edgeAA = 1.0 - smoothstep(-0.45, 0.55, d);
-  fragColor = vec4(mix(rawBg, clamp(glassColor, 0.0, 1.0), edgeAA), 1.0);
+  fragColor = vec4(mix(rawBg, clamp(glassColor, 0.0, 1.0), edgeAA * surfaceOpacity), 1.0);
   }
 }

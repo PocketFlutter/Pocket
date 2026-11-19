@@ -595,7 +595,7 @@
                 "PocketViewCapture",
                 "PocketViewController"
               ],
-              "sourceSha256": "4b5f1ac9e0548bab45f9c8602177ee2cca644796ea6e0ad76d88dd570ae45227"
+              "sourceSha256": "cbb945672a2a38bf68f71f1e19e36f0966b3ad4e460c908eaee96a7999140d29"
             },
             {
               "from": "packages/pocket_flutter/lib/pocket_flutter.dart",
@@ -1878,7 +1878,7 @@
             "LiquidGlassSwitch",
             "LiquidGlassTone"
           ],
-          "sourceSha256": "05947c298df5dc1aeb9ba6730cb0ced9e1b44cfeeec58a7a9d74fafe6fe2d449",
+          "sourceSha256": "34fdefa082a04c50f2a713eafa70ec8bb1e7389f359d60207a4dced0a7b6505b",
           "reexports": []
         },
         {
@@ -1892,10 +1892,11 @@
             "LiquidGlassQualityTier",
             "LiquidGlassSurfacePriority",
             "TIER_GPU_BUDGET",
+            "TIER_OVERLAY_RESERVE",
             "createGlassFrameProfiler",
             "createLiquidGlassGovernor"
           ],
-          "sourceSha256": "d73f2db2242ab9ff1c192974a5522a0450a5db1d97f0efd13738df20207db5e9",
+          "sourceSha256": "44e56d77ab24b6ac45fdb0ee0db9d5220eeea4f553a27fa34606f959b2d5f05d",
           "reexports": []
         },
         {
@@ -1934,13 +1935,14 @@
             "LiquidGlassMenu",
             "LiquidGlassMenuButton",
             "LiquidGlassMenuEntry",
+            "LiquidGlassMenuHandoff",
             "LiquidGlassMenuItem",
             "LiquidGlassMenuSection",
             "LiquidGlassPopover",
             "measureViewportRect",
             "normalizeMenuSections"
           ],
-          "sourceSha256": "0d0bb1938d129d62c7add1298c13564e59aae79aba8c71e7486a8a9541ca1f1a",
+          "sourceSha256": "649181caef2286e27e116b8bd1469ef2ec9cc18be138b8804fec1c6ecb51fe53",
           "reexports": []
         },
         {
@@ -1956,7 +1958,7 @@
             "quantizeOptical",
             "stepGlassSpring"
           ],
-          "sourceSha256": "2f83606c0c3fd7c72de5400b8e2bd788c146db002fb9177b4843a629ee339d0a",
+          "sourceSha256": "d95b6dfee2f86f00898ed10358462a8965caa1ea17eb75dafc343bb30eda7ae3",
           "reexports": []
         },
         {
@@ -2002,7 +2004,7 @@
             "useInLiquidGlassGroup",
             "useLiquidGlass"
           ],
-          "sourceSha256": "b1cbe0142c73618855160d7c8dc4a4d61b4cbf6bdd07dc209309d876f5247de4",
+          "sourceSha256": "d94afb8728ab51a89ed1b5aa64cc9973903e19a6c46955b6fe7fc3cbb4bb79b7",
           "reexports": [
             "export type { NodeMirror };"
           ]
@@ -3468,7 +3470,7 @@
             "useWindowSizeClass",
             "wrapTextLines"
           ],
-          "sourceSha256": "1bec190bd14e5a6b24ff20b094b8e70b183513b1c9a3ffe080ee2bb18e077640",
+          "sourceSha256": "657820fd8c3f436cdeb7e23dd6cf165a2a8137c8c488be5f55a1dabd3a72b15a",
           "reexports": [
             "export { MOBILE_MOTION, motionEaseInOut, motionEaseOut } from \"./motion.ts\";"
           ]

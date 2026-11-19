@@ -28,8 +28,12 @@
     // One GPU program/texture serves all surfaces. Keep bounded, already
     // projected static results so an animated neighbour cannot evict every
     // other surface's optical work on each frame.
+    // Resting cards, bars and controls on a dense gallery page exceed eight
+    // surfaces; retain enough snapshots that opening an overlay never forces
+    // the static ones to be re-projected (or evicted) while it animates.
     const outputs = new Map();
-    const maxOutputPixels = 4 * 1024 * 1024;
+    const maxOutputs = 32;
+    const maxOutputPixels = 12 * 1024 * 1024;
     let outputPixels = 0;
     const limit = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
 
@@ -79,7 +83,7 @@
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.uniform1i(gl.getUniformLocation(program, "uTexture"), 0);
-      for (const name of ["uSize", "uLensPos", "uSurfaceSize", "uShapeParams", "uGlassOptics", "uExtraOptics", "uBlur", "uMaterial", "uMaterialVariant", "uDeformation", "uDeformationRadius", "uMagnification", "uOutputSize", "uOutputOrigin", "uCapture"]) {
+      for (const name of ["uSize", "uLensPos", "uSurfaceSize", "uShapeParams", "uGlassOptics", "uExtraOptics", "uBlur", "uMaterial", "uMaterialVariant", "uDeformation", "uDeformationRadius", "uMagnification", "uOpacity", "uOutputSize", "uOutputOrigin", "uCapture"]) {
         locations[name] = gl.getUniformLocation(program, name);
       }
       ready = true;
@@ -174,6 +178,7 @@ vec4 sampleBackdrop(vec2 uv) {
         const offsetY = deformation ? finite(deformation.offsetY, 0, -12, 12) : 0;
         const deformationRadius = deformation ? finite(deformation.radius, 0, 0, 128) : 0;
         const magnification = materialVariant === 0 ? 1 : finite(p.magnification, 1, 1, 1.35);
+        const opacity = finite(p.opacity, 1, 0, 1);
         // Keep the layout/hit rect unchanged while giving the optical quad a
         // small visual halo for a local pull near an edge.
         // Bound the sampling halo by the shader's maximum refracted ray length,
@@ -270,13 +275,16 @@ vec4 sampleBackdrop(vec2 uv) {
             gl.uniform4f(locations.uDeformation, anchorX, anchorY, offsetX, offsetY);
             gl.uniform1f(locations.uDeformationRadius, deformationRadius);
             gl.uniform1f(locations.uMagnification, magnification);
+            gl.uniform1f(locations.uOpacity, opacity);
             gl.drawArrays(gl.TRIANGLES, 0, 3);
             outputKey = uniforms;
           }
           // Moving fields draw directly from the GL canvas. Snapshot resting
           // surfaces, or a held field seen unchanged twice, once; never add a
           // GPU-to-2D copy to every spring frame.
-          const resting = Math.abs(offsetX) + Math.abs(offsetY) < .001 && magnification === 1;
+          // A crossfading overlay is a moving field too: snapshot it only
+          // once it has settled at full strength.
+          const resting = Math.abs(offsetX) + Math.abs(offsetY) < .001 && magnification === 1 && opacity >= .999;
           if (signature !== null && (resting || repeated) && ow * oh <= maxOutputPixels) {
             const snapshot = document.createElement("canvas");
             snapshot.width = ow; snapshot.height = oh;
@@ -287,7 +295,7 @@ vec4 sampleBackdrop(vec2 uv) {
               outputPixels += ow * oh;
             }
           }
-          while (outputs.size > 8 || outputPixels > maxOutputPixels) {
+          while (outputs.size > maxOutputs || outputPixels > maxOutputPixels) {
             const oldest = outputs.keys().next().value;
             const retired = outputs.get(oldest);
             outputs.delete(oldest);

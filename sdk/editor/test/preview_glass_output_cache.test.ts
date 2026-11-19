@@ -132,8 +132,8 @@ test("multiple glass surfaces reuse static optical work with bounded output rete
     assert.deepEqual(cached.pixels, uncached.pixels, "output retention must preserve the final full-resolution image");
     assert.deepEqual(cached.changedPixels, uncached.changedPixels, "an intersecting backdrop change must invalidate cached optics");
     assert.equal(cached.afterChange.draws - cached.beforeChange.draws, 1, "local backdrop changes invalidate only the affected surface");
-    assert.ok(cached.liveOutputs > 0 && cached.liveOutputs <= 8);
-    assert.ok(cached.livePixels <= 4 * 1024 * 1024, "retained output storage must obey the pixel budget");
+    assert.ok(cached.liveOutputs > 0 && cached.liveOutputs <= 32);
+    assert.ok(cached.livePixels <= 12 * 1024 * 1024, "retained output storage must obey the pixel budget");
     assert.equal(cached.released, true, "closing preview must release all retained output storage");
     console.log("GLASS_CACHE_ABLATION", JSON.stringify(Object.fromEntries(Object.entries(results).map(([name, value]) => [name, {
       uploads: delta(value, "uploads"), draws: delta(value, "draws"), uploadedPixels: delta(value, "pixels"),

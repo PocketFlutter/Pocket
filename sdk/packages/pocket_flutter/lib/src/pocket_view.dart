@@ -7798,6 +7798,11 @@ class _PocketViewState extends State<PocketView>
     }
   }
 
+  /// Shared backdrop capture keys per compositor surface, reused by group
+  /// ordinal so an unchanged layout keeps identical keys across frames.
+  final Map<int, List<BackdropKey>> _glassBackdropKeys =
+      <int, List<BackdropKey>>{};
+
   Widget _buildSurfaceBody({
     required double width,
     required double height,
@@ -7893,8 +7898,16 @@ class _PocketViewState extends State<PocketView>
     }
 
     final mountedSurfaces = <int>{};
+    final backdropGroups = _PocketBackdropGrouper(
+      _glassBackdropKeys.putIfAbsent(surface, () => <BackdropKey>[]),
+      Rect.fromLTWH(0, 0, width, height),
+    );
     for (var drawIndex = 0; drawIndex < ops.length; drawIndex++) {
       final op = ops[drawIndex];
+      // Glass members register their own paint inside `glass(op)`.
+      if (op is! PocketHostSurfaceOp || op.kind != 'glass') {
+        backdropGroups.paint(op);
+      }
       if (op is PocketHostSurfaceOp) {
         flushCanvas();
         // Opt-in glass controls use an expanded compositor quad. `opticalInset`
@@ -7951,6 +7964,7 @@ class _PocketViewState extends State<PocketView>
               : Rect.fromLTWH(op.x, op.y, op.width, op.height);
           child = _PocketGlassFilter(
             key: ValueKey('glass-${op.id}'),
+            backdropKey: backdropGroups.glass(op),
             parameters: op.parameters,
             geometry: Rect.fromLTWH(
               shapeBounds.left * scaleX,

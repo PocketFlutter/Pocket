@@ -143,8 +143,10 @@ Capture uses the existing 2D scratch canvas, cropped to the optical sample ROI.
 additional required sampling halo is captured. Magnification contracts sample
 coordinates toward the lens center and needs no extra capture margin.
 
-A bounded LRU retains at most eight projected static output canvases and four
-million pixels (16 MiB of RGBA storage). A moving deformation draws directly
+A bounded LRU retains at most 32 projected static output canvases and twelve
+mebi-pixels (48 MiB of RGBA storage), so dense gallery pages keep their resting
+surfaces while an overlay animates. A crossfading surface (`opacity < 1`) is
+treated like a moving field and is not snapshotted until it settles. A moving deformation draws directly
 from the one GL canvas; it does not copy an additional output bitmap every
 spring frame. Resting or unchanged held fields can reuse their projection.
 The ordered backdrop key includes only paint intersecting the sample ROI;
@@ -154,6 +156,32 @@ uncacheable, and resource updates invalidate the key. No production pixel
 array, readPixels, getImageData, DOM snapshot or secondary layout is used.
 Closing the preview releases all retained bitmaps and GPU resources. A
 missing/lost GPU context uses real backdrop frost and reports `frosted`.
+
+### Shared backdrop capture (Flutter)
+
+Each `BackdropFilter` without a key ends the current render pass and
+snapshots the scene, so a page with N glass controls paid N full-scene
+backdrop copies per frame. `_buildSurfaceBody` now assigns a
+`BackdropKey` per group through `_PocketBackdropGrouper`: a glass surface
+joins the open group only when nothing painted after the group's capture —
+canvas ops (bounds inflated by 4, clipped), video and other host surfaces, or
+earlier members' own quads — overlaps the region it samples. The sampled
+region mirrors the Web Preview capture ROI (refraction thickness, frost
+radius, local pull, warp and ripple). Ops without reliable bounds (triangles,
+mesh layers) count as full-viewport paint. Otherwise the surface starts a new
+group, so output matches unshared capture. Keys are retained by group ordinal
+per compositor surface, so a stable layout keeps stable keys. Nested glass
+(a button over its card) correctly stays in separate groups; sibling pills,
+bars and cards that do not overlap share one capture. The engine still runs
+each surface's own shader. Device GPU timings for this change are not yet
+measured.
+
+Web Preview profile (headless Chromium with software GL, five animating
+392×128 regular surfaces at DPR 2): about 139 ms per frame with the optical
+shader, 91 ms with zero frost, and 19 ms with a pass-through shader of the
+same uniforms. About 85% of the cost is the per-pixel optical math; texture
+upload, GPU-to-2D sync and composite are the remaining ~15%. These are
+software-rasteriser numbers, not device or GPU-browser timings.
 
 The retained parent's `PocketLiquidGlassSurface` in
 `pocketjs_flutter_demo/lib/render/pocket_ui_components.dart` memoizes JS optical
