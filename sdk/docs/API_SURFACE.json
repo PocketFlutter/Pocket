@@ -4955,7 +4955,7 @@
         },
         {
           "file": "editor/server.ts",
-          "sourceSha256": "993b79896228a88291655db05dc5a0e9b501f5aac2c7729b714a778650d7b3ce"
+          "sourceSha256": "dba1d19fc27b6602f859262c9348bc667ff242cd994d2477e5fa872ba300ede2"
         },
         {
           "file": "editor/test/editor_live_probe.ts",

@@ -16,6 +16,8 @@ The retained parent outside `pocket_host/` had no reusable standalone Studio fol
 
 The top-bar **Open Project** accepts an absolute project folder and edits it in place. It remains in the project list after restart. **New Project** defaults to the workspace or accepts a new external folder. New projects include `npm start`, `npm run build`, `npm run build:web`, and service status/stop commands. The scaffold guide covers directory structure, Flutter versus JS/Preview, path rules, and real interaction acceptance. [Scaffolding and project open](PROJECT_SCAFFOLD_AND_OPEN_20261114.md)
 
+In the Web Studio project list, use **移除** beside a project and confirm to remove its entry. Studio preserves the source directory and published releases. Use **打开项目** with the same directory to add it back. Projects configured by the Studio host stay in the list, and catalog MiniApps follow their parent project.
+
 ## Start or Restart
 
 ```sh

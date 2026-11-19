@@ -211,7 +211,8 @@ Studio routes are defined in [editor/server.ts](../editor/server.ts#L4285) and P
 | --- | --- |
 | `GET /health` | Local health and runtime fields. Keep response CSRF values private. |
 | `POST /api/projects/pick-directory` | Loopback-only macOS/Windows folder picker. Returns `{path: string \| null}` with null on cancel, times out after 120 seconds, and allows one picker at a time. Use localhost on the Studio machine. |
-| `GET /api/projects`, `POST /api/projects`, `POST /api/projects/open` | List, create, and open local projects. External absolute paths require a loopback peer. |
+| `GET /api/projects`, `POST /api/projects`, `POST /api/projects/open` | List, create, and open local projects. List entries include `canRemove`. External absolute paths require a loopback peer. |
+| `DELETE /api/projects/:id` | Loopback-only list removal. Returns `{removed: true, id, removedIds: string[]}`. A missing project returns 404. A protected project or conflicting operation returns 409. Source directories and published release files are preserved. Open the same directory to restore the entry. |
 | `GET /api/preview/device`, `GET /api/preview/profiles`, `GET /api/ecosystem/modules` | Device presets, profiles, and ecosystem registries. |
 | `POST /api/projects/:id/build` or `/compile` | Compiles the project. Read status, logs, and files through `/status`, `/logs`, and `/artifacts/*`. |
 | `GET /api/projects/:id/preview/status`, `snapshot`, `stream`. `POST /api/projects/:id/preview/input` | Preview state, snapshot, SSE frames, and input. `GET /media` and `GET /resource` read restricted resources. |

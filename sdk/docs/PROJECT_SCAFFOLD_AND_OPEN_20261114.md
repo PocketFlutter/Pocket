@@ -28,6 +28,8 @@ External paths can only be opened or created via local Studio loopback requests.
 
 The workspace atomically writes history to `opened-projects.json` and keeps up to 64 external project roots. Same-name projects receive stable distinct IDs derived from their source directories. Existing `editor.json` remains intact. Missing or moved paths are skipped with diagnostics, and users can open the new location.
 
+Web Studio can also remove an entry after confirmation. Reopening the original folder restores it, and removal persists across Studio restarts. The retained parent checkout's `README.md` documents Flutter and WeChat project workflows. Project list management extends the existing `sdk/editor/server.ts` registration and `sdk/editor/client/editor.js` project switcher.
+
 Native consumers are detected only through project-local `flutter/pubspec.yaml` or the parent of `js/` in the selected first-layer Flutter project. The web page cannot submit arbitrary Flutter commands or host paths. Opening a directory does not run installation, builds, or deployment, or request device permissions.
 
 ### Project Commands

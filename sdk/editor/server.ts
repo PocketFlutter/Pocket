@@ -311,6 +311,8 @@ type Workspace = {
   projectSources?: Map<string, CatalogProjectSource>;
   /** Host-configured extra roots (see StartEditorOptions.extraProjectRoots); merged over the catalog sources. */
   trustedSources?: Map<string, CatalogProjectSource>;
+  /** Workspace-managed project IDs hidden from the project list until reopened. */
+  hiddenProjects?: Set<string>;
 };
 
 type CatalogProjectSource = {
@@ -1504,6 +1506,72 @@ function projectDirectory(workspace: Workspace, id: string): string {
   return safeChild(workspace.projects, id);
 }
 
+async function writeOpenedProjects(workspace: Workspace, sources: ReadonlyMap<string, CatalogProjectSource>): Promise<void> {
+  const paths = [...sources].filter(([, value]) => value.opened).map(([id, value]) => ({ id, path: value.root }));
+  if (paths.length > 64) throw new Error("最多保留 64 个本地项目");
+  await mkdir(workspace.root, { recursive: true });
+  const target = join(workspace.root, "opened-projects.json");
+  const temporary = `${target}.${randomUUID()}.tmp`;
+  await writeFile(temporary, JSON.stringify(paths, null, 2) + "\n");
+  await rename(temporary, target);
+}
+
+async function writeHiddenProjects(workspace: Workspace, hidden: ReadonlySet<string>): Promise<void> {
+  const ids = [...hidden].filter((id) => projectIdPattern.test(id)).sort();
+  await mkdir(workspace.root, { recursive: true });
+  const target = join(workspace.root, "hidden-projects.json");
+  const temporary = `${target}.${randomUUID()}.tmp`;
+  await writeFile(temporary, JSON.stringify(ids, null, 2) + "\n");
+  await rename(temporary, target);
+}
+
+function canRemoveProjectFromList(workspace: Workspace, id: string): boolean {
+  if (workspace.projectRoot && id === workspace.projectId) return false;
+  if (workspace.trustedSources?.has(id)) return false;
+  const source = workspace.projectSources?.get(id);
+  if (source) return Boolean(source.opened && !source.parentProjectId);
+  if (workspace.hiddenProjects?.has(id)) return false;
+  return existsSync(safeChild(workspace.projects, id));
+}
+
+async function removeProjectFromList(workspace: Workspace, id: string): Promise<{ id: string; removedIds: string[] }> {
+  if (workspace.projectRoot && id === workspace.projectId) {
+    httpFailure("启动配置的主项目不能从列表中移除", 409);
+  }
+  if (workspace.trustedSources?.has(id)) {
+    httpFailure("受信任宿主配置的项目不能从列表中移除", 409);
+  }
+  const source = workspace.projectSources?.get(id);
+  if (source?.parentProjectId) {
+    httpFailure("目录 MiniApp 跟随所属父项目展示，请从父项目移除", 409);
+  }
+  if (source?.opened) {
+    const nextSources = new Map(workspace.projectSources);
+    const removedIds: string[] = [];
+    for (const [key, entry] of nextSources) {
+      if (key === id || entry.parentProjectId === id) {
+        nextSources.delete(key);
+        removedIds.push(key);
+      }
+    }
+    for (const [trustedId, trustedSource] of workspace.trustedSources ?? []) {
+      nextSources.set(trustedId, trustedSource);
+    }
+    await writeOpenedProjects(workspace, nextSources);
+    workspace.projectSources = nextSources;
+    return { id, removedIds };
+  }
+  const managedDir = safeChild(workspace.projects, id);
+  if (!existsSync(managedDir) || workspace.hiddenProjects?.has(id)) {
+    httpFailure("project not found", 404);
+  }
+  const nextHidden = new Set(workspace.hiddenProjects);
+  nextHidden.add(id);
+  await writeHiddenProjects(workspace, nextHidden);
+  workspace.hiddenProjects = nextHidden;
+  return { id, removedIds: [id] };
+}
+
 
 /** Open explicitly selected local source in place; never copy or rewrite its files. */
 async function openLocalProject(workspace: Workspace, selected: unknown, persist = true, preferredId?: string): Promise<EditorConfig> {
@@ -1525,7 +1593,16 @@ async function openLocalProject(workspace: Workspace, selected: unknown, persist
   const already = known.find(value => {
     try { return realpathSync(projectDirectory(workspace, value)) === directory; } catch { return false; }
   });
-  if (already) return loadConfig(directory, already);
+  if (already) {
+    const config = await loadConfig(directory, already);
+    if (persist && workspace.hiddenProjects?.has(already)) {
+      const nextHidden = new Set(workspace.hiddenProjects);
+      nextHidden.delete(already);
+      await writeHiddenProjects(workspace, nextHidden);
+      workspace.hiddenProjects = nextHidden;
+    }
+    return config;
+  }
   if (known.includes(id)) id = asProjectId(`${id.slice(0, 35)}-${sha256Hex(Buffer.from(directory)).slice(0, 10)}`);
   if (known.includes(id)) throw new Error("项目标识冲突，请修改项目 editor.json 的 id");
   const config = await loadConfig(directory, id);
@@ -1545,13 +1622,7 @@ async function openLocalProject(workspace: Workspace, selected: unknown, persist
   sources.set(id, source);
   for (const [childId, child] of children) sources.set(childId, child);
   if (persist) {
-    const paths = [...sources].filter(([, value]) => value.opened).map(([id, value]) => ({ id, path: value.root }));
-    if (paths.length > 64) throw new Error("最多保留 64 个本地项目");
-    await mkdir(workspace.root, { recursive: true });
-    const target = join(workspace.root, "opened-projects.json");
-    const temporary = `${target}.${randomUUID()}.tmp`;
-    await writeFile(temporary, JSON.stringify(paths, null, 2) + "\n");
-    await rename(temporary, target);
+    await writeOpenedProjects(workspace, sources);
   }
   workspace.projectSources = sources;
   return config;
@@ -1564,7 +1635,9 @@ async function workspaceProjectIds(workspace: Workspace): Promise<string[]> {
   } catch {
     // The configured project and catalog roots may still be available.
   }
-  const ids = entries.filter((entry) => entry.isDirectory() && projectIdPattern.test(entry.name)).map((entry) => entry.name);
+  const ids = entries
+    .filter((entry) => entry.isDirectory() && projectIdPattern.test(entry.name))
+    .map((entry) => entry.name);
   if (workspace.projectRoot && workspace.projectId) ids.push(workspace.projectId);
   for (const id of workspace.projectSources?.keys() ?? []) ids.push(id);
   return [...new Set(ids)].sort((left, right) => left.localeCompare(right));
@@ -1604,10 +1677,11 @@ async function bindCatalogProjectState(workspace: Workspace, id: string, state: 
   return state;
 }
 
-async function listProjects(workspace: Workspace, getState: (id: string) => Promise<EditorState>): Promise<Array<EditorConfig & { status: EditorStatus; directory?: string; source?: CatalogProjectProvenance }>> {
+async function listProjects(workspace: Workspace, getState: (id: string) => Promise<EditorState>, loopback: boolean): Promise<Array<EditorConfig & { status: EditorStatus; directory?: string; canRemove: boolean; source?: CatalogProjectProvenance }>> {
   await mkdir(workspace.projects, { recursive: true });
-  const projects: Array<EditorConfig & { status: EditorStatus; directory?: string; source?: CatalogProjectProvenance }> = [];
+  const projects: Array<EditorConfig & { status: EditorStatus; directory?: string; canRemove: boolean; source?: CatalogProjectProvenance }> = [];
   for (const id of await workspaceProjectIds(workspace)) {
+    if (workspace.hiddenProjects?.has(id) && id !== workspace.projectId && !workspace.projectSources?.has(id)) continue;
     try {
       const config = await loadConfig(projectDirectory(workspace, id), id);
       const state = await getState(id);
@@ -1624,6 +1698,7 @@ async function listProjects(workspace: Workspace, getState: (id: string) => Prom
         ...config,
         status: publicStatus(id, state),
         directory: projectDirectory(workspace, id),
+        canRemove: loopback && canRemoveProjectFromList(workspace, id),
         ...(provenance ? { source: provenance } : {}),
       });
     } catch {
@@ -2929,6 +3004,17 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
     ...(projectRoot ? { projectRoot, projectId } : {}),
   };
   workspace.projectSources = new Map();
+  workspace.hiddenProjects = new Set();
+  try {
+    const savedHidden = await readJsonFile<unknown>(join(workspace.root, "hidden-projects.json"), []);
+    if (Array.isArray(savedHidden)) {
+      for (const item of savedHidden) {
+        if (typeof item === "string" && projectIdPattern.test(item)) workspace.hiddenProjects.add(item);
+      }
+    }
+  } catch (error) {
+    console.warn(`Cannot restore hidden projects list: ${error instanceof Error ? error.message : String(error)}`);
+  }
   // Create the preview signing key (public half only is ever read by a host) at
   // startup so a trusted host can configure the signed preview child before the
   // first preview-publish. Idempotent: an existing key is never rotated.
@@ -5043,7 +5129,7 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
             return json({ ...config, status: publicStatus(config.id, await getState(config.id)) });
           } finally { openingProject = false; }
         }
-        if (path === "/api/projects" && method === "GET") return json(await listProjects(workspace, getState));
+        if (path === "/api/projects" && method === "GET") return json(await listProjects(workspace, getState, loopback));
         if (path === "/api/projects" && method === "POST") {
           const body = await parseJsonBody(request);
           const id = asProjectId(body.id);
@@ -5090,15 +5176,15 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
         // Reserve before any awaited validation/body parsing. Manager-level
         // reservations alone cannot exclude a simultaneous source/AI request.
         // Preview input and cancellation remain available during long tasks.
-        // DELETE of a file/folder mutates the project like PUT; other DELETE routes keep their own guards.
-        const isWriteMethod = ["PUT", "POST", "PATCH"].includes(method) || (method === "DELETE" && (parts[3] === "files" || parts[3] === "folders"));
+        // DELETE of a project/file/folder mutates the project like PUT; other DELETE routes keep their own guards.
+        const isWriteMethod = ["PUT", "POST", "PATCH"].includes(method) || (method === "DELETE" && (parts.length === 3 || parts[3] === "files" || parts[3] === "folders"));
         if (isWriteMethod && parts[3] !== "preview") {
           if (projectWrites.has(id)) return failure("Another project operation is starting; retry when it completes", 409);
           projectWrites.add(id);
           releaseProjectWrite = () => projectWrites.delete(id);
         }
         if (!loopback && isWriteMethod && parts[3] !== "preview" &&
-            await requiresLocalProjectWrite(workspace, id, previewHostAdapter?.projectId)) {
+            (parts.length === 3 || await requiresLocalProjectWrite(workspace, id, previewHostAdapter?.projectId))) {
           return failure("configured project changes are available only on the Studio computer", 403);
         }
         const state = await getState(id);
@@ -5106,6 +5192,56 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
         if (wechat.isBuilding(id) && isWriteMethod && parts[3] !== "preview") return failure("WeChat build is using this project; stop it before editing/building", 409);
         if (deploymentWriting(id) && isWriteMethod && parts[3] !== "preview") return failure("Device build is using this project; wait or cancel it before editing/building", 409);
         if (parts[0] === "api" && parts[1] === "projects") {
+          if (parts.length === 3 && method === "DELETE") {
+            if (openingProject) return failure("正在创建或打开项目，请稍后重试", 409);
+            const targetIds = [
+              id,
+              ...[...(workspace.projectSources?.entries() ?? [])]
+                .filter(([, entry]) => entry.parentProjectId === id)
+                .map(([childId]) => childId),
+            ];
+            const children = targetIds.slice(1);
+            if (children.some(childId => projectWrites.has(childId))) {
+              return failure("Another project operation is starting; retry when it completes", 409);
+            }
+            openingProject = true;
+            for (const childId of children) projectWrites.add(childId);
+            try {
+              for (const targetId of targetIds) {
+                const targetState = targetId === id ? state : await getState(targetId);
+                if (targetState.busy) return failure("Build in progress; retry removing when the build completes", 409);
+                if (codex.isBusy(targetId) || wechat.isBuilding(targetId) || deploymentWriting(targetId)) {
+                  return failure("Another project operation is running; retry when it completes", 409);
+                }
+                for (const open of uploads.values()) {
+                  if (open.projectId === targetId) return failure("File upload in progress; commit or abort it before removing", 409);
+                }
+              }
+              const removed = await removeProjectFromList(workspace, id);
+              for (const removedId of removed.removedIds) {
+                // A hidden workspace project is still registered and can keep
+                // its editor state. Reopening an external project must reload
+                // its persisted state and rearm its backup schedule.
+                if (workspace.hiddenProjects?.has(removedId)) continue;
+                const entry = projectWatches.get(removedId);
+                if (entry) {
+                  for (const client of [...entry.clients]) client.close();
+                  closeProjectWatch(removedId);
+                }
+                const timer = backupTimers.get(removedId);
+                if (timer) {
+                  clearTimeout(timer);
+                  backupTimers.delete(removedId);
+                }
+                states.delete(removedId);
+                stateMtimes.delete(removedId);
+              }
+              return json({ removed: true, id: removed.id, removedIds: removed.removedIds });
+            } finally {
+              for (const childId of children) projectWrites.delete(childId);
+              openingProject = false;
+            }
+          }
           if (parts[3] === "ecosystem" && parts.length === 4) {
             if (method === "GET") {
               const config = await loadConfig(projectDir(id), id);

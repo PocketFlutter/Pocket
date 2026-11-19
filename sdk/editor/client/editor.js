@@ -185,6 +185,7 @@ let studioUpgradePeriodicTimer = null;
 let studioUpgradePendingReloadVersion = null;
 let studioUpgradeDeferredAutoApply = false;
 const STUDIO_UPGRADE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+let removingProjectId = null;
 
 function storedPreviewPaneHeight() {
   try {
@@ -1149,12 +1150,129 @@ async function switchPublishTargetChannel(channel) {
   return payload;
 }
 
+function clearSelectedProjectState() {
+  stopBuildPolling();
+  stopDeployPolling();
+  invalidateWechatRequests();
+  currentId = null;
+  currentStatus = null;
+  currentProjectConfig = null;
+  projectFiles = [];
+  currentFile = "app.tsx";
+  sourceEl.value = "";
+  setText("source-panel-title", "没有源文件");
+  setText("source-bytes", "—");
+  setText("source-revision", "修订版 —");
+  $("file-picker").replaceChildren();
+  previewPath = "";
+  previewReady = false;
+  previewHasFrame = false;
+  previewStarted = false;
+  previewRevision = null;
+  previewGeneration = null;
+  resetPreviewSurface();
+  resetWechatPresentation();
+  publishTargetContext = null;
+  publishTargets = null;
+  publishTargetsLoading = false;
+  publishTargetsError = "";
+  publishTargetsGeneration += 1;
+  renderPublishTargetPicker();
+  versionSnapshot = null;
+  cosSnapshot = null;
+  cosFormProjectId = null;
+  versionsLoading = false;
+  versionsGeneration += 1;
+  renderVersionManagement();
+  resetResources();
+  syncProjectEcosystemUi(null);
+  for (const id of PROJECT_CONFIG_INPUTS) {
+    const field = $(id);
+    if (field) field.value = "";
+  }
+  if ($("config-build")) $("config-build").value = 0;
+  renderStatus(null);
+  markDirty(false);
+  setEnabled(false);
+  updateConfigSaveFeedback();
+  setText("project-title", "请选择项目");
+  setText("project-subtitle", "创建 SDK 项目、编辑 JS 界面并在本地预览。");
+  setProjectState("未选择项目");
+}
+
+async function removeProjectFromListUi(project) {
+  if (!project.canRemove || removingProjectId) return;
+  const affectedIds = new Set([
+    project.id,
+    ...projects
+      .filter((item) => item.source?.kind === "catalog-miniapp" && item.source.parentProjectId === project.id)
+      .map((item) => item.id),
+  ]);
+  const removingSelected = Boolean(currentId && affectedIds.has(currentId));
+  if (
+    saving ||
+    resourcesSaving ||
+    publishing ||
+    startingBuild ||
+    ecosystemApplying ||
+    cosBusy ||
+    startingDeploy ||
+    startingWechat ||
+    stoppingWechat ||
+    project.status?.busy ||
+    (removingSelected && (currentStatus?.busy || activeDeploy || ["building", "running"].includes(wechatState.state)))
+  ) {
+    showNotice("请先等待或停止当前保存、构建、发布、预览或部署任务，再从列表中移除项目。", "info");
+    return;
+  }
+  if (removingSelected && (dirty || hasUnsavedProjectConfig() || resourcesDirty)) {
+    showNotice("当前项目有未保存的源文件、配置或资源修改，请先保存或丢弃修改后再从列表中移除。", "info");
+    return;
+  }
+  const childCount = affectedIds.size - 1;
+  const title = project.name || project.id;
+  const childHint = childCount > 0 ? `\n关联的 ${childCount} 个目录 MiniApp 条目也会一并从列表中移除。` : "";
+  if (
+    !window.confirm(
+      `确定将「${title}」（${project.id}）从项目列表中移除吗？${childHint}\n\n此操作不会删除磁盘上的项目源文件或已发布版本数据，后续可通过“打开项目”重新恢复。`,
+    )
+  ) {
+    return;
+  }
+  clearNotice();
+  removingProjectId = project.id;
+  renderProjects();
+  try {
+    const { removedIds } = await api(`/api/projects/${encodeURIComponent(project.id)}`, { method: "DELETE" });
+    projects = projects.filter(item => !removedIds.includes(item.id));
+    try {
+      const stored = localStorage.getItem(projectSelectionStorageKey);
+      if (removedIds.includes(stored)) localStorage.removeItem(projectSelectionStorageKey);
+    } catch {}
+    if (removedIds.includes(currentId)) {
+      clearSelectedProjectState();
+      await loadProjects();
+    } else if (currentId) {
+      void refreshPublishTargets();
+    }
+    showNotice(`已从项目列表中移除「${title}」（源文件与已发布数据已保留）。`, "success");
+  } catch (error) {
+    showNotice(error);
+  } finally {
+    removingProjectId = null;
+    renderProjects();
+  }
+}
+
 function renderProjects() {
   projectsEl.replaceChildren();
-  const renderProjectButton = (project, nested = false) => {
+  const renderProjectRow = (project, nested = false) => {
+    const row = document.createElement("div");
+    row.className = "project-item-row";
     const button = document.createElement("button");
     button.type = "button";
     if (project.directory) button.title = project.directory;
+    const canRemove = !nested && project.canRemove;
     button.className = `project-item${nested ? " project-item-nested" : ""}${project.id === currentId ? " active" : ""}`;
     const name = document.createElement("strong");
     name.textContent = nested ? `MiniApp · ${project.name || project.id}` : project.name || project.id;
@@ -1175,7 +1293,24 @@ function renderProjects() {
       } : null;
       void selectProject(project.id, publishTargetContext ? { publishTargetContext } : {});
     });
-    return button;
+    row.append(button);
+    if (canRemove) {
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "project-item-remove";
+      removeBtn.dataset.removeProject = project.id;
+      const label = `从项目列表移除 ${project.name || project.id}`;
+      removeBtn.title = `${label}（保留源文件与已发布数据）`;
+      removeBtn.setAttribute("aria-label", label);
+      removeBtn.textContent = "×";
+      removeBtn.disabled = Boolean(removingProjectId);
+      removeBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void removeProjectFromListUi(project);
+      });
+      row.append(removeBtn);
+    }
+    return row;
   };
 
   const sourceProjects = projects.filter((project) => project.source?.kind === "catalog-miniapp");
@@ -1191,13 +1326,13 @@ function renderProjects() {
     group.append(heading);
     for (const child of children) {
       renderedSourceIds.add(child.id);
-      group.append(renderProjectButton(child, true));
+      group.append(renderProjectRow(child, true));
     }
     projectsEl.append(group);
   };
 
   for (const project of parentProjects) {
-    projectsEl.append(renderProjectButton(project));
+    projectsEl.append(renderProjectRow(project));
     renderSourceGroup(
       project.name || project.id,
       sourceProjects.filter((source) => source.source.parentProjectId === project.id),
@@ -2988,28 +3123,7 @@ async function loadProjects(preferred) {
   try { recent = localStorage.getItem(projectSelectionStorageKey); } catch {}
   const id = [preferred, currentId, recent, configuredProjectId, projects[0]?.id].find(id => id && projects.some(project => project.id === id));
   if (id && projects.some((project) => project.id === id)) await selectProject(id);
-  else {
-    invalidateWechatRequests();
-    currentId = null;
-    publishTargetContext = null;
-    publishTargets = null;
-    publishTargetsLoading = false;
-    publishTargetsError = "";
-    publishTargetsGeneration += 1;
-    renderPublishTargetPicker();
-    versionSnapshot = null;
-    versionsLoading = false;
-    versionsGeneration += 1;
-    renderVersionManagement();
-    resetResources();
-    currentProjectConfig = null;
-    resetWechatPresentation();
-    setEnabled(false);
-    updateConfigSaveFeedback();
-    setText("project-title", "请选择项目");
-    setText("project-subtitle", "创建 SDK 项目、编辑 JS 界面并在本地预览。");
-    setProjectState("未选择项目");
-  }
+  else clearSelectedProjectState();
 }
 
 function applyProjectConfig(config, { preserveDraft = false } = {}) {
