@@ -17,7 +17,7 @@ const width = 390;
 const height = 844;
 const statusCapability = "platform.apps.update.status";
 const prepareCapability = "platform.apps.update.prepare";
-const lanternId = "pocket.demo.lantern";
+const updateTargetId = "dev.pocket-nexus.cafe";
 const profileId = "pocket.demo.profile";
 const lobbyId = "pocket.demo.lobby";
 
@@ -57,7 +57,7 @@ function updateStatus(appId: string, overrides: Record<string, unknown> = {}): R
   return {
     appId,
     configured: true,
-    running: appId === lanternId,
+    running: appId === updateTargetId,
     installedVersion: "0.1.0",
     installedBuild: appId === profileId ? 3 : 5,
     activeVersion: "0.1.0",
@@ -127,13 +127,14 @@ test("MiniApp version page reads local status first and bounds signed update che
     const appIds = (grants as Array<{ appId: string }>)
       .map((grant) => grant.appId)
       .filter((appId) => appId !== "pocket.host.demo");
-    assert.equal(appIds.length, 33, "the installed catalog fixture should contain 33 MiniApps");
-    assert.ok(appIds.includes(lanternId) && appIds.includes(profileId) && appIds.includes(lobbyId),
-      "the installed catalog should include Lantern, Profile, and Lobby");
+    assert.equal(appIds.length, 32, "the installed catalog fixture should contain 32 MiniApps");
+    assert.ok(appIds.includes(updateTargetId) && appIds.includes(profileId) && appIds.includes(lobbyId),
+      "the installed catalog should include the update target, Profile, and Lobby");
+    assert.ok(!appIds.includes("pocket.demo.lantern"), "the optional novel is separate from the default catalog");
     const configuredIds = Array.from(new Set([
-      lanternId,
+      updateTargetId,
       profileId,
-      ...appIds.filter((appId) => appId !== lanternId && appId !== profileId && appId !== lobbyId).slice(0, 5),
+      ...appIds.filter((appId) => appId !== updateTargetId && appId !== profileId && appId !== lobbyId).slice(0, 5),
     ]));
     assert.ok(configuredIds.length >= 5, "test catalog needs enough configured packages to exercise the three-request limit");
 
@@ -166,23 +167,23 @@ test("MiniApp version page reads local status first and bounds signed update che
     const localRequests = session.requests.filter((request) =>
       request.capability === statusCapability && request.params.checkLatest !== true
     );
-    assert.equal(localRequests.length, 33, "the page should read each installed MiniApp's local package facts");
-    assert.equal(new Set(localRequests.map((request) => request.params.appId)).size, 33,
+    assert.equal(localRequests.length, appIds.length, "the page should read each installed MiniApp's local package facts");
+    assert.equal(new Set(localRequests.map((request) => request.params.appId)).size, appIds.length,
       "local status should be requested once per installed app");
     assert.equal(remoteRequests(session).length, 0, "mount must not start any remote latest-version checks");
-    assert.ok(frame.ops?.some((op) => op.type === "text" && op.text === "33 installed MiniApps"),
+    assert.ok(frame.ops?.some((op) => op.type === "text" && op.text === `${appIds.length} installed MiniApps`),
       "the page should identify the full installed package catalog");
     const notChecked = await revealText(session, frame, "NOT CHECKED");
     frame = notChecked.frame;
 
     const singleCheck = await revealText(session, frame, "Check latest");
     frame = await session.tapPoint(center(singleCheck.op, "Check latest"));
-    frame = await waitForRequests(session, frame, statusCapability, 34);
+    frame = await waitForRequests(session, frame, statusCapability, appIds.length + 1);
     const perAppRequest = remoteRequests(session)[0]!;
     const perAppId = String(perAppRequest.params.appId);
     respondForApp(session, statusCapability, perAppId, updateStatus(perAppId, {
       latestVersion: "0.1.0",
-      latestBuild: perAppId === lanternId ? 6 : 2,
+      latestBuild: perAppId === updateTargetId ? 6 : 2,
       updateAvailable: true,
     }));
     frame = await session.settle(await session.frame(), 4);
@@ -192,7 +193,7 @@ test("MiniApp version page reads local status first and bounds signed update che
 
     const checkAll = await revealText(session, frame, "Check all updates");
     frame = await session.tapPoint(center(checkAll.op, "Check all updates"));
-    frame = await waitForRequests(session, frame, statusCapability, 33 + 1 + 3);
+    frame = await waitForRequests(session, frame, statusCapability, appIds.length + 1 + 3);
     const checkAllRequests = () => remoteRequests(session)
       .filter((request) => !priorRemoteIds.has(request.requestId));
     assert.equal(checkAllRequests().length, 3,
@@ -212,7 +213,7 @@ test("MiniApp version page reads local status first and bounds signed update che
       const appId = String(request.params.appId);
       if (appId === profileId) {
         respondForApp(session, statusCapability, appId, null, false);
-      } else if (appId === lanternId) {
+      } else if (appId === updateTargetId) {
         respondForApp(session, statusCapability, appId, updateStatus(appId, {
           latestVersion: "0.1.0",
           latestBuild: 6,
@@ -232,17 +233,16 @@ test("MiniApp version page reads local status first and bounds signed update che
       "check-all should inspect each configured app once and skip apps without a source");
     assert.equal(maxOutstanding, 3, "the test must exercise all three allowed workers");
 
-    const lanternBadge = await revealText(session, frame, "UPDATE AVAILABLE");
-    frame = lanternBadge.frame;
-    const automaticUpdates = await revealText(session, frame, "Automatic updates");
-    assert.equal(automaticUpdates.op.text, "Automatic updates", "Lantern should keep its automatic update notice");
-    frame = automaticUpdates.frame;
-    const automaticDetail = await revealText(session, frame, "Checked on app");
-    assert.ok(automaticDetail.op.text?.includes("Checked on app") && automaticDetail.op.text.includes("open"));
-    frame = automaticDetail.frame;
-    const automaticBadge = await revealText(session, frame, "ON");
-    assert.equal(automaticBadge.op.text, "ON", "Lantern's automatic update-on-open path should remain enabled");
-    frame = automaticBadge.frame;
+    frame = await scrollToTop(session, frame);
+    const profileError = await revealText(session, frame, "Update check failed");
+    frame = profileError.frame;
+    assert.ok(textOf(frame).includes("v0.1.0 · build 3"),
+      "a failed per-app check must preserve that app's local installed version");
+    const lobbySource = await revealText(session, frame, "No signed update source is configured for this host.");
+    frame = lobbySource.frame;
+
+    frame = await scrollToTop(session, frame);
+    frame = (await revealText(session, frame, "UPDATE AVAILABLE")).frame;
     const sameVersionBuilds = await revealText(session, frame, "v0.1.0 · build 6");
     frame = sameVersionBuilds.frame;
     assert.ok(textOf(frame).includes("v0.1.0 · build 5") && textOf(frame).includes("v0.1.0 · build 6"),
@@ -251,7 +251,7 @@ test("MiniApp version page reads local status first and bounds signed update che
     const download = await revealText(session, frame, "Download update");
     frame = await session.tapPoint(center(download.op, "Download update"));
     frame = await waitForRequests(session, frame, prepareCapability, 1);
-    respondForApp(session, prepareCapability, lanternId, updateStatus(lanternId, {
+    respondForApp(session, prepareCapability, updateTargetId, updateStatus(updateTargetId, {
       latestVersion: "0.1.0",
       latestBuild: 6,
       stagedVersion: "0.1.0",
@@ -272,13 +272,6 @@ test("MiniApp version page reads local status first and bounds signed update che
     frame = stagedBuild.frame;
     assert.ok(textOf(frame).includes("v0.1.0 · build 6"),
       "the staged build should be visible next to the unchanged active build");
-
-    const profileError = await revealText(session, frame, "Update check failed");
-    frame = profileError.frame;
-    assert.ok(textOf(frame).includes("v0.1.0 · build 3"),
-      "a failed per-app check must preserve that app's local installed version");
-    const lobbySource = await revealText(session, frame, "No signed update source is configured for this host.");
-    frame = lobbySource.frame;
 
     const outgoing = textOp(frame, "MiniApp versions", (op) => (op.y ?? 999) < 70);
     frame = await session.tapPoint(backIconPoint(frame));

@@ -126,6 +126,22 @@ Source and builds still use the current project's files and pinned `buildGuest`.
 | `scripts/editor_service.mjs` | Shared npm launcher pinned to 8791, reusing process libraries, Editor, workspace, standalone replacement, and rollback. |
 | `scripts/studio_upgrade.mjs` | Stable GitHub Release check, HTTPS verification, platform archive and SHA-256 verification, safe tar extraction, staging validation, and rollback state. |
 
+## Optional Lantern example
+
+On the machine running Studio, choose **示例项目** and select **雾港末班信 ·
+Live2D**. This is a separate project from the default Flutter Showcase.
+Studio lists the missing files and links the applicable Live2D and Hiyori
+sample terms. If it asks for the Native SDK, obtain the official **5-r.5**
+archive from Live2D and select the extracted folder containing
+`Samples/Resources/Hiyori`.
+
+After you accept the terms, Studio checks and copies the pinned Hiyori files
+into the new project's ignored build directory. It downloads the pinned
+Cubism Web Core from Live2D only when the SDK cache is missing the file.
+Failed integrity checks leave the example unavailable and report the reason.
+Choose **构建** after import to compile and preview the project. The example
+uses Studio's Web provider, so its optional setup does not install native Core.
+
 ## Built-in Studio Upgrade (v0.1.12+)
 
 The upgrade reference covers the source audit, per-file backup and custom-file transactions, cross-process locking, rollback health confirmation, and crash recovery. [Studio upgrade](STUDIO_UPGRADE.md)

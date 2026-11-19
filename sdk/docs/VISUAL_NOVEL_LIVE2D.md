@@ -61,6 +61,11 @@ The implementation was checked against the official [Cubism Core overview](https
 
 ## Runtime boundary and resource admission
 
+The [registry Live2D package](GITHUB_PACKAGES.md) provides Pocket's first-party
+JS modules. The optional source SDK integration adds the physics and pose
+implementations. Studio can install the optional [Lantern example](EDITOR_STUDIO.md#optional-lantern-example)
+after the user accepts the SDK and sample terms.
+
 The public JS package is `@pocket/live2d`; the reusable Flutter FFI plugin is `pocket_live2d`. `createNovelLive2dFactory` in `@pocket/vn/live2d` consumes the buildGuest-generated `__pocketNovelModelSources` records and a trusted `media.live2d.model.*` host. Native model loading is governed by the bundled catalog `{version:1,assets:{requestMocKey:relativeMocPath}}`; guest input cannot add MOC files. `assetPrefix` prefixes catalog values only. Texture keys are validated as safe relative identifiers and resolve through the existing PAK texture registry, not through a second Flutter asset allowlist.
 
 Admission bounds are:

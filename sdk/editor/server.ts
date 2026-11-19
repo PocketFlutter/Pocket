@@ -56,6 +56,7 @@ import {
   type ProjectPreviewHost,
 } from "./preview.ts";
 import { handleNovelRoute, serveNovelLive2dCore } from "./novel.ts";
+import { lanternExampleStatus, stageLanternExample } from "./optional-demo.ts";
 import { createNovelBackup } from "./novel-backups.ts";
 import { createLocalBluetoothProvider } from "./local_bluetooth.ts";
 import { previewDevice } from "./preview_device.ts";
@@ -5119,6 +5120,54 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
             archive = legacyArchive?.archivePath ?? safeArtifactFile(workspace.updates, `${match[1]}.tar.gz`);
           }
           return new Response(await readFile(archive), { headers: { "content-type": "application/gzip", "content-disposition": `attachment; filename="${match[1]}.tar.gz"` } });
+        }
+        if (path === "/api/examples/lantern" && (method === "GET" || method === "POST")) {
+          if (!loopback) return failure("请在 Studio 所在机器上打开示例安装页。", 403);
+          if (method === "GET") {
+            const crossOrigin = validateNewReadRoute(request, url, server.port);
+            if (crossOrigin) return crossOrigin;
+            return json(await lanternExampleStatus(root));
+          }
+          const body = await parseJsonBody(request);
+          if (body.acceptCubismTerms !== true) return failure("请先阅读并同意 Live2D 和示例数据许可。", 400);
+          if (openingProject) return failure("正在创建或打开项目，请稍后重试。", 409);
+          openingProject = true;
+          let staging: string | undefined;
+          try {
+            const existingIds = await workspaceProjectIds(workspace);
+            const basename = "pocket-demo-lantern";
+            let id = basename;
+            for (let suffix = 2; existingIds.includes(id) || lstatIfExists(safeChild(workspace.projects, id)); suffix += 1) {
+              id = `${basename}-${suffix}`;
+            }
+            const destination = safeChild(workspace.projects, id);
+            await mkdir(workspace.projects, { recursive: true });
+            staging = await mkdtemp(join(workspace.projects, ".lantern-install-"));
+            await stageLanternExample({
+              sdkRoot: root,
+              destination: staging,
+              acceptCubismTerms: body.acceptCubismTerms,
+              cubismSdkDirectory: body.cubismSdkDirectory,
+              signal: request.signal,
+            });
+            const config = await loadConfig(staging, id);
+            await writeConfig(staging, config);
+            writeProjectSupport(staging, root, id, { template: config.template, title: config.title });
+            if (lstatIfExists(destination)) return failure("项目目录已存在，请重试。", 409);
+            await rename(staging, destination);
+            const state: EditorState = {
+              revision: 1,
+              builtRevision: null,
+              busy: false,
+              logs: [`installed optional Lantern example at ${now()}`],
+            };
+            await persistProjectState(id, state);
+            states.set(id, state);
+            return json({ ...config, status: publicStatus(id, state) }, 201);
+          } finally {
+            openingProject = false;
+            if (staging) await rm(staging, { recursive: true, force: true });
+          }
         }
         if (path === "/api/projects/pick-directory" && method === "POST") {
           if (!loopback) return failure("请在 Studio 所在机器上访问 localhost 后选择目录", 403);

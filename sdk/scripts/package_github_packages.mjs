@@ -15,8 +15,9 @@ if (existsSync(stageRoot)) {
 
 // Publish dependency packages before the packages that consume them.
 const packageSlugs = [
-  "diagnostics", "ui", "spine", "sync", "arc", "liquid_glass", "looseleaf", "cos",
+  "diagnostics", "ui", "spine", "sync", "arc", "liquid_glass", "looseleaf", "cos", "vn", "live2d",
 ];
+const live2dExports = [".", "./manifest", "./motion", "./interaction", "./transport"];
 const workspaces = new Map(packageSlugs.map((slug) => {
   const directory = join(sdkRoot, "packages", `pocket_${slug}`);
   const manifest = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
@@ -71,6 +72,20 @@ for (const { slug, directory, manifest: workspaceManifest } of workspaces.values
   };
 
   const dependencies = { ...workspaceManifest.dependencies };
+  if (slug === "vn") {
+    delete dependencies["@pocket/live2d"];
+    dependencies["@pocket/ui"] = workspaces.get("@pocket/ui").manifest.version;
+    manifest.exports = { ...manifest.exports };
+    delete manifest.exports["./live2d"];
+  }
+  if (slug === "live2d") {
+    manifest.license = "MIT";
+    manifest.exports = Object.fromEntries(live2dExports.map((entry) => {
+      const source = workspaceManifest.exports[entry];
+      if (typeof source !== "string") throw new Error(`Missing Live2D export: ${entry}`);
+      return [entry, source];
+    }));
+  }
   if (slug === "sync") {
     dependencies["@pocket/ui"] = workspaces.get("@pocket/ui").manifest.version;
     dependencies["solid-js"] = sdkManifest.devDependencies["solid-js"];
@@ -86,9 +101,21 @@ for (const { slug, directory, manifest: workspaceManifest } of workspaces.values
   if (Object.keys(dependencies).length) manifest.dependencies = dependencies;
 
   mkdirSync(stageDir, { recursive: true });
-  cpSync(join(directory, "src"), join(stageDir, "src"), { recursive: true });
+  if (slug === "live2d") {
+    const sourceDir = join(stageDir, "src");
+    mkdirSync(sourceDir);
+    const files = live2dExports.slice(1).map((entry) => manifest.exports[entry]);
+    for (const file of files) cpSync(join(directory, file), join(stageDir, file));
+    const index = files.map((file) => `export * from "${file.replace("./src/", "./")}";\n`).join("");
+    writeFileSync(join(stageDir, manifest.exports["."]), index);
+  } else {
+    cpSync(join(directory, "src"), join(stageDir, "src"), {
+      recursive: true,
+      filter: (source) => slug !== "vn" || source !== join(directory, "src/live2d.ts"),
+    });
+  }
   const localLicense = join(directory, "LICENSE");
-  cpSync(existsSync(localLicense) ? localLicense : join(sdkRoot, "..", "LICENSE"), join(stageDir, "LICENSE"));
+  cpSync(slug !== "live2d" && existsSync(localLicense) ? localLicense : join(sdkRoot, "..", "LICENSE"), join(stageDir, "LICENSE"));
   if (workspaceManifest.files?.includes("README.md")) {
     cpSync(join(directory, "README.md"), join(stageDir, "README.md"));
     files.push("README.md");

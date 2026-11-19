@@ -535,13 +535,6 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
-  pocket_live2d:
-    dependency: "direct main"
-    description:
-      path: "../sdk/packages/pocket_live2d"
-      relative: true
-    source: path
-    version: "0.1.0"
   pocket_location:
     dependency: transitive
     description:

@@ -297,12 +297,6 @@ class _PocketHybridTabDemoAppState extends State<PocketHybridTabDemoApp> {
           ),
           child: const Text('唤起 Lobby 小程序'),
         ),
-        const SizedBox(height: 8),
-        OutlinedButton(
-          key: const Key('launch-lantern-btn'),
-          onPressed: () => unawaited(_launchMiniApp(context, 'pocket.demo.lantern')),
-          child: const Text('唤起 Lantern 游戏'),
-        ),
         const SizedBox(height: 16),
         Card(
           child: Padding(

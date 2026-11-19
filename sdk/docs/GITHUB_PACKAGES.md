@@ -15,6 +15,8 @@ Studio, and the pinned PocketJS compiler and platform tools.
 | `@pocketflutter/sync` | Sync protocol, client, server controller, and Solid adapter |
 | `@pocketflutter/spine` | Spine core adapter, with the upstream Spine runtime installed as a separate npm dependency |
 | `@pocketflutter/cos` | COS client, release publishing helpers, and Bun CLI module |
+| `@pocketflutter/vn` | Visual novel engine, Guest views, and Spine adapter |
+| `@pocketflutter/live2d` | Pocket's model manifest, motion, interaction, and host transport APIs |
 
 ## Install a package
 
@@ -52,8 +54,15 @@ import { Button } from "@pocket/arc";
 
 Build and run with the [Pocket SDK toolchain](TOOLING_API.md). Host-bound
 features require their documented host providers. Dart/Flutter packages follow
-the [Flutter integration](FLUTTER_API.md). Live2D distribution requires a
-Cubism license review, and VN depends on Live2D.
+the [Flutter integration](FLUTTER_API.md).
+
+The registry VN package works without Live2D and keeps the `modelFactory`
+extension point on `NovelView`. Its `./spine` export uses the published Spine
+adapter. The registry Live2D package exports `./manifest`, `./motion`,
+`./interaction`, and `./transport`. The source SDK's licensed integration
+provides VN's `./live2d` adapter and Live2D's `./physics` and `./pose`.
+To open the optional Lantern example, use the
+[Studio example installer](EDITOR_STUDIO.md#optional-lantern-example).
 
 ## Release from the SDK workspace
 

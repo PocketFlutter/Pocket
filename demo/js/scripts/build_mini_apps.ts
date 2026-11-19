@@ -23,11 +23,11 @@ const miniApps = [
   { name: "lobby", projectRoot: resolve(scriptRoot, "../apps/lobby") },
   { name: "lantern", projectRoot: resolve(scriptRoot, "../apps/lantern") },
 ] as const;
+const bundledMiniApps = miniApps.filter(app => app.name !== "lantern");
 
 const fixedCompositorSurfaces: Readonly<Record<string, number>> = {
   "pocket.demo.profile": 2,
   "pocket.demo.lobby": 3,
-  "pocket.demo.lantern": 63,
 };
 
 type OfficialDemo = Record<string, any> & {
@@ -93,7 +93,8 @@ function parseOptions(args: string[]): Options {
 Builds the local profile/lobby guests, then runs the pinned official demo build,
 native benchmark and asset staging. --official-only skips local guests so a
 focused staging check does not rebuild unrelated apps. --mini-app builds one
-local guest and skips the unrelated official demo sweep and native benchmarks.`);
+local guest and skips the unrelated official demo sweep and native benchmarks.
+Lantern is an optional guest and only builds with an explicit --mini-app=lantern.`);
       process.exit(0);
     } else throw new Error(`Unknown argument: ${arg}`);
   }
@@ -273,7 +274,7 @@ function bundledLocalApplications(): Record<string, unknown>[] {
     if (!source || typeof source !== "object" || Array.isArray(source)) continue;
     const app = source as Record<string, any>;
     if (typeof app.package !== "string" || typeof app.manifest !== "string") continue;
-    const local = miniApps.find(({ name }) => app.manifest === `apps/${name}/pocket.json`);
+    const local = bundledMiniApps.find(({ name }) => app.manifest === `apps/${name}/pocket.json`);
     if (!local) continue;
     const assetDirectory = dirname(app.manifest).split(sep).join("/");
     const assets = {
@@ -290,9 +291,9 @@ function bundledLocalApplications(): Record<string, unknown>[] {
     }
     result.push({ appId: app.package, launchable: installed.has(app.package), assets });
   }
-  if (result.length !== miniApps.length) {
+  if (result.length !== bundledMiniApps.length) {
     throw new Error(
-      `build_mini_apps: expected ${miniApps.length} local apps in pocket.system.json, found ${result.length}`,
+      `build_mini_apps: expected ${bundledMiniApps.length} local apps in pocket.system.json, found ${result.length}`,
     );
   }
   return result;
@@ -452,7 +453,7 @@ export async function buildMiniApps(args: string[] = process.argv.slice(2)): Pro
   const results: BuildGuestResult[] = [];
   if (!options.officialOnly) {
     const selectedApps = options.miniApp === null
-      ? miniApps
+      ? bundledMiniApps
       : miniApps.filter(app => app.name === options.miniApp);
     if (options.miniApp === "lantern") {
       const sampleRoot = process.env.CUBISM_SDK_ROOT?.trim();

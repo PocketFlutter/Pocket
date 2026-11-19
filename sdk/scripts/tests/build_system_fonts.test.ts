@@ -132,14 +132,19 @@ test("System validation diagnoses unsafe font paths and still rejects unrelated 
   }
 });
 
-test("the retained Lantern System catalog validates cleanly on host-native fonts without rewriting Demo sources", { timeout: 120_000 }, async () => {
+test("Lantern is optional and its standalone manifest validates without a font override", { timeout: 120_000 }, async () => {
   const demoRoot = resolve(import.meta.dir, "../../../demo/js");
   const systemPath = join(demoRoot, "pocket.system.json");
   const lanternPocketPath = join(demoRoot, "apps/lantern/pocket.json");
   const original = readFileSync(lanternPocketPath, "utf8");
   const result = await validateSystemFile(systemPath);
   if (!result.ok) throw new Error(result.diagnostics.map(item => `${item.code} ${item.path}: ${item.message}`).join("\n"));
-  const lantern = result.value.packages.find(item => item.package === "pocket.demo.lantern");
+  expect(result.value.packages.some(item => item.package === "pocket.demo.lantern")).toBe(false);
+  const optional = JSON.parse(readFileSync(systemPath, "utf8"));
+  optional.applications.catalog.push({ package: "pocket.demo.lantern", manifest: "apps/lantern/pocket.json", required: false });
+  const optionalResult = await validateSystemDocument(optional, { appRoot: demoRoot });
+  if (!optionalResult.ok) throw new Error(optionalResult.diagnostics.map(item => `${item.code} ${item.path}: ${item.message}`).join("\n"));
+  const lantern = optionalResult.value.packages.find(item => item.package === "pocket.demo.lantern");
   expect(lantern?.manifest.id).toBe("pocket.demo.lantern");
   expect(lantern?.manifest).not.toHaveProperty("fonts");
   expect(readFileSync(lanternPocketPath, "utf8")).toBe(original);

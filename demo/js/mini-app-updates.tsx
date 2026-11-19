@@ -228,13 +228,6 @@ export function MiniAppUpdatesPage(props: {
                   </Text>
                 }>
                   <MobileBadge label={stateBadge()?.label ?? "CHECKING"} tone={stateBadge()?.tone ?? "neutral"} />
-                  <Show when={app.appId === "pocket.demo.lantern" && status()!.configured}>
-                    <MobileListTile
-                      title="Automatic updates"
-                      detail="Checked on app open"
-                      trailing={<MobileBadge label="ON" tone="success" />}
-                    />
-                  </Show>
                   <MobileListTile title="Installed" detail={versionBuild(status()!.installedVersion, status()!.installedBuild)} />
                   <Show when={status()!.activeVersion !== null}>
                     <MobileListTile

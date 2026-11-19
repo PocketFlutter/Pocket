@@ -1986,7 +1986,7 @@ function PlatformAppsCard(props: {
         <View class="flex-1 min-w-0" style={{ minW: 0 }}>
           <MobileListTile title="Mini Apps" detail="A little more to explore." />
         </View>
-        <MobileBadge label={`${3 + officialDemos().filter((demo) => demo.installed).length} INSTALLED`} tone="neutral" />
+        <MobileBadge label={`${2 + officialDemos().filter((demo) => demo.installed).length} INSTALLED`} tone="neutral" />
       </View>
       <View class="flex-col gap-2 w-full" style={{ minW: 0 }}>
         <Text class={theme().name === "dark" ? "text-xs text-[#FAFAFA] font-bold" : "text-xs text-[#09090B] font-bold"}>
@@ -2017,7 +2017,6 @@ function PlatformAppsCard(props: {
       <View class="flex-col gap-2 w-full" style={{ minW: 0 }}>
         <MobileButton label="Open profile app" onPress={() => void open("pocket.demo.profile")} />
         <MobileButton label="Open lobby app" kind="text" onPress={() => void open("pocket.demo.lobby")} />
-        <MobileButton label="雾港末班信 · Visual Novel" kind="tonal" onPress={() => void open("pocket.demo.lantern")} />
         <MobileButton
           label="Manage MiniApp versions"
           kind="outlined"
@@ -2063,8 +2062,6 @@ function PlatformAppsCard(props: {
           <MobileButton label="Profile · Page" kind="tonal" compact onPress={() => void open("pocket.demo.profile", "page")} />
           <MobileButton label="Lobby · Sheet" kind="tonal" compact onPress={() => void open("pocket.demo.lobby", "sheet")} />
           <MobileButton label="Lobby · Page" kind="tonal" compact onPress={() => void open("pocket.demo.lobby", "page")} />
-          <MobileButton label="VN · Sheet" kind="outlined" compact onPress={() => void open("pocket.demo.lantern", "sheet")} />
-          <MobileButton label="VN · Page" kind="outlined" compact onPress={() => void open("pocket.demo.lantern", "page")} />
         </View>
       </View>
       <View class="flex-col w-full gap-1.5 pt-2" style={{ minW: 0 }}>

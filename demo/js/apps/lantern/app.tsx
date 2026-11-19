@@ -52,7 +52,7 @@ function LanternApp(): JSX.Element {
     const resolved = applyStoryAssetOverrides(projectAssets, localized().assetOverrides);
     return {
       ...resolved,
-      videos: Object.fromEntries(Object.entries(resolved.videos ?? {}).map(([cue, path]) => [cue, `assets/apps/lantern/${path}`])),
+      videos: Object.fromEntries(Object.entries(resolved.videos ?? {}).map(([cue, path]) => [cue, `assets/${path}`])),
       imageDimensions,
     };
   });

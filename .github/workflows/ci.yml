@@ -269,7 +269,7 @@ jobs:
           path: sdk/.cache/cubism-native-samples
           sparse-checkout: Samples/Resources/Hiyori
 
-      - name: Build Lantern guest from source for Flutter packaging tests
+      - name: Verify standalone Lantern guest build
         working-directory: demo/js
         env:
           CUBISM_SDK_ROOT: ${{ github.workspace }}/sdk/.cache/cubism-native-samples
@@ -277,12 +277,6 @@ jobs:
           POCKET_COMPILER_PATH: ${{ github.workspace }}/sdk/.cache/pocketjs/tools/build.ts
           POCKET_BYTECODE_BIN: ${{ github.workspace }}/sdk/native/target/release/pocketjs_bytecode
         run: bun scripts/build_mini_apps.ts --mini-app=lantern
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: lantern-guest
-          path: demo/assets/apps/lantern
-          if-no-files-found: error
 
       - name: Verify Studio upgrade lifecycle before packaging
         working-directory: sdk
@@ -365,11 +359,6 @@ jobs:
     if: ${{ !cancelled() && needs.js-sdk-and-guest.result != 'cancelled' }}
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/download-artifact@v8
-        with:
-          name: lantern-guest
-          path: demo/assets/apps/lantern
 
       - uses: subosito/flutter-action@v2
         with:

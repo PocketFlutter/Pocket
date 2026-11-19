@@ -284,6 +284,10 @@ Check `result.published` for the native outcome. See [Native surface bridge](OPT
 
 ### Spine / Live2D
 
+Registry packages provide the [standalone VN and Live2D API subsets](GITHUB_PACKAGES.md).
+The following table describes the source SDK exports, including its optional
+licensed Live2D integration.
+
 | Package | Public path and API | Asynchronous results and runtime limits |
 | --- | --- | --- |
 | `@pocket/spine` | Only `.`. `createSpineRig(input: SpineRigInput): SpineRig`; `getSpineAtlasInfo(atlasText)` / `getSpineAtlasPages(atlasText)`. | `SpineRig` exposes parsed rig/frame data; `SpineUnsupportedFrame` explicitly marks unsupported frame output. npm workspace declares `@esotericsoftware/spine-core` 4.3.13 dependency; see [Spine boundary](VISUAL_NOVEL_SPINE.md). |

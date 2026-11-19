@@ -186,7 +186,7 @@ export function SettingsPage(props: {
               }
             />
             <MobileParagraph
-              text='Profile uses "page"; Lobby & Lantern follow this setting.'
+              text='Profile uses "page"; Lobby follows this setting.'
               class={
                 theme().name === "dark"
                   ? "text-xs text-[#A1A1AA]"

@@ -22,11 +22,10 @@ const base: PocketSystemV1 = {
       { package: "pocket.host.demo", manifest: "pocket.json", required: true },
       { package: "pocket.demo.profile", manifest: "profile.json", required: true },
       { package: "pocket.demo.lobby", manifest: "lobby.json", required: true },
-      { package: "pocket.demo.lantern", manifest: "lantern.json", required: true },
     ],
   },
   installation: {
-    installedPackages: ["pocket.host.demo", "pocket.demo.profile", "pocket.demo.lobby", "pocket.demo.lantern"],
+    installedPackages: ["pocket.host.demo", "pocket.demo.profile", "pocket.demo.lobby"],
   },
 };
 
@@ -71,7 +70,6 @@ test("official entries are cataloged, but only supported packages are installed 
   const trustedAvailableIds = new Set([
     "pocket.demo.profile",
     "pocket.demo.lobby",
-    "pocket.demo.lantern",
     hero.appId,
   ]);
   const configuration = buildShowcaseSystemConfiguration(base, [hero, limited], trustedAvailableIds);
@@ -88,14 +86,12 @@ test("official entries are cataloged, but only supported packages are installed 
     "pocket.host.demo",
     "pocket.demo.profile",
     "pocket.demo.lobby",
-    "pocket.demo.lantern",
     hero.appId,
   ]);
 
   assert.deepEqual(policies["pocket.host.demo"]?.allowedOpenApps, [
     "pocket.demo.profile",
     "pocket.demo.lobby",
-    "pocket.demo.lantern",
     hero.appId,
   ]);
   assert.deepEqual(policies[hero.appId], {
@@ -109,7 +105,7 @@ test("official entries are cataloged, but only supported packages are installed 
   const surfaces = showcaseCompositorSurfaces();
   assert.equal(surfaces["pocket.demo.profile"], 2);
   assert.equal(surfaces["pocket.demo.lobby"], 3);
-  assert.equal(surfaces["pocket.demo.lantern"], 63);
+  assert.equal(surfaces["pocket.demo.lantern"], undefined);
   assert.equal(surfaces[hero.appId], 14);
   assert.equal(surfaces[limited.appId], undefined);
 });
@@ -118,7 +114,6 @@ test("launchable official demos stay cataloged but uninstalled without a trusted
   const configuration = buildShowcaseSystemConfiguration(base, [hero, limited], new Set([
     "pocket.demo.profile",
     "pocket.demo.lobby",
-    "pocket.demo.lantern",
   ]));
   const heroCatalog = configuration.manifest.applications.catalog.find((entry) => entry.package === hero.appId)!;
 
@@ -128,12 +123,10 @@ test("launchable official demos stay cataloged but uninstalled without a trusted
     "pocket.host.demo",
     "pocket.demo.profile",
     "pocket.demo.lobby",
-    "pocket.demo.lantern",
   ]);
   assert.deepEqual(configuration.policies["pocket.host.demo"]?.allowedOpenApps, [
     "pocket.demo.profile",
     "pocket.demo.lobby",
-    "pocket.demo.lantern",
   ]);
   assert.equal(configuration.policies[hero.appId], undefined);
 
@@ -145,16 +138,14 @@ test("trusted compositor IDs reject malformed native registries", () => {
   assert.deepEqual([...readTrustedCompositorSurfaceIds({
     "pocket.demo.profile": 2,
     "pocket.demo.lobby": 2,
-    "pocket.demo.lantern": 63,
     [hero.appId]: 14,
   })], []);
   assert.deepEqual([...readTrustedCompositorSurfaceIds(null)], []);
   assert.deepEqual([...readTrustedCompositorSurfaceIds({
     "pocket.demo.profile": 2,
     "pocket.demo.lobby": 3,
-    "pocket.demo.lantern": 63,
     [hero.appId]: 14,
-  })], ["pocket.demo.profile", "pocket.demo.lobby", "pocket.demo.lantern", hero.appId]);
+  })], ["pocket.demo.profile", "pocket.demo.lobby", hero.appId]);
 });
 
 test("duplicate official IDs and oversized handle catalogs fail closed", () => {

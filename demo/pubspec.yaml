@@ -18,8 +18,6 @@ dependencies:
     path: ../sdk/packages/pocket_platform
   pocket_audio:
     path: ../sdk/packages/pocket_audio
-  pocket_live2d:
-    path: ../sdk/packages/pocket_live2d
   video_player: ^2.9.5
 
 dev_dependencies:
@@ -49,10 +47,6 @@ flutter:
     - assets/videos/
     - assets/apps/profile/
     - assets/apps/lobby/
-    - assets/apps/lantern/
-    - assets/apps/lantern/audio/
-    - assets/apps/lantern/videos/
-    - assets/apps/lantern/native-models/
     - assets/apps/official/
     # BEGIN GENERATED OFFICIAL DEMO ASSETS
     - assets/apps/official/catalog.json

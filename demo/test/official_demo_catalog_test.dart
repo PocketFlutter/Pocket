@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocket_sdk/pocket_sdk.dart';
@@ -200,10 +198,12 @@ void main() {
     expect(catalog.entries, isNotEmpty);
     expect(catalog.compositorSurfaces['pocket.demo.profile'], 2);
     expect(catalog.compositorSurfaces['pocket.demo.lobby'], 3);
-    expect(catalog.compositorSurfaces['pocket.demo.lantern'], 63);
-    for (final entry in catalog.launchableEntries.where(
-      (entry) => entry.appId != _lanternAppId,
-    )) {
+    expect(catalog.compositorSurfaces, isNot(contains('pocket.demo.lantern')));
+    expect(
+      catalog.entries.map((entry) => entry.appId),
+      isNot(contains('pocket.demo.lantern')),
+    );
+    for (final entry in catalog.launchableEntries) {
       await _expectBundledGuest(entry);
     }
     final httpWorker = catalog.launchableEntries.singleWhere(
@@ -222,24 +222,7 @@ void main() {
       expect(authorized[entry.appId]!.workerHttpOrigins, isEmpty);
     }
   });
-
-  test('the staged Lantern bundle is packaged', () async {
-    final catalog = await PocketBundledApplicationCatalog.loadFromBundle(
-      'assets/apps/official/catalog.json',
-      assetPrefix: 'assets/',
-      firstCompositorHandle: 4,
-      lastCompositorHandle: 62,
-      reservedAppIds: const <String>{'pocket.host.demo'},
-    );
-    await _expectBundledGuest(
-      catalog.launchableEntries.singleWhere(
-        (entry) => entry.appId == _lanternAppId,
-      ),
-    );
-  }, skip: _lanternStagedSkipReason());
 }
-
-const _lanternAppId = 'pocket.demo.lantern';
 
 Future<void> _expectBundledGuest(PocketBundledApplicationEntry entry) async {
   final config = entry.config;
@@ -251,22 +234,4 @@ Future<void> _expectBundledGuest(PocketBundledApplicationEntry entry) async {
   if (entry.workerBytecodeAsset case final workerAsset?) {
     expect(await rootBundle.load(workerAsset), isNotNull);
   }
-}
-
-/// Lantern's staged guest (`assets/apps/lantern`) is gitignored: building it
-/// needs a local pinned Cubism sample (`CUBISM_SDK_ROOT`), which the build never
-/// downloads. Skip with that reason unless POCKET_REQUIRE_REAL=1.
-String? _lanternStagedSkipReason() {
-  if (Platform.environment['POCKET_REQUIRE_REAL'] == '1') return null;
-  final missing = <String>[
-    'app.qjbc',
-    'app.pak',
-    'app.bytecode.json',
-    'guest-manifest.json',
-  ].where((name) => !File('assets/apps/lantern/$name').existsSync());
-  if (missing.isEmpty) return null;
-  return 'staged Lantern guest is not built (missing ${missing.join(', ')} under '
-      'assets/apps/lantern); needs a local pinned Cubism sample: '
-      'CUBISM_SDK_ROOT=<path> bun js/scripts/build_mini_apps.ts --mini-app=lantern '
-      '(set POCKET_REQUIRE_REAL=1 to fail instead of skip)';
 }

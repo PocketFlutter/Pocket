@@ -12,7 +12,6 @@ import type { JsonObject } from "@pocket/ui/host";
 import type { PocketSystemPolicies } from "@pocket/ui/system";
 import { onCleanup } from "solid-js";
 import manifest from "./pocket.system.json";
-import lanternManifest from "./apps/lantern/pocket.json";
 import lobbyManifest from "./apps/lobby/pocket.json";
 import profileManifest from "./apps/profile/pocket.json";
 import {
@@ -126,7 +125,6 @@ function createHybridFlutterOpenAdapter(bridge: HostBridge) {
 }
 
 const BUILTIN_APP_MANIFESTS: Readonly<Record<string, unknown>> = {
-  "pocket.demo.lantern": lanternManifest,
   "pocket.demo.lobby": lobbyManifest,
   "pocket.demo.profile": profileManifest,
 };
@@ -223,7 +221,7 @@ export function buildShowcaseSystemConfiguration(
   };
   const policies: PocketSystemPolicies = {
     "pocket.host.demo": {
-      allowedOpenApps: ["pocket.demo.profile", "pocket.demo.lobby", "pocket.demo.lantern", ...launchableIds],
+      allowedOpenApps: ["pocket.demo.profile", "pocket.demo.lobby", ...launchableIds],
       messageTargets: ["pocket.demo.profile", "pocket.demo.lobby"],
       sharedNamespaces: ["identity"],
     },
@@ -236,11 +234,6 @@ export function buildShowcaseSystemConfiguration(
       allowedOpenApps: [],
       messageTargets: ["pocket.host.demo", "pocket.demo.profile"],
       sharedNamespaces: ["identity"],
-    },
-    "pocket.demo.lantern": {
-      allowedOpenApps: [],
-      messageTargets: [],
-      sharedNamespaces: [],
     },
     ...Object.fromEntries(launchableIds.map((id) => [id, {
       allowedOpenApps: [],

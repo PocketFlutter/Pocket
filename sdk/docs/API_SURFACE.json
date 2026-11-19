@@ -5011,7 +5011,7 @@
         },
         {
           "file": "editor/server.ts",
-          "sourceSha256": "322905564ac203e2e086e1bad6abc52429c70666642f30f6c23b096cfb7a9471"
+          "sourceSha256": "b7777bf6125535d5769bad004ab0f0f271053fc2bba8e7fa520770431ba5df00"
         },
         {
           "file": "editor/test/editor_live_probe.ts",
@@ -5051,7 +5051,7 @@
         },
         {
           "file": "scripts/export_web_sdk.ts",
-          "sourceSha256": "983649a23a67ece15180b1e6dba610d76b861e782046693ce10e2dd21c49cfe9"
+          "sourceSha256": "1a42bf99f1a02d072d412eb61aa350547cb439652fe3cc99583ec13088fe0f68"
         },
         {
           "file": "scripts/install_studio.mjs",

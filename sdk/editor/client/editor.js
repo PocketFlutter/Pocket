@@ -4050,6 +4050,140 @@ $("open-project-form").addEventListener("submit", async (event) => {
   }
 });
 
+const examplesDialog = $("examples-dialog");
+const examplesForm = $("examples-form");
+const exampleConfirm = $("confirm-example");
+const exampleConsent = $("accept-example-license");
+const exampleSdkDirectory = examplesForm.elements.namedItem("cubismSdkDirectory");
+const exampleEndpoint = "/api/examples/lantern";
+let exampleStatus;
+let exampleLoading;
+let exampleDirectorySelection;
+let installingExample = false;
+
+function updateExampleActions() {
+  const canOpen = exampleStatus?.available && !["invalid", "external-missing"].includes(exampleStatus.core);
+  exampleConfirm.disabled = installingExample || !canOpen
+    || (exampleStatus.consentRequired && !exampleConsent.checked)
+    || (exampleStatus.modelSourceRequired && !exampleSdkDirectory.value.trim());
+  exampleConfirm.textContent = installingExample ? "正在安装并打开…"
+    : exampleStatus?.core === "missing" || exampleStatus?.modelSourceRequired ? "安装并打开" : "打开示例";
+  $("cancel-example").disabled = installingExample;
+  exampleConsent.disabled = installingExample;
+  exampleSdkDirectory.disabled = installingExample;
+  $("browse-example-sdk").disabled = installingExample || Boolean(exampleLoading || exampleDirectorySelection);
+}
+
+function setExampleError(error) {
+  const alert = $("example-error");
+  alert.textContent = error ? localizedMessage(error) : "";
+  alert.hidden = !error;
+}
+
+$("open-examples").addEventListener("click", async () => {
+  examplesForm.reset();
+  exampleStatus = undefined;
+  $("example-license").hidden = true;
+  $("example-model").hidden = true;
+  $("example-missing").hidden = true;
+  $("example-status").textContent = "正在检查本机依赖…";
+  setExampleError();
+  const loading = new AbortController();
+  exampleLoading = loading;
+  updateExampleActions();
+  examplesDialog.showModal();
+  try {
+    const result = await api(exampleEndpoint, { signal: loading.signal });
+    if (loading.signal.aborted) return;
+    exampleStatus = result;
+    $("examples-heading").textContent = result.title;
+    const missing = $("example-missing");
+    missing.replaceChildren(...result.missing.map((dependency) => {
+      const item = document.createElement("li");
+      item.textContent = dependency;
+      return item;
+    }));
+    missing.hidden = missing.childElementCount === 0;
+    $("example-status").textContent = !result.available ? "本机暂无法打开此示例。"
+      : missing.hidden ? "已找到所需依赖。" : "继续前请处理以下依赖。";
+    $("example-model").hidden = !result.available || !result.modelSourceRequired;
+    if (result.modelDownloadUrl) $("example-model-download").href = result.modelDownloadUrl;
+    $("example-license").hidden = !result.consentRequired;
+    $("example-terms").replaceChildren(...result.licenses.map(({ title, url }) => {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = title;
+      item.append(link);
+      return item;
+    }));
+  } catch (error) {
+    if (!loading.signal.aborted) {
+      $("example-status").textContent = "未能检查示例依赖。";
+      setExampleError(error);
+    }
+  } finally {
+    if (exampleLoading === loading) {
+      exampleLoading = undefined;
+      updateExampleActions();
+    }
+  }
+});
+
+examplesDialog.addEventListener("close", () => {
+  exampleLoading?.abort();
+  exampleDirectorySelection?.abort();
+  exampleDirectorySelection = undefined;
+});
+examplesDialog.addEventListener("cancel", (event) => {
+  if (installingExample) event.preventDefault();
+});
+$("cancel-example").addEventListener("click", () => examplesDialog.close());
+exampleConsent.addEventListener("change", updateExampleActions);
+exampleSdkDirectory.addEventListener("input", updateExampleActions);
+$("browse-example-sdk").addEventListener("click", async () => {
+  const selection = new AbortController();
+  exampleDirectorySelection = selection;
+  updateExampleActions();
+  try {
+    const result = await api("/api/projects/pick-directory", { method: "POST", body: "{}", signal: selection.signal });
+    if (result.path && !selection.signal.aborted) exampleSdkDirectory.value = result.path;
+  } catch (error) {
+    if (!selection.signal.aborted) setExampleError(error);
+  } finally {
+    if (exampleDirectorySelection === selection) {
+      exampleDirectorySelection = undefined;
+      updateExampleActions();
+    }
+  }
+});
+examplesForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (exampleConfirm.disabled) return;
+  installingExample = true;
+  setExampleError();
+  updateExampleActions();
+  try {
+    const result = await api(exampleEndpoint, {
+      method: "POST",
+      body: JSON.stringify({
+        acceptCubismTerms: exampleConsent.checked,
+        cubismSdkDirectory: exampleSdkDirectory.value.trim() || undefined,
+      }),
+    });
+    await loadProjects(result.id);
+    examplesDialog.close();
+    clearNotice();
+  } catch (error) {
+    setExampleError(error);
+  } finally {
+    installingExample = false;
+    updateExampleActions();
+  }
+});
+
 $("new-project").addEventListener("click", () => {
   $("create-form").reset();
   renderEcosystemModuleCheckboxes("create-ecosystem-list", "createEcosystemModule", [], false);

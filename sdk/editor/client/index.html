@@ -40,6 +40,7 @@
           </details>
           <button id="open-project" class="button secondary small-button" type="button">打开项目</button>
           <button id="new-project" class="button secondary small-button" type="button">+ 新建项目</button>
+          <button id="open-examples" class="button secondary small-button" type="button">示例项目</button>
         </div>
 
         <div class="command-bar-center" role="toolbar" aria-label="构建与工作区模式">
@@ -553,6 +554,29 @@
       <label>项目目录（必填）<input name="path" required autocomplete="off" spellcheck="false" aria-describedby="open-project-help" placeholder="/Users/you/my-app 或 C:\Projects\my-app"></label>
       <p id="open-project-error" role="alert" hidden></p>
       <div class="dialog-actions"><button id="cancel-open-project" type="button" class="button secondary">取消</button><button id="confirm-open-project" type="submit" class="button primary">打开项目</button></div>
+    </form>
+  </dialog>
+  <dialog id="examples-dialog" aria-labelledby="examples-heading">
+    <form id="examples-form" method="dialog">
+      <div class="eyebrow">可选示例</div>
+      <h2 id="examples-heading">雾港末班信</h2>
+      <p>视觉小说示例，包含剧情选择、存档和 Live2D 角色集成。打开后在工作区使用独立项目。</p>
+      <p id="example-status" role="status"></p>
+      <ul id="example-missing" class="example-list" hidden></ul>
+      <div id="example-model" hidden>
+        <p>缺少 Hiyori 示例模型。请从 <a id="example-model-download" target="_blank" rel="noopener noreferrer">Live2D 官方网站</a> 获取并解压 Cubism SDK for Native R5，然后选择 SDK 目录。</p>
+        <button id="browse-example-sdk" type="button" class="button secondary">选择 SDK 目录…</button>
+        <label>Cubism SDK 目录<input name="cubismSdkDirectory" autocomplete="off" spellcheck="false" placeholder="包含 Samples/Resources/Hiyori 的 SDK 目录"></label>
+      </div>
+      <div id="example-license" hidden>
+        <ul id="example-terms" class="example-list"></ul>
+        <label class="example-consent"><input id="accept-example-license" type="checkbox">我已阅读并同意上方许可，允许 Studio 安装缺少的 Live2D 依赖并在本机打开示例。</label>
+      </div>
+      <p id="example-error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button id="cancel-example" class="button secondary" type="button">取消</button>
+        <button id="confirm-example" class="button primary" type="submit" disabled>打开示例</button>
+      </div>
     </form>
   </dialog>
   <script type="module" src="/editor.js"></script>

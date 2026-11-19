@@ -30,7 +30,9 @@ jobs:
 
       - name: Run host package regression tests
         run: |
-          bun test sdk/packages/pocket_diagnostics/test sdk/packages/pocket_cos/test
+          bun test sdk/packages/pocket_diagnostics/test sdk/packages/pocket_cos/test \
+            sdk/packages/pocket_vn/test/engine.test.ts \
+            sdk/packages/pocket_live2d/test/live2d.test.ts sdk/packages/pocket_live2d/test/interaction.test.ts
 
       - name: Pack SDK packages
         run: |

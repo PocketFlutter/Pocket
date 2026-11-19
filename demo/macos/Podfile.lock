@@ -4,14 +4,11 @@ PODS:
     - Flutter
     - FlutterMacOS
   - pocket_flutter (0.1.0)
-  - pocket_live2d (0.1.0):
-    - FlutterMacOS
 
 DEPENDENCIES:
   - FlutterMacOS (from `Flutter/ephemeral`)
   - pocket_archive (from `Flutter/ephemeral/.symlinks/plugins/pocket_archive/macos`)
   - pocket_flutter (from `Flutter/ephemeral/.symlinks/plugins/pocket_flutter/macos`)
-  - pocket_live2d (from `Flutter/ephemeral/.symlinks/plugins/pocket_live2d/macos`)
 
 EXTERNAL SOURCES:
   FlutterMacOS:
@@ -20,14 +17,11 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/pocket_archive/macos
   pocket_flutter:
     :path: Flutter/ephemeral/.symlinks/plugins/pocket_flutter/macos
-  pocket_live2d:
-    :path: Flutter/ephemeral/.symlinks/plugins/pocket_live2d/macos
 
 SPEC CHECKSUMS:
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   pocket_archive: fff57bcc75adf365cb8c666b20eef39368eac9b2
   pocket_flutter: c90b4522cb99c2488690ccad1226ddd0b787835d
-  pocket_live2d: 08c1500611234d4e27cec65825064e2482a43d2f
 
 PODFILE CHECKSUM: a4aff1a92a564fcc79c928194dcd192df08f2349
 

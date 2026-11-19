@@ -7,8 +7,7 @@
   },
   "fixedCompositorSurfaces": {
     "pocket.demo.profile": 2,
-    "pocket.demo.lobby": 3,
-    "pocket.demo.lantern": 63
+    "pocket.demo.lobby": 3
   },
   "applications": [
     {
@@ -2310,16 +2309,6 @@
         "pointerFallbackCapabilities": [],
         "blockedCapabilities": [],
         "note": "No required capability gap was found in the current PocketSession defaults."
-      }
-    },
-    {
-      "appId": "pocket.demo.lantern",
-      "launchable": true,
-      "assets": {
-        "bytecode": "apps/lantern/app.qjbc",
-        "pak": "apps/lantern/app.pak",
-        "metadata": "apps/lantern/app.bytecode.json",
-        "manifest": "apps/lantern/guest-manifest.json"
       }
     },
     {

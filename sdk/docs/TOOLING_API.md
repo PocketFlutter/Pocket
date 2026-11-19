@@ -228,6 +228,7 @@ Studio routes are defined in [editor/server.ts](../editor/server.ts#L4285) and P
 | HTTP | Current use |
 | --- | --- |
 | `GET /health` | Local health and runtime fields. Keep response CSRF values private. |
+| `GET /api/examples/lantern` and `POST /api/examples/lantern` | Loopback-only example status and installation. GET reports missing Core/model inputs and license URLs without installing anything. POST uses the normal CSRF check and requires `acceptCubismTerms: true`; supply an absolute `cubismSdkDirectory` if the pinned sample is missing. Returns the new project with HTTP 201. Installation fails on missing, invalid, or unverified inputs. |
 | `POST /api/projects/pick-directory` | Loopback-only macOS/Windows folder picker. Returns `{path: string \| null}` with null on cancel, times out after 120 seconds, and allows one picker at a time. Use localhost on the Studio machine. |
 | `GET /api/projects`, `POST /api/projects`, `POST /api/projects/open` | List, create, and open local projects. List entries include `canRemove`. External absolute paths require a loopback peer. |
 | `DELETE /api/projects/:id` | Loopback-only list removal. Returns `{removed: true, id, removedIds: string[]}`. A missing project returns 404. A protected project or conflicting operation returns 409. Source directories and published release files are preserved. Open the same directory to restore the entry. |

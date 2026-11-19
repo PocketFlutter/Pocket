@@ -17,7 +17,6 @@ const healthyUpdateStatus = {
 const phonePublishedSurfaces = Object.freeze({
   "pocket.demo.profile": 2,
   "pocket.demo.lobby": 3,
-  "pocket.demo.lantern": 63,
 });
 
 test("Home exposes one container exit action at narrow and wide widths and closes through native input", { timeout: 30_000 }, async () => {

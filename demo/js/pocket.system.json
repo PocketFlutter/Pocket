@@ -25,12 +25,6 @@
         }
       },
       {
-        "package": "pocket.demo.lantern",
-        "manifest": "apps/lantern/pocket.json",
-        "required": true,
-        "memory": { "heapLimitBytes": 134217728, "maxPakBytes": 75497472 }
-      },
-      {
         "package": "pocket.demo.profile",
         "manifest": "apps/profile/pocket.json",
         "required": true,
@@ -49,7 +43,6 @@
   "installation": {
     "installedPackages": [
       "pocket.host.demo",
-      "pocket.demo.lantern",
       "pocket.demo.profile",
       "pocket.demo.lobby"
     ]

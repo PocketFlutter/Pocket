@@ -100,6 +100,25 @@ function copyWebLive2dPackage(out: string): void {
   }, null, 2)}\n`);
 }
 
+function copyOptionalLantern(out: string): void {
+  const source = join(REPOSITORY_ROOT, "demo/js/apps/lantern");
+  const target = join(out, "examples/optional/lantern");
+  for (const file of [
+    "app.tsx", "story.ts", "story.json", "package.json", "pocket.json", "manifest.json",
+    "images.json", "novel.assets.json", "novel.locales.json", "revision-map.json",
+    "revision-map-v2.json", "revision-map-v3.json", "revision-map-v4.json", "revision-map-v5.json",
+    "ASSETS.md", "CONTENT.md", "LIVE2D_SAMPLE.md", "scripts/prepare_live2d.ts",
+  ]) copyFile(join(source, file), join(target, file));
+  for (const directory of ["assets/audio", "assets/videos", "models"]) {
+    copyTree(join(source, directory), join(target, directory));
+  }
+  const art = join(source, "art");
+  cpSync(art, join(target, "art"), {
+    recursive: true,
+    filter: (path) => !["masters", "reference"].includes(relative(art, path).split(/[\\/]/)[0]!),
+  });
+}
+
 function write(path: string, contents: string): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, contents);
@@ -201,6 +220,7 @@ function copyDocs(out: string, sourceCommit: string): void {
 }
 
 function copySources(out: string, sourceCommit: string): void {
+  copyOptionalLantern(out);
   copyTree(join(SDK_ROOT, "templates"), join(out, "templates"));
   copyTree(join(SDK_ROOT, "editor"), join(out, "editor"));
   rmSync(join(out, "editor/test"), { recursive: true, force: true });

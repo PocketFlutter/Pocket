@@ -1,12 +1,12 @@
 import { deepStrictEqual, ok, strictEqual } from "node:assert";
-import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, realpath, rm } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const consumerPath = process.argv[2];
 if (!consumerPath) throw new Error("Usage: bun sdk/scripts/verify_github_packages.ts <consumer-dir>");
 const consumer = await realpath(resolve(consumerPath));
-const packages = ["diagnostics", "ui", "arc", "liquid_glass", "looseleaf", "sync", "spine", "cos"];
+const packages = ["diagnostics", "ui", "arc", "liquid_glass", "looseleaf", "sync", "spine", "cos", "vn", "live2d"];
 
 for (const slug of packages) {
   const installedPath = join(consumer, "node_modules", "@pocket", slug);
@@ -14,6 +14,14 @@ for (const slug of packages) {
   strictEqual(installed, installedPath, `Expected an installed package directory for @pocket/${slug}`);
   const manifest = JSON.parse(await readFile(join(installed, "package.json"), "utf8"));
   strictEqual(manifest.name, `@pocketflutter/${slug}`);
+  if (slug === "vn") {
+    strictEqual(manifest.dependencies["@pocket/live2d"], undefined);
+    strictEqual(manifest.exports["./live2d"], undefined);
+    ok(!(await readdir(join(installed, "src"))).includes("live2d.ts"));
+  }
+  if (slug === "live2d") {
+    deepStrictEqual((await readdir(join(installed, "src"))).sort(), ["index.ts", "interaction.ts", "manifest.ts", "motion.ts", "transport.ts"]);
+  }
   ok(manifest.exports["."], `Missing root export for ${manifest.name}`);
   for (const subpath of Object.keys(manifest.exports)) {
     const specifier = `@pocket/${slug}${subpath.slice(1)}`;
@@ -73,5 +81,18 @@ deepStrictEqual(getSpineAtlasPages("page.png\nsize: 16,16\nfilter: Linear,Linear
 const { sha1Hex, verifyLocalPackageDirectory } = await load("@pocket/cos");
 strictEqual(sha1Hex("abc"), "a9993e364706816aba3e25717850c26c9cd0d89d");
 strictEqual(typeof verifyLocalPackageDirectory, "function");
+
+const { createNovelEngine } = await load("@pocket/vn");
+const story = createNovelEngine({
+  id: "registry-smoke", version: 1, start: "start",
+  script: { start: [{ type: "ending", id: "completed" }] },
+});
+story.start();
+strictEqual(story.getSnapshot().active?.kind, "ending");
+story.dispose();
+
+const { parseCubismModel3, createPocketLive2dClient } = await load("@pocket/live2d");
+strictEqual(parseCubismModel3({ Version: 3, FileReferences: { Moc: "model.moc3", Textures: ["atlas.png"] } }).moc, "model.moc3");
+strictEqual(typeof createPocketLive2dClient, "function");
 
 console.log(`Verified exports and exercised installed packages: ${packages.join(", ")}`);
