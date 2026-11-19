@@ -2,10 +2,12 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const [outOption, outputPath] = process.argv.slice(2);
-if (outOption !== "--out" || !outputPath || process.argv.length !== 4) {
-  throw new Error("Usage: node sdk/scripts/package_github_packages.mjs --out <new-directory>");
+const [outOption, outputPath, versionsOption, versionsPath, ...extra] = process.argv.slice(2);
+if (outOption !== "--out" || !outputPath || extra.length ||
+    (versionsOption !== undefined && (versionsOption !== "--versions" || !versionsPath))) {
+  throw new Error("Usage: node sdk/scripts/package_github_packages.mjs --out <new-directory> [--versions <json>]");
 }
+const versions = versionsPath ? JSON.parse(readFileSync(versionsPath, "utf8")) : {};
 
 const sdkRoot = fileURLToPath(new URL("../", import.meta.url));
 const stageRoot = resolve(outputPath);
@@ -58,6 +60,7 @@ for (const { slug, directory, manifest: workspaceManifest } of workspaces.values
   const manifest = {
     ...publishManifest,
     name,
+    version: versions[name] ?? workspaceManifest.version,
     files,
     repository: {
       type: "git",
@@ -67,7 +70,7 @@ for (const { slug, directory, manifest: workspaceManifest } of workspaces.values
     publishConfig: {
       registry: "https://npm.pkg.github.com",
       // Preserve the integrity of the pilot version already in the registry.
-      ...(slug === "diagnostics" && workspaceManifest.version === "0.1.0" ? { access: "restricted" } : {}),
+      ...(slug === "diagnostics" && (versions[name] ?? workspaceManifest.version) === "0.1.0" ? { access: "restricted" } : {}),
     },
   };
 
@@ -93,10 +96,10 @@ for (const { slug, directory, manifest: workspaceManifest } of workspaces.values
   for (const [dependency, version] of Object.entries(dependencies)) {
     if (!dependency.startsWith("@pocket/")) continue;
     const target = workspaces.get(dependency);
-    if (!target || target.manifest.version !== version) {
+    if (!target || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
       throw new Error(`Unresolved workspace dependency: ${name} requires ${dependency}@${version}`);
     }
-    dependencies[dependency] = `npm:@pocketflutter/${target.slug}@${version}`;
+    dependencies[dependency] = `npm:@pocketflutter/${target.slug}@${versions[`@pocketflutter/${target.slug}`] ?? target.manifest.version}`;
   }
   if (Object.keys(dependencies).length) manifest.dependencies = dependencies;
 

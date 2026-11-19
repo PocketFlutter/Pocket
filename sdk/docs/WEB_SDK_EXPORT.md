@@ -30,6 +30,19 @@ Cubism Web Core is a separate official host dependency; Pocket's QuickJS `pocket
 
 Read the SDK distribution version from [`sdk/package.json`](../package.json) and the published version from the corresponding GitHub Release. Each release requires a categorized `sdk/docs/RELEASE_<version>.md` (with `## Added`, `## Changed`, `## Fixed`, etc., `## Compatibility`, verified commit SHAs on every changelog bullet, and a link from `sdk/docs/API.md`) validated by `node sdk/scripts/release_notes.mjs --check` and rendered into the GitHub Release body by `node sdk/scripts/release_notes.mjs --render`. `.github/workflows/toolchain.yml` is the existing build, verification and GitHub Release workflow; it validates `sdk/package.json` against the shared `SDK_VERSION` and runs `sdk/scripts/release_notes.mjs --check`, then builds both `darwin-arm64` and `win32-x64` packages. Push the matching `sdk-v<version>` tag to trigger it automatically, or dispatch the workflow with `publish_release=true` and `update_existing_release=false`. The Release is created only after both platform packages pass consumer acceptance; it includes the rendered `RELEASE_<version>.md` changelog, standalone SDK tarballs, platform tool archives, checksums and acceptance reports. The workflow does not publish to npm.
 
+The **Publish SDK Packages** workflow should finish before you tag or dispatch
+an SDK release that includes new package versions. The Web SDK release exports in
+`--registry-packages` mode. It downloads the exact GitHub Packages versions
+declared by the source workspace, includes them in the platform artifacts, and
+records their provenance. CI uses its GitHub token to fetch the packages.
+Installing a completed platform archive needs no GitHub Packages login.
+The exporter keeps the Web-only VN and Live2D integrations, including the
+existing requirement to supply Cubism Core separately. An ordinary local export
+continues using the SDK source by default.
+
+See [GitHub Packages](GITHUB_PACKAGES.md) for package release operations and
+for updating packages in a Guest project independently of the Web SDK.
+
 The release workflow validates the standalone npm/Web SDK toolchain and its platform packages. It checks the real `pocket_probe`, `pocketjs_bytecode` and Noble Windows binaries, then exercises the clean SDK archives; it does not install Flutter, build the Showcase host or include `pocket_flutter.dll`. The retained parent Flutter implementation has a separate native-host boundary. Flutter/Live2D consumers must validate their app in an authorized Flutter environment that supplies the required Cubism Core files; this Web SDK Release does not claim Flutter or Live2D native-host acceptance.
 
 The exporter’s optional `--publish` operation publishes the standalone source repository and is separate from the versioned GitHub Release attachments.

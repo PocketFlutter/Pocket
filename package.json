@@ -22,6 +22,7 @@
     "build:web": "npm --prefix sdk run build:web --",
     "setup:source": "npm --prefix sdk run setup:source --",
     "bootstrap:source": "npm --prefix sdk run bootstrap:source --",
-    "package:tools": "npm --prefix sdk run package:tools --"
+    "package:tools": "npm --prefix sdk run package:tools --",
+    "release:packages": "node sdk/scripts/release_sdk_packages.mjs"
   }
 }

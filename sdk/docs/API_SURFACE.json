@@ -4962,7 +4962,8 @@
         "build:web": "npm --prefix sdk run build:web --",
         "setup:source": "npm --prefix sdk run setup:source --",
         "bootstrap:source": "npm --prefix sdk run bootstrap:source --",
-        "package:tools": "npm --prefix sdk run package:tools --"
+        "package:tools": "npm --prefix sdk run package:tools --",
+        "release:packages": "node sdk/scripts/release_sdk_packages.mjs"
       },
       "bin": {}
     },
@@ -5051,7 +5052,7 @@
         },
         {
           "file": "scripts/export_web_sdk.ts",
-          "sourceSha256": "1a42bf99f1a02d072d412eb61aa350547cb439652fe3cc99583ec13088fe0f68"
+          "sourceSha256": "2e5340257003de9c5c565ad9b07015aba158daa9975f68ae0a155e48b9ce8f0c"
         },
         {
           "file": "scripts/install_studio.mjs",
@@ -5068,6 +5069,10 @@
         {
           "file": "scripts/preview_wechat.ts",
           "sourceSha256": "67f956037b33d3b58fd9a3860ac956caf2d6b4405049c411b7fddb5241c7fc63"
+        },
+        {
+          "file": "scripts/release_sdk_packages.mjs",
+          "sourceSha256": "359752fa7935dc2e2cd8d4b26056d5add3f37e1671072f7b95b9942e508925c3"
         },
         {
           "file": "scripts/tests/package_update.test.ts",

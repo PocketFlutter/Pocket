@@ -1,34 +1,64 @@
 /** Export and optionally publish the standalone Pocket Web SDK repository. */
+import { createHash } from "node:crypto";
 import {
   cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 
 import { SDK_VERSION } from "./prebuilt_tools.mjs";
+import { extractSafeTarGz } from "./studio_upgrade.mjs";
 
 const SDK_ROOT = resolve(import.meta.dir, "..");
 const REPOSITORY_ROOT = resolve(SDK_ROOT, "..");
 const DEFAULT_OUT = resolve(SDK_ROOT, ".pocket-build/web-sdk");
 const DEFAULT_REPO = "PocketFlutter/pocket-web-sdk";
+const DEFAULT_NPM_REGISTRY = "https://npm.pkg.github.com";
 const PINNED_REVISION = "99924de47c62fa36f526a8791055d91cbbdb3836";
 
+const sdkManifest = JSON.parse(readFileSync(join(SDK_ROOT, "package.json"), "utf8")) as { workspaces: string[] };
+const registryPackageSlugs = sdkManifest.workspaces.map((workspace) => {
+  const match = /^packages\/pocket_([a-z0-9_]+)$/.exec(workspace);
+  if (!match) throw new Error(`unsupported SDK workspace path: ${workspace}`);
+  return match[1]!;
+});
+
 type Platform = "darwin-arm64" | "win32-x64";
-type Options = { out: string; repo: string; publish: boolean; force: boolean; platform?: Platform };
+type Options = {
+  out: string;
+  repo: string;
+  publish: boolean;
+  force: boolean;
+  platform?: Platform;
+  registryPackages: boolean;
+  registryTarballsDir?: string;
+};
+type RegistryPackageRecord = {
+  package: string;
+  workspace: string;
+  version: string;
+  tarball: string;
+  sha256: string;
+  integrity?: string;
+};
 
 function usage(exitCode = 0): never {
-  console.log("usage: bun sdk/scripts/export_web_sdk.ts [--out PATH] [--platform darwin-arm64|win32-x64] [--repo OWNER/NAME] [--publish] [--force]");
+  console.log(
+    "usage: bun sdk/scripts/export_web_sdk.ts [--out PATH] [--platform darwin-arm64|win32-x64] [--registry-packages] [--registry-tarballs-dir PATH] [--repo OWNER/NAME] [--publish] [--force]",
+  );
   process.exit(exitCode);
 }
 
-function option(args: string[], name: string, fallback: string): string {
+function option<T extends string | undefined>(args: string[], name: string, fallback: T): string | T {
   const inline = args.find((value) => value.startsWith(`--${name}=`));
   if (inline) return inline.slice(name.length + 3) || usage(1);
   const index = args.indexOf(`--${name}`);
@@ -219,7 +249,11 @@ function copyDocs(out: string, sourceCommit: string): void {
   }
 }
 
-function copySources(out: string, sourceCommit: string): void {
+function copySources(
+  out: string,
+  sourceCommit: string,
+  options: { registryPackages?: boolean; registryTarballsDir?: string } = {},
+): RegistryPackageRecord[] | undefined {
   copyOptionalLantern(out);
   copyTree(join(SDK_ROOT, "templates"), join(out, "templates"));
   copyTree(join(SDK_ROOT, "editor"), join(out, "editor"));
@@ -260,26 +294,34 @@ function copySources(out: string, sourceCommit: string): void {
   copyTree(join(SDK_ROOT, "targets/web"), join(out, "targets/web"));
   copyTree(join(SDK_ROOT, "targets/wechat"), join(out, "targets/wechat"));
   copyTree(join(SDK_ROOT, "native"), join(out, "native"));
-  copyTree(join(SDK_ROOT, "packages/pocket_ui"), join(out, "packages/pocket_ui"));
-  rmSync(join(out, "packages/pocket_ui/test"), { recursive: true, force: true });
-  for (const name of ["pocket_looseleaf", "pocket_arc", "pocket_liquid_glass"]) {
-    copyTree(join(SDK_ROOT, "packages", name), join(out, "packages", name));
-    rmSync(join(out, "packages", name, "test"), { recursive: true, force: true });
+
+  let registryRecords: RegistryPackageRecord[] | undefined;
+  if (options.registryPackages || options.registryTarballsDir) {
+    registryRecords = populatePackagesFromRegistry(out, {
+      registryTarballsDir: options.registryTarballsDir,
+    });
+  } else {
+    copyTree(join(SDK_ROOT, "packages/pocket_ui"), join(out, "packages/pocket_ui"));
+    rmSync(join(out, "packages/pocket_ui/test"), { recursive: true, force: true });
+    for (const name of ["pocket_looseleaf", "pocket_arc", "pocket_liquid_glass"]) {
+      copyTree(join(SDK_ROOT, "packages", name), join(out, "packages", name));
+      rmSync(join(out, "packages", name, "test"), { recursive: true, force: true });
+    }
+    copyTree(join(SDK_ROOT, "packages/pocket_vn"), join(out, "packages/pocket_vn"));
+    rmSync(join(out, "packages/pocket_vn/test"), { recursive: true, force: true });
+    copyTree(join(SDK_ROOT, "packages/pocket_spine"), join(out, "packages/pocket_spine"));
+    rmSync(join(out, "packages/pocket_spine/test"), { recursive: true, force: true });
+    // The Web consumer only needs the JS Live2D API. Flutter plugins, native
+    // Core bindings and generated native caches remain source-SDK concerns.
+    copyWebLive2dPackage(out);
+    copyFile(join(SDK_ROOT, "packages/pocket_diagnostics/package.json"), join(out, "packages/pocket_diagnostics/package.json"));
+    copyTree(join(SDK_ROOT, "packages/pocket_diagnostics/src"), join(out, "packages/pocket_diagnostics/src"));
+    copyFile(join(SDK_ROOT, "packages/pocket_cos/package.json"), join(out, "packages/pocket_cos/package.json"));
+    copyFile(join(SDK_ROOT, "packages/pocket_cos/README.md"), join(out, "packages/pocket_cos/README.md"));
+    copyTree(join(SDK_ROOT, "packages/pocket_cos/src"), join(out, "packages/pocket_cos/src"));
+    copyFile(join(SDK_ROOT, "packages/pocket_sync/package.json"), join(out, "packages/pocket_sync/package.json"));
+    copyTree(join(SDK_ROOT, "packages/pocket_sync/src"), join(out, "packages/pocket_sync/src"));
   }
-  copyTree(join(SDK_ROOT, "packages/pocket_vn"), join(out, "packages/pocket_vn"));
-  rmSync(join(out, "packages/pocket_vn/test"), { recursive: true, force: true });
-  copyTree(join(SDK_ROOT, "packages/pocket_spine"), join(out, "packages/pocket_spine"));
-  rmSync(join(out, "packages/pocket_spine/test"), { recursive: true, force: true });
-  // The Web consumer only needs the JS Live2D API. Flutter plugins, native
-  // Core bindings and generated native caches remain source-SDK concerns.
-  copyWebLive2dPackage(out);
-  copyFile(join(SDK_ROOT, "packages/pocket_diagnostics/package.json"), join(out, "packages/pocket_diagnostics/package.json"));
-  copyTree(join(SDK_ROOT, "packages/pocket_diagnostics/src"), join(out, "packages/pocket_diagnostics/src"));
-  copyFile(join(SDK_ROOT, "packages/pocket_cos/package.json"), join(out, "packages/pocket_cos/package.json"));
-  copyFile(join(SDK_ROOT, "packages/pocket_cos/README.md"), join(out, "packages/pocket_cos/README.md"));
-  copyTree(join(SDK_ROOT, "packages/pocket_cos/src"), join(out, "packages/pocket_cos/src"));
-  copyFile(join(SDK_ROOT, "packages/pocket_sync/package.json"), join(out, "packages/pocket_sync/package.json"));
-  copyTree(join(SDK_ROOT, "packages/pocket_sync/src"), join(out, "packages/pocket_sync/src"));
   copyFile(
     join(SDK_ROOT, "packages/pocket_flutter/shaders/liquid_glass.frag"),
     join(out, "packages/pocket_flutter/shaders/liquid_glass.frag"),
@@ -298,13 +340,211 @@ function copySources(out: string, sourceCommit: string): void {
     out,
     sourceCommit,
   ));
+  return registryRecords;
 }
 
-function writeRepositoryFiles(out: string, sourceCommit: string, platform?: Platform): void {
+function readSourceWorkspaceVersions(): Map<string, { version: string; manifest: Record<string, unknown> }> {
+  const result = new Map<string, { version: string; manifest: Record<string, unknown> }>();
+  for (const slug of registryPackageSlugs) {
+    const manifestPath = join(SDK_ROOT, "packages", `pocket_${slug}`, "package.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Record<string, unknown>;
+    if (manifest.name !== `@pocket/${slug}` || typeof manifest.version !== "string" || !manifest.version) {
+      throw new Error(`invalid source workspace manifest for @pocket/${slug}`);
+    }
+    result.set(slug, { version: manifest.version, manifest });
+  }
+  return result;
+}
+
+function registryPackCommand(): string[] {
+  if (process.platform !== "win32") return ["npm"];
+  // Resolve the npm CLI bundled with the Node installation selected by setup-node.
+  const node = run(["where.exe", "node.exe"], REPOSITORY_ROOT).trim().split(/\r?\n/, 1)[0]!;
+  const npmCli = join(dirname(node), "node_modules", "npm", "bin", "npm-cli.js");
+  return [node, npmCli];
+}
+
+function normalizeVendoredRegistryManifest(
+  rawManifest: Record<string, unknown>,
+  slug: string,
+  expectedVersion: string,
+  sourceVersions: Map<string, { version: string; manifest: Record<string, unknown> }>,
+): Record<string, unknown> {
+  const expectedRegistryName = `@pocketflutter/${slug}`;
+  const expectedWorkspaceName = `@pocket/${slug}`;
+  if (rawManifest.name !== expectedRegistryName) {
+    throw new Error(
+      `registry tarball manifest name mismatch for ${slug}: expected ${expectedRegistryName}, received ${String(rawManifest.name)}`,
+    );
+  }
+  if (rawManifest.version !== expectedVersion) {
+    throw new Error(
+      `registry tarball version mismatch for ${expectedRegistryName}: expected source version ${expectedVersion}, received ${String(rawManifest.version)}`,
+    );
+  }
+
+  const normalized: Record<string, unknown> = {
+    ...rawManifest,
+    name: expectedWorkspaceName,
+  };
+  delete normalized.publishConfig;
+  delete normalized.repository;
+  delete normalized.private;
+
+  if (normalized.dependencies && typeof normalized.dependencies === "object" && !Array.isArray(normalized.dependencies)) {
+    const deps: Record<string, string> = {};
+    for (const [depKey, depVal] of Object.entries(normalized.dependencies as Record<string, unknown>)) {
+      if (typeof depVal !== "string") continue;
+      const aliasMatch = depVal.match(/^npm:@pocketflutter\/([a-z0-9_]+)@(.+)$/);
+      if (aliasMatch) {
+        const targetSlug = aliasMatch[1]!;
+        const targetVer = aliasMatch[2]!;
+        const sourceTarget = sourceVersions.get(targetSlug);
+        if (depKey !== `@pocket/${targetSlug}` || !sourceTarget || sourceTarget.version !== targetVer) {
+          throw new Error(
+            `registry dependency version mismatch in ${expectedRegistryName}: ${depKey} points to ${depVal}, expected ${sourceTarget?.version ?? "unknown"}`,
+          );
+        }
+        deps[depKey] = targetVer;
+      } else {
+        deps[depKey] = depVal;
+      }
+    }
+    if (Object.keys(deps).length > 0) normalized.dependencies = deps;
+    else delete normalized.dependencies;
+  }
+
+  return normalized;
+}
+
+function overlayWebSdkPackageAdaptations(
+  out: string,
+  slug: string,
+  manifest: Record<string, unknown>,
+  sourceVersions: Map<string, { version: string; manifest: Record<string, unknown> }>,
+): Record<string, unknown> {
+  const targetDir = join(out, "packages", `pocket_${slug}`);
+  if (slug === "vn") {
+    // `@pocketflutter/vn` omits `./live2d` so standalone registry consumers can
+    // install VN without Cubism. The full Web SDK and Studio preview/Lantern
+    // example require `packages/pocket_vn/src/live2d.ts` and its export.
+    copyFile(
+      join(SDK_ROOT, "packages/pocket_vn/src/live2d.ts"),
+      join(targetDir, "src/live2d.ts"),
+    );
+    const exportsMap = (manifest.exports && typeof manifest.exports === "object" && !Array.isArray(manifest.exports))
+      ? { ...(manifest.exports as Record<string, unknown>) }
+      : {};
+    exportsMap["./live2d"] = "./src/live2d.ts";
+    manifest.exports = exportsMap;
+    const deps = (manifest.dependencies && typeof manifest.dependencies === "object" && !Array.isArray(manifest.dependencies))
+      ? { ...(manifest.dependencies as Record<string, string>) }
+      : {};
+    deps["@pocket/live2d"] = sourceVersions.get("live2d")!.version;
+    manifest.dependencies = deps;
+  } else if (slug === "live2d") {
+    // `@pocketflutter/live2d` publishes the MIT-only subset. Overlay the
+    // Cubism Web physics/pose simulation files, license notice, and bootstrap
+    // helper required by the standalone Web SDK and Studio.
+    const sourceLive2d = join(SDK_ROOT, "packages/pocket_live2d");
+    const sourceManifest = sourceVersions.get("live2d")!.manifest;
+    for (const relFile of ["src/index.ts", "src/physics.ts", "src/pose.ts", "LICENSE", "scripts/bootstrap_cubism_web_core.sh"]) {
+      copyFile(join(sourceLive2d, relFile), join(targetDir, relFile));
+    }
+    copyTree(join(sourceLive2d, "src/cubism-web"), join(targetDir, "src/cubism-web"));
+    manifest.license = sourceManifest.license;
+    manifest.exports = sourceManifest.exports;
+    manifest.files = ["src", "LICENSE"];
+    delete manifest.dependencies;
+  }
+  return manifest;
+}
+
+function populatePackagesFromRegistry(
+  out: string,
+  options: { registryTarballsDir?: string } = {},
+): RegistryPackageRecord[] {
+  const sourceVersions = readSourceWorkspaceVersions();
+  const tempPackDir = options.registryTarballsDir
+    ? undefined
+    : mkdtempSync(join(tmpdir(), "pocket-web-sdk-registry-pack-"));
+
+  try {
+    const tarballsDir = resolve(options.registryTarballsDir ?? tempPackDir!);
+    const npm = tempPackDir ? registryPackCommand() : undefined;
+    const registry = process.env.POCKET_NPM_REGISTRY ?? DEFAULT_NPM_REGISTRY;
+    const records: RegistryPackageRecord[] = [];
+    for (const slug of registryPackageSlugs) {
+      const { version: expectedVersion } = sourceVersions.get(slug)!;
+      const packageName = `@pocketflutter/${slug}`;
+      const tarball = `pocketflutter-${slug}-${expectedVersion}.tgz`;
+      const tarballPath = join(tarballsDir, tarball);
+      let integrity: string | undefined;
+      if (npm) {
+        const spec = `${packageName}@${expectedVersion}`;
+        const [entry] = JSON.parse(run(
+          [...npm, "pack", spec, `--registry=${registry}`, "--ignore-scripts", "--json"],
+          tarballsDir,
+        )) as Array<{ filename: string; version: string; integrity: string }>;
+        if (entry?.filename !== tarball || entry.version !== expectedVersion || !entry.integrity) {
+          throw new Error(`unexpected npm pack result for ${spec}`);
+        }
+        integrity = entry.integrity;
+      }
+      if (!existsSync(tarballPath) || !lstatSync(tarballPath).isFile()) {
+        throw new Error(`missing registry tarball for ${packageName}@${expectedVersion}: ${tarballPath}`);
+      }
+      const tgzBytes = readFileSync(tarballPath);
+      const sha256 = createHash("sha256").update(tgzBytes).digest("hex");
+
+      const targetDir = join(out, "packages", `pocket_${slug}`);
+      rmSync(targetDir, { recursive: true, force: true });
+      extractSafeTarGz(tgzBytes, targetDir, { stripTopLevelPackage: true });
+      rmSync(join(targetDir, "test"), { recursive: true, force: true });
+
+      const manifestPath = join(targetDir, "package.json");
+      if (!existsSync(manifestPath)) {
+        throw new Error(`extracted registry tarball is missing package.json: ${tarballPath}`);
+      }
+      const rawManifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Record<string, unknown>;
+      const normalized = overlayWebSdkPackageAdaptations(
+        out,
+        slug,
+        normalizeVendoredRegistryManifest(rawManifest, slug, expectedVersion, sourceVersions),
+        sourceVersions,
+      );
+      write(manifestPath, `${JSON.stringify(normalized, null, 2)}\n`);
+
+      records.push({
+        package: packageName,
+        workspace: `@pocket/${slug}`,
+        version: expectedVersion,
+        tarball,
+        sha256,
+        ...(integrity ? { integrity } : {}),
+      });
+    }
+    return records;
+  } finally {
+    if (tempPackDir) {
+      rmSync(tempPackDir, { recursive: true, force: true });
+    }
+  }
+}
+
+function writeRepositoryFiles(
+  out: string,
+  sourceCommit: string,
+  platform?: Platform,
+  registryRecords?: RegistryPackageRecord[],
+): void {
   const uiManifestPath = join(out, "packages/pocket_ui/package.json");
   const uiManifest = JSON.parse(readFileSync(uiManifestPath, "utf8")) as Record<string, unknown>;
   delete uiManifest.private;
   write(uiManifestPath, `${JSON.stringify(uiManifest, null, 2)}\n`);
+
+  const workspaceVersion = (slug: string) =>
+    JSON.parse(readFileSync(join(out, "packages", `pocket_${slug}`, "package.json"), "utf8")).version as string;
 
   const packageJson = {
     name: platform ? `@pocket/web-sdk-tools-${platform}` : "@pocket/web-sdk-tools",
@@ -314,10 +554,10 @@ function writeRepositoryFiles(out: string, sourceCommit: string, platform?: Plat
     type: "module",
     license: "MIT",
     engines: { node: ">=22.22.2" },
-    workspaces: ["packages/pocket_ui", "packages/pocket_looseleaf", "packages/pocket_arc", "packages/pocket_liquid_glass", "packages/pocket_spine", "packages/pocket_live2d", "packages/pocket_diagnostics", "packages/pocket_cos", "packages/pocket_sync"],
+    workspaces: sdkManifest.workspaces,
     dependencies: {
-      "@pocket/spine": "0.1.0",
-      "@pocket/live2d": "0.1.0",
+      "@pocket/spine": workspaceVersion("spine"),
+      "@pocket/live2d": workspaceVersion("live2d"),
       bun: "1.3.9",
       "find-process": "2.1.1",
       "solid-js": "1.9.14",
@@ -374,7 +614,7 @@ function writeRepositoryFiles(out: string, sourceCommit: string, platform?: Plat
     ".cache/", ".pocket-build/", "node_modules/", "native/target/", "target/", "dist/", ".DS_Store", "*.log", "*.pem", "*.key", "",
   ].join("\n"));
 
-  write(join(out, "README.md"), `# Pocket Web SDK\n\nStandalone PocketJS Web SDK and Editor. Flutter, Dart, CocoaPods, Xcode and the Android SDK are not required for the Web toolchain.\n\nThe Web target uses the pinned PocketJS compiler, admitted QuickJS bytecode (QJBC), PAK resources and the real PocketJS runtime compiled to WebAssembly. The browser boundary is standard \`WebAssembly.instantiate\` + Canvas2D with Pointer, IME, resize and visibility lifecycle support. There is no mock runtime or source-evaluation fallback.\n\n## AI development: required reading\n\nRead the following guides in order before editing code. Reuse the existing runtime, layout system, and control behavior.\n\n| Order | Document | What to learn |\n| --- | --- | --- |\n| 1 | [AI_APP_DEVELOPMENT.md](docs/AI_APP_DEVELOPMENT.md) | Development workflow, JS/host boundaries, controls, Editor, resource packaging, publishing, and live updates. |\n| 2 | [COMPONENTS.md](docs/COMPONENTS.md) | Component contracts; custom skins must inherit interaction, focus, keyboard/gamepad, IME, accessibility, and lifecycle behavior. |\n| 3 | [EDITOR_STUDIO.md](docs/EDITOR_STUDIO.md) | Editor startup, real Preview, version backend, LAN publishing, and preview entry points. |\n| 4 | [EDITOR_TEST_PACKAGES.md](docs/EDITOR_TEST_PACKAGES.md) | Test/stable packages, signed artifacts, version management, and LAN live-update tests. |\n| 5 | [PACKAGE_UPDATE_MODES.md](docs/PACKAGE_UPDATE_MODES.md) | Initial full packages and subsequent fine-grained updates by resource/content hash. |\n| 6 | [HARDWARE_MODULES.md](docs/HARDWARE_MODULES.md) | Enable hardware and permissions as needed; register real application adapters for capabilities missing in browsers. |\n| 7 | [WEB_SDK_EXPORT.md](docs/WEB_SDK_EXPORT.md) | Web SDK provenance, retained implementation, required adaptations, ablation, and runtime evidence. |\n| 8 | [NPM_TOOLCHAIN.md](docs/NPM_TOOLCHAIN.md) | npm installation, cross-platform toolchain entry points, buildGuest/QJBC/PAK builds, and verification boundaries. |\n| 9 | [PROVENANCE.md](docs/PROVENANCE.md) | Pinned upstream version, provenance, and verification boundaries. |\n| 10 | [WECHAT_HOST_IMPLEMENTATION.md](docs/WECHAT_HOST_IMPLEMENTATION.md) | Read for WeChat targets: WXWebAssembly, Canvas2D, and platform limits. |\n\nBusiness UI, state, routing, and composition belong in JS. Declare hardware capabilities as needed; return unsupported/unconfigured for missing capabilities. New interfaces inherit existing controls. Web and Editor use the pinned buildGuest/QJBC/PAK pipeline without a mock runtime or source-evaluation fallback.\n\n## Install and build\n\n[One-command installation](docs/INSTALL_STUDIO.md) downloads and verifies the official standalone release.\n\nOnly Node.js 22.22.2+ (Node.js 24 LTS recommended) and npm are required. Bun is installed and managed by npm; compiler/probe binaries and the prepared pinned compiler are supplied by the platform package. Run:\n\n\`\`\`sh\nnpm run setup\n\`\`\`\n\n\`npm run setup\` installs npm dependencies and verifies the prebuilt tools (platform, SDK revision, QuickJS ABI and SHA-256). It does not invoke Rust/Cargo, Python or C/C++ tools, and will fail clearly if the platform package is unavailable. Source builds are maintainer-only commands ending in :source. No Flutter command is run by setup or by the Web build.\n\nA project root contains \`pocket.json\`, \`manifest.json\` and its JS/TS entry. Build the complete guest artifacts directly with npm:\n\n\`\`\`sh\nnpm run build:guest -- --project-root=/path/to/app --outdir=/path/to/app/dist\nnpm run build:web -- --project-root=/path/to/app --outdir=/path/to/web\n\`\`\`\n\nThe guest build invokes the pinned \`buildGuest\` implementation, emits \`app.qjbc\`, \`app.bytecode.json\` and \`app.pak\`, and includes the vendored \`@pocket/ui\` workspace package. It does not require Flutter. The Web build additionally emits \`pocket-web.js\`, \`engine/pocketjs.wasm\`, \`pocket.config.json\`, build metadata, types and usage instructions.\n\nThe bundle includes macOS arm64 and Windows x64 platform archives. Windows CI has verified clean npm setup/doctor, Noble WinRT addon loading, real App/Game QJBC/PAK builds and input-driven Preview frames, plus Studio start/health/status/stop on fixed port 8791. Windows physical BLE device connections/notifications and Linux native BLE remain unverified or unsupported as documented. The npm packages have not been published to a registry yet. See docs/NPM_TOOLCHAIN.md and docs/WINDOWS_BUILD.md for evidence and limits.\n\n## Editor\n\n\`\`\`sh\nnpm run editor\n# open http://127.0.0.1:8791\n\`\`\`\n\nThe Editor includes project management, real Guest preview, input/IME inspection, version management, signed packages and LAN test publishing. Device deployment remains an optional host integration and is not required for Web development.\n\n## UI ownership\n\nBusiness UI, state, routing and component composition belong in JS. Reuse the existing controls and inherit their focus, press/cancel, disabled, keyboard/gamepad, scrolling, IME, safe-area, accessibility, route and lifecycle behavior before changing skins or adding evidenced behavior. See [AI_APP_DEVELOPMENT.md](docs/AI_APP_DEVELOPMENT.md) and [COMPONENTS.md](docs/COMPONENTS.md).\n\n## Updates\n\nThe canonical update route is \`<root>/<optional-prefix>/pocket/<hostVersion>/<packageId>/<packageVersion>/latest.json\`. Initial install may fetch the complete PAK; subsequent releases can fetch only changed content-addressed resource parts. The Editor version backend can publish and test this layout on a LAN.\n`);
+  write(join(out, "README.md"), `# Pocket Web SDK\n\nStandalone PocketJS Web SDK and Editor. Flutter, Dart, CocoaPods, Xcode and the Android SDK are not required for the Web toolchain.\n\nThe Web target uses the pinned PocketJS compiler, admitted QuickJS bytecode (QJBC), PAK resources and the real PocketJS runtime compiled to WebAssembly. The browser boundary is standard \`WebAssembly.instantiate\` + Canvas2D with Pointer, IME, resize and visibility lifecycle support. There is no mock runtime or source-evaluation fallback.\n\n## AI development: required reading\n\nRead the following guides in order before editing code. Reuse the existing runtime, layout system, and control behavior.\n\n| Order | Document | What to learn |\n| --- | --- | --- |\n| 1 | [AI_APP_DEVELOPMENT.md](docs/AI_APP_DEVELOPMENT.md) | Development workflow, JS/host boundaries, controls, Editor, resource packaging, publishing, and live updates. |\n| 2 | [COMPONENTS.md](docs/COMPONENTS.md) | Component contracts; custom skins must inherit interaction, focus, keyboard/gamepad, IME, accessibility, and lifecycle behavior. |\n| 3 | [EDITOR_STUDIO.md](docs/EDITOR_STUDIO.md) | Editor startup, real Preview, version backend, LAN publishing, and preview entry points. |\n| 4 | [EDITOR_TEST_PACKAGES.md](docs/EDITOR_TEST_PACKAGES.md) | Test/stable packages, signed artifacts, version management, and LAN live-update tests. |\n| 5 | [PACKAGE_UPDATE_MODES.md](docs/PACKAGE_UPDATE_MODES.md) | Initial full packages and subsequent fine-grained updates by resource/content hash. |\n| 6 | [HARDWARE_MODULES.md](docs/HARDWARE_MODULES.md) | Enable hardware and permissions as needed; register real application adapters for capabilities missing in browsers. |\n| 7 | [WEB_SDK_EXPORT.md](docs/WEB_SDK_EXPORT.md) | Web SDK provenance, retained implementation, required adaptations, ablation, and runtime evidence. |\n| 8 | [NPM_TOOLCHAIN.md](docs/NPM_TOOLCHAIN.md) | npm installation, cross-platform toolchain entry points, buildGuest/QJBC/PAK builds, and verification boundaries. |\n| 9 | [PROVENANCE.md](docs/PROVENANCE.md) | Pinned upstream version, provenance, and verification boundaries. |\n| 10 | [WECHAT_HOST_IMPLEMENTATION.md](docs/WECHAT_HOST_IMPLEMENTATION.md) | Read for WeChat targets: WXWebAssembly, Canvas2D, and platform limits. |\n\nBusiness UI, state, routing, and composition belong in JS. Declare hardware capabilities as needed; return unsupported/unconfigured for missing capabilities. New interfaces inherit existing controls. Web and Editor use the pinned buildGuest/QJBC/PAK pipeline without a mock runtime or source-evaluation fallback.\n\n## Install and build\n\n[One-command installation](docs/INSTALL_STUDIO.md) downloads and verifies the official standalone release.\n\nOnly Node.js 22.22.2+ (Node.js 24 LTS recommended) and npm are required. Bun is installed and managed by npm; compiler/probe binaries and the prepared pinned compiler are supplied by the platform package. Run:\n\n\`\`\`sh\nnpm run setup\n\`\`\`\n\n\`npm run setup\` installs npm dependencies and verifies the prebuilt tools (platform, SDK revision, QuickJS ABI and SHA-256). It does not invoke Rust/Cargo, Python or C/C++ tools, and will fail clearly if the platform package is unavailable. Source builds are maintainer-only commands ending in :source. No Flutter command is run by setup or by the Web build.\n\nA project root contains \`pocket.json\`, \`manifest.json\` and its JS/TS entry. Build the complete guest artifacts directly with npm:\n\n\`\`\`sh\nnpm run build:guest -- --project-root=/path/to/app --outdir=/path/to/app/dist\nnpm run build:web -- --project-root=/path/to/app --outdir=/path/to/web\n\`\`\`\n\nThe guest build invokes the pinned \`buildGuest\` implementation, emits \`app.qjbc\`, \`app.bytecode.json\` and \`app.pak\`, and includes the vendored \`@pocket/ui\` workspace package. It does not require Flutter. The Web build additionally emits \`pocket-web.js\`, \`engine/pocketjs.wasm\`, \`pocket.config.json\`, build metadata, types and usage instructions.\n\nThe bundle includes macOS arm64 and Windows x64 platform archives. Windows CI has verified clean npm setup/doctor, Noble WinRT addon loading, real App/Game QJBC/PAK builds and input-driven Preview frames, plus Studio start/health/status/stop on fixed port 8791. Windows physical BLE device connections/notifications and Linux native BLE remain unverified or unsupported as documented. Install the platform toolchain from the assets attached to the GitHub Release. See docs/NPM_TOOLCHAIN.md and docs/WINDOWS_BUILD.md for evidence and limits.\n\n## Editor\n\n\`\`\`sh\nnpm run editor\n# open http://127.0.0.1:8791\n\`\`\`\n\nThe Editor includes project management, real Guest preview, input/IME inspection, version management, signed packages and LAN test publishing. Device deployment remains an optional host integration and is not required for Web development.\n\n## UI ownership\n\nBusiness UI, state, routing and component composition belong in JS. Reuse the existing controls and inherit their focus, press/cancel, disabled, keyboard/gamepad, scrolling, IME, safe-area, accessibility, route and lifecycle behavior before changing skins or adding evidenced behavior. See [AI_APP_DEVELOPMENT.md](docs/AI_APP_DEVELOPMENT.md) and [COMPONENTS.md](docs/COMPONENTS.md).\n\n## Updates\n\nThe canonical update route is \`<root>/<optional-prefix>/pocket/<hostVersion>/<packageId>/<packageVersion>/latest.json\`. Initial install may fetch the complete PAK; subsequent releases can fetch only changed content-addressed resource parts. The Editor version backend can publish and test this layout on a LAN.\n`);
 
   const licensingSection = `\n## Licensing\n\nPocket and its first-party wrappers are licensed under the [MIT License](LICENSE). See [LICENSING.md](LICENSING.md) for component scope. No separate commercial authorization is required under the MIT terms.\n\nThe upstream PocketJS and MicroTS notice is preserved in [LICENSES/PocketJS-MIT.txt](LICENSES/PocketJS-MIT.txt). Third-party code and assets, including Cubism sources and Core, retain their independent terms and notices.\n`;
   const readmePath = join(out, "README.md");
@@ -412,6 +652,12 @@ function writeRepositoryFiles(out: string, sourceCommit: string, platform?: Plat
     sourceCommit,
     pinnedPocketJsRevision: PINNED_REVISION,
     runtime: "QuickJS QJBC + PAK + PocketJS WebAssembly + Canvas2D",
+    ...(registryRecords
+      ? {
+          packageSource: "github-packages",
+          registryPackages: registryRecords,
+        }
+      : {}),
   }, null, 2)}\n`);
   write(join(out, "AGENTS.md"), `# Pocket Web SDK — AI Agent Development Rules
 
@@ -471,23 +717,43 @@ function publish(out: string, repo: string): void {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   if (args.includes("--help")) usage();
-  const known = new Set(["--publish", "--force", "--help", "--out", "--repo", "--platform"]);
+  const known = new Set([
+    "--publish",
+    "--force",
+    "--help",
+    "--out",
+    "--repo",
+    "--platform",
+    "--registry-packages",
+    "--registry-tarballs-dir",
+  ]);
   for (const arg of args) {
-    if (arg.startsWith("--out=") || arg.startsWith("--repo=") || arg.startsWith("--platform=")) continue;
+    if (
+      arg.startsWith("--out=") ||
+      arg.startsWith("--repo=") ||
+      arg.startsWith("--platform=") ||
+      arg.startsWith("--registry-tarballs-dir=")
+    ) continue;
     if (arg.startsWith("--") && !known.has(arg)) throw new Error(`unknown option: ${arg}`);
   }
+  const rawTarballsDir = option(args, "registry-tarballs-dir", undefined);
   const options: Options = {
     out: resolve(option(args, "out", DEFAULT_OUT)),
     repo: option(args, "repo", DEFAULT_REPO),
     publish: args.includes("--publish"),
     force: args.includes("--force"),
     platform: platformOption(args),
+    registryPackages: args.includes("--registry-packages"),
+    registryTarballsDir: rawTarballsDir ? resolve(rawTarballsDir) : undefined,
   };
   if ([REPOSITORY_ROOT, SDK_ROOT, resolve(REPOSITORY_ROOT, "demo"), resolve(REPOSITORY_ROOT, "studio")].includes(options.out)) throw new Error("refusing to export over a source directory");
   clearOutput(options.out, options.force);
   const sourceCommit = run(["git", "rev-parse", "HEAD"], REPOSITORY_ROOT).trim();
-  copySources(options.out, sourceCommit);
-  writeRepositoryFiles(options.out, sourceCommit, options.platform);
+  const registryRecords = copySources(options.out, sourceCommit, {
+    registryPackages: options.registryPackages,
+    registryTarballsDir: options.registryTarballsDir,
+  });
+  writeRepositoryFiles(options.out, sourceCommit, options.platform, registryRecords);
   if (options.publish) publish(options.out, options.repo);
   console.log(`export_web_sdk: generated ${options.out}`);
 }

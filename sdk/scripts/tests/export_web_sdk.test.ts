@@ -16,11 +16,23 @@ import { spawnSync } from "node:child_process";
 import { SDK_VERSION } from "../prebuilt_tools.mjs";
 
 const repository = resolve(import.meta.dir, "../../..");
+const sourceWorkspaceVersion = (slug: string): string =>
+  JSON.parse(readFileSync(join(repository, "sdk/packages", `pocket_${slug}`, "package.json"), "utf8")).version;
 const sdkBuild = join(repository, "sdk", ".pocket-build");
 const output = mkdtempSync(join(tmpdir(), "pocket-web-sdk-export-test-"));
 const darwinOutput = mkdtempSync(join(tmpdir(), "pocket-web-sdk-export-darwin-test-"));
 const windowsOutput = mkdtempSync(join(tmpdir(), "pocket-web-sdk-export-windows-test-"));
 const missingPlatformOutput = mkdtempSync(join(tmpdir(), "pocket-web-sdk-export-missing-test-"));
+const registryOutput = mkdtempSync(join(tmpdir(), "pocket-web-sdk-export-registry-test-"));
+
+function packFixture(source: string, destination: string): string {
+  const result = spawnSync("npm", [
+    "pack", "--ignore-scripts", "--pack-destination", destination, "--json",
+  ], { cwd: source, encoding: "utf8" });
+  if (result.status !== 0) throw new Error(result.error?.message ?? result.stderr);
+  const [{ filename }] = JSON.parse(result.stdout);
+  return join(destination, filename);
+}
 
 function withPlatformArchiveFixtures<T>(run: (fixtures: ReadonlyMap<string, Buffer>) => T): T {
   const buildDirectoryExisted = existsSync(sdkBuild);
@@ -52,7 +64,7 @@ function withPlatformArchiveFixtures<T>(run: (fixtures: ReadonlyMap<string, Buff
 }
 
 afterAll(() => {
-  for (const path of [output, darwinOutput, windowsOutput, missingPlatformOutput]) rmSync(path, { recursive: true, force: true });
+  for (const path of [output, darwinOutput, windowsOutput, missingPlatformOutput, registryOutput]) rmSync(path, { recursive: true, force: true });
 });
 
 test("export_web_sdk creates a Flutter-free toolchain repo with Editor and the QJBC Web target", () => {
@@ -167,8 +179,8 @@ test("export_web_sdk creates a Flutter-free toolchain repo with Editor and the Q
   expect(manifest.workspaces).toContain("packages/pocket_live2d");
   expect(manifest.workspaces).toContain("packages/pocket_cos");
   expect(manifest.scripts.cos).toBe("node scripts/toolchain.mjs run packages/pocket_cos/src/cli.ts");
-  expect(manifest.dependencies?.["@pocket/spine"]).toBe("0.1.0");
-  expect(manifest.dependencies?.["@pocket/live2d"]).toBe("0.1.0");
+  expect(manifest.dependencies?.["@pocket/spine"]).toBe(sourceWorkspaceVersion("spine"));
+  expect(manifest.dependencies?.["@pocket/live2d"]).toBe(sourceWorkspaceVersion("live2d"));
   expect(manifest.dependencies?.["@pocket/ui"]).toBeUndefined();
   expect(manifest.dependencies?.["find-process"]).toBe("2.1.1");
   expect(manifest.dependencies?.["tree-kill"]).toBe("1.2.2");
@@ -218,7 +230,7 @@ test("export_web_sdk creates a Flutter-free toolchain repo with Editor and the Q
       name: "pocket-web-live2d-install-test",
       private: true,
       workspaces: ["packages/pocket_live2d"],
-      dependencies: { "@pocket/live2d": "0.1.0" },
+      dependencies: { "@pocket/live2d": sourceWorkspaceVersion("live2d") },
     }));
     const install = spawnSync("npm", ["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund"], {
       cwd: installRoot,
@@ -323,4 +335,114 @@ test("export_web_sdk packages only the requested platform archive and fails clos
       writeFileSync(archive, fixtures.get(archiveName)!);
     }
   });
+}, 30_000);
+
+test("export_web_sdk consumes verified GitHub Packages tarballs, preserves VN/Live2D/COS adaptations, and rejects version drift", () => {
+  const stageRoot = mkdtempSync(join(tmpdir(), "pocket-github-packages-stage-"));
+  const tarballsDir = mkdtempSync(join(tmpdir(), "pocket-github-packages-tarballs-"));
+  const mismatchOutput = mkdtempSync(join(tmpdir(), "pocket-web-sdk-export-mismatch-test-"));
+  try {
+    const stagedDir = join(stageRoot, "packages");
+    const stageRes = spawnSync(
+      process.execPath,
+      ["sdk/scripts/package_github_packages.mjs", "--out", stagedDir],
+      { cwd: repository, encoding: "utf8" },
+    );
+    expect(stageRes.status, `${stageRes.stdout}\n${stageRes.stderr}`).toBe(0);
+    const catalog = JSON.parse(stageRes.stdout) as Array<{ name: string; version: string; directory: string }>;
+    const { workspaces } = JSON.parse(readFileSync(join(repository, "sdk/package.json"), "utf8")) as { workspaces: string[] };
+    const slugs = workspaces.map((workspace) => workspace.replace(/^packages\/pocket_/, ""));
+    expect(catalog.map((item) => item.name).sort()).toEqual(slugs.map((slug) => `@pocketflutter/${slug}`).sort());
+
+    for (const item of catalog) packFixture(item.directory, tarballsDir);
+
+    const result = spawnSync(
+      "bun",
+      ["sdk/scripts/export_web_sdk.ts", "--out", registryOutput, "--registry-packages", `--registry-tarballs-dir=${tarballsDir}`],
+      { cwd: repository, encoding: "utf8" },
+    );
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    expect(`${result.stdout}${result.stderr}`).toContain("export_web_sdk: generated");
+
+    const provenance = JSON.parse(readFileSync(join(registryOutput, "provenance.json"), "utf8")) as {
+      packageSource: string;
+      registryPackages: Array<{ package: string; workspace: string; version: string; sha256: string }>;
+    };
+    expect(provenance.packageSource).toBe("github-packages");
+    expect(Array.isArray(provenance.registryPackages)).toBe(true);
+    expect(provenance.registryPackages).toHaveLength(slugs.length);
+    for (const slug of slugs) {
+      const entry = provenance.registryPackages.find((item) => item.package === `@pocketflutter/${slug}`)!;
+      expect(entry, slug).toBeDefined();
+      expect(entry.workspace).toBe(`@pocket/${slug}`);
+      expect(entry.version).toBe(sourceWorkspaceVersion(slug));
+      expect(entry.sha256).toMatch(/^[a-f0-9]{64}$/);
+    }
+
+    const rootManifest = JSON.parse(readFileSync(join(registryOutput, "package.json"), "utf8"));
+    expect(rootManifest.workspaces).toContain("packages/pocket_vn");
+    expect(rootManifest.workspaces).toContain("packages/pocket_live2d");
+    expect(rootManifest.workspaces).toContain("packages/pocket_cos");
+    for (const slug of ["spine", "live2d"]) {
+      expect(rootManifest.dependencies[`@pocket/${slug}`]).toBe(sourceWorkspaceVersion(slug));
+    }
+
+    // Verify all 10 workspace manifests were normalized to @pocket/<slug> with token-free workspace dependencies
+    for (const slug of slugs) {
+      const pkgPath = join(registryOutput, "packages", `pocket_${slug}`, "package.json");
+      expect(existsSync(pkgPath), slug).toBe(true);
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+      expect(pkg.name).toBe(`@pocket/${slug}`);
+      expect(pkg.publishConfig).toBeUndefined();
+      expect(pkg.repository).toBeUndefined();
+      expect(pkg.private).toBeUndefined();
+      for (const depValue of Object.values((pkg.dependencies ?? {}) as Record<string, string>)) {
+        expect(depValue).not.toContain("@pocketflutter/");
+      }
+    }
+
+    // Verify COS bundled internal modules and README
+    expect(existsSync(join(registryOutput, "packages/pocket_cos/README.md"))).toBe(true);
+    expect(existsSync(join(registryOutput, "packages/pocket_cos/src/internal/package_update.ts"))).toBe(true);
+    expect(existsSync(join(registryOutput, "packages/pocket_cos/src/internal/version_types.ts"))).toBe(true);
+
+    // Verify VN overlaid Web Live2D adapter and dependency
+    const vnManifest = JSON.parse(readFileSync(join(registryOutput, "packages/pocket_vn/package.json"), "utf8"));
+    expect(vnManifest.exports["./live2d"]).toBe("./src/live2d.ts");
+    expect(vnManifest.dependencies["@pocket/live2d"]).toBe(sourceWorkspaceVersion("live2d"));
+    expect(vnManifest.dependencies["@pocket/spine"]).toBe(sourceWorkspaceVersion("spine"));
+    expect(vnManifest.dependencies["@pocket/ui"]).toBe(sourceWorkspaceVersion("ui"));
+    expect(existsSync(join(registryOutput, "packages/pocket_vn/src/live2d.ts"))).toBe(true);
+
+    // Verify Live2D overlaid Cubism Web physics/pose, LICENSE, and bootstrap script
+    const live2dManifest = JSON.parse(readFileSync(join(registryOutput, "packages/pocket_live2d/package.json"), "utf8"));
+    expect(live2dManifest.license).toBe("SEE LICENSE IN LICENSE");
+    expect(live2dManifest.exports["./physics"]).toBe("./src/physics.ts");
+    expect(live2dManifest.exports["./pose"]).toBe("./src/pose.ts");
+    expect(existsSync(join(registryOutput, "packages/pocket_live2d/src/physics.ts"))).toBe(true);
+    expect(existsSync(join(registryOutput, "packages/pocket_live2d/src/pose.ts"))).toBe(true);
+    expect(existsSync(join(registryOutput, "packages/pocket_live2d/src/cubism-web/LICENSE.md"))).toBe(true);
+    expect(existsSync(join(registryOutput, "packages/pocket_live2d/scripts/bootstrap_cubism_web_core.sh"))).toBe(true);
+
+    // Reject a tarball whose internal package.json version drifts from the source workspace version
+    const badStage = join(stageRoot, "bad-ui");
+    cpSync(join(stagedDir, "ui"), badStage, { recursive: true });
+    const badUiManifestPath = join(badStage, "package.json");
+    const badUiManifest = JSON.parse(readFileSync(badUiManifestPath, "utf8"));
+    badUiManifest.version = `${Number(badUiManifest.version.split(".")[0]) + 1}.0.0`;
+    writeFileSync(badUiManifestPath, JSON.stringify(badUiManifest, null, 2));
+    cpSync(packFixture(badStage, tarballsDir), join(tarballsDir, `pocketflutter-ui-${sourceWorkspaceVersion("ui")}.tgz`));
+
+    const mismatchRes = spawnSync(
+      "bun",
+      ["sdk/scripts/export_web_sdk.ts", "--out", mismatchOutput, `--registry-tarballs-dir=${tarballsDir}`],
+      { cwd: repository, encoding: "utf8" },
+    );
+    expect(mismatchRes.status).not.toBe(0);
+    expect(`${mismatchRes.stdout}${mismatchRes.stderr}`).toContain("registry tarball version mismatch for @pocketflutter/ui");
+  } finally {
+    rmSync(stageRoot, { recursive: true, force: true });
+    rmSync(tarballsDir, { recursive: true, force: true });
+    rmSync(mismatchOutput, { recursive: true, force: true });
+  }
 }, 30_000);

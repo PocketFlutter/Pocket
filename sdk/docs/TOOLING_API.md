@@ -185,7 +185,8 @@ Required: `--project-root` and `--outdir`. Optional: `--entry`, `--tick-hz`, `--
 
 | Command | Behavior |
 | --- | --- |
-| `export:web-sdk` | Exports a standalone Web SDK source tree per [WEB_SDK_EXPORT.md](WEB_SDK_EXPORT.md). Optional publishing is separate from Release upload. |
+| `export:web-sdk` | Exports a standalone Web SDK source tree. Use `--registry-packages` to bundle the workspace's published package versions. See [Web SDK export](WEB_SDK_EXPORT.md). |
+| `release:packages` (repository root) | Plans npm workspace releases against GitHub Packages. See [package release operations](GITHUB_PACKAGES.md#release-from-the-sdk-workspace). |
 | `preview:wechat` | Uses the retained WeChat host/preview pipeline. See [WeChat host](WECHAT_HOST_IMPLEMENTATION.md). |
 | `build:probe` | Verifies installed prebuilt `pocket_probe`. |
 | `build:probe:source` | Builds native preview probe from source and requires the publisher toolchain. |

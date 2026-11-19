@@ -33,7 +33,7 @@ console.log(await diagnostics.listLogs());
 await diagnostics.close();
 ```
 
-The manual **Publish SDK Packages** workflow stages the existing
+The **Publish SDK Packages** workflow stages the existing
 diagnostics source, package exports, and repository MIT license. It uses the
 workspace version and exercises an authenticated install in a clean consumer.
 The retained parent sources described below provide historical context for
