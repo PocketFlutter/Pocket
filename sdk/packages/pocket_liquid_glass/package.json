@@ -1,6 +1,6 @@
 {
   "name": "@pocket/liquid_glass",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "sideEffects": false,
   "description": "Liquid Glass surfaces, controls, morphing menus and UI skin adapter for PocketJS.",
@@ -23,7 +23,7 @@
     "src"
   ],
   "dependencies": {
-    "@pocket/ui": "0.1.0"
+    "@pocket/ui": "0.1.1"
   },
   "license": "MIT"
 }

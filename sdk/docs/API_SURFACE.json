@@ -5105,7 +5105,7 @@
         },
         {
           "file": "scripts/release_sdk_packages.mjs",
-          "sourceSha256": "359752fa7935dc2e2cd8d4b26056d5add3f37e1671072f7b95b9942e508925c3"
+          "sourceSha256": "66cbb1dfd18cf35b0c5147e1d55ee5a0b3865c039ea51880ded0d3a6653a8a3c"
         },
         {
           "file": "scripts/tests/package_update.test.ts",

@@ -16,11 +16,11 @@
     "@pocket/ui": "file:../../sdk/packages/pocket_ui",
   },
   "packages": {
-    "@pocket/arc": ["@pocket/arc@file:../../sdk/packages/pocket_arc", { "dependencies": { "@pocket/ui": "0.1.0" } }],
+    "@pocket/arc": ["@pocket/arc@file:../../sdk/packages/pocket_arc", { "dependencies": { "@pocket/ui": "0.1.1" } }],
 
-    "@pocket/liquid_glass": ["@pocket/liquid_glass@file:../../sdk/packages/pocket_liquid_glass", { "dependencies": { "@pocket/ui": "0.1.0" } }],
+    "@pocket/liquid_glass": ["@pocket/liquid_glass@file:../../sdk/packages/pocket_liquid_glass", { "dependencies": { "@pocket/ui": "0.1.1" } }],
 
-    "@pocket/looseleaf": ["@pocket/looseleaf@file:../../sdk/packages/pocket_looseleaf", { "dependencies": { "@pocket/ui": "0.1.0" } }],
+    "@pocket/looseleaf": ["@pocket/looseleaf@file:../../sdk/packages/pocket_looseleaf", { "dependencies": { "@pocket/ui": "0.1.1" } }],
 
     "@pocket/ui": ["@pocket/ui@file:../../sdk/packages/pocket_ui", {}],
 

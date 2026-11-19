@@ -1,6 +1,6 @@
 {
   "name": "@pocket/looseleaf",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -24,6 +24,6 @@
     "src"
   ],
   "dependencies": {
-    "@pocket/ui": "0.1.0"
+    "@pocket/ui": "0.1.1"
   }
 }

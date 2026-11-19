@@ -4,7 +4,7 @@ import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, w
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { releaseSdkPackages } from "../release_sdk_packages.mjs";
+import { isMissingNpmPackage, releaseSdkPackages } from "../release_sdk_packages.mjs";
 
 const repository = resolve(import.meta.dir, "../../..");
 const loadJson = (path: string) => JSON.parse(readFileSync(path, "utf8"));
@@ -14,6 +14,15 @@ function execute(command: string, args: string[], cwd: string) {
   if (result.status !== 0) throw new Error(result.error?.message ?? result.stderr);
   return JSON.parse(result.stdout);
 }
+
+test("recognizes missing registry versions in npm JSON and text diagnostics only", () => {
+  const missing = JSON.stringify({ error: { code: "ETARGET" } });
+  expect(isMissingNpmPackage({ stdout: missing, stderr: "" })).toBe(true);
+  expect(isMissingNpmPackage({ stdout: "", stderr: missing })).toBe(true);
+  expect(isMissingNpmPackage({ stdout: "", stderr: "npm ERR! code E404\n" })).toBe(true);
+  expect(isMissingNpmPackage({ stdout: '{"error":{"code":"E403"}}', stderr: "" })).toBe(false);
+  expect(isMissingNpmPackage({ stdout: '{"error":{"code":"E401","summary":"ETARGET"}}', stderr: "" })).toBe(false);
+});
 
 test("compares packed payloads and cascades versions while retaining pending and source-only adapters", () => {
   const fixture = mkdtempSync(join(tmpdir(), "pocket-release-plan-test-"));

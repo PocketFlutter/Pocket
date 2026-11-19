@@ -12,6 +12,19 @@ const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 const writeJson = (path, value) => writeFileSync(path, json(value));
 const exactVersion = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
+export function isMissingNpmPackage({ stdout, stderr }) {
+  for (const output of [stdout, stderr]) {
+    if (/^npm (?:error|ERR!) code (?:E404|ETARGET)\s*$/m.test(output)) return true;
+    try {
+      const code = JSON.parse(output)?.error?.code;
+      if (code === "E404" || code === "ETARGET") return true;
+    } catch {
+      // npm may emit a diagnostic or leave this stream empty.
+    }
+  }
+  return false;
+}
+
 function run(command, args, cwd, { allowMissing = false } = {}) {
   const npmExecPath = process.env.npm_execpath;
   const npmCli = npmExecPath && /(?:^|[\\/])npm-cli\.js$/.test(npmExecPath)
@@ -24,7 +37,7 @@ function run(command, args, cwd, { allowMissing = false } = {}) {
   });
   if (result.error) throw result.error;
   if (result.status === 0) return result.stdout;
-  if (allowMissing && /^npm (?:error|ERR!) code (?:E404|ETARGET)\s*$/m.test(result.stderr)) return null;
+  if (allowMissing && isMissingNpmPackage(result)) return null;
   throw new Error(`${command} ${args[0]} failed in ${cwd}\n${result.stderr || result.stdout}`);
 }
 
