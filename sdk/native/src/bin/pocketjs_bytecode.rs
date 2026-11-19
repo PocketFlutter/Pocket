@@ -171,24 +171,24 @@ fn compile_module(ctx: Ctx<'_>, source: &[u8], filename: &str) -> Result<Vec<u8>
         .map_err(|error| format!("QuickJS module bytecode serialization failed: {error}"))
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn run_compiler() -> Result<(), String> {
     let args = parse_args();
     if args.tick_hz == 0 || args.tick_hz > 120 {
-        return Err(format!("tick rate must be between 1 and 120 (got {})", args.tick_hz).into());
+        return Err(format!("tick rate must be between 1 and 120 (got {})", args.tick_hz));
     }
     if args.binding_generation == 0 {
         return Err("binding generation must be non-zero".into());
     }
-    let source = std::fs::read(&args.input)?;
+    let source = std::fs::read(&args.input).map_err(|err| err.to_string())?;
     if source.is_empty() {
         return Err("input source is empty".into());
     }
     if source.contains(&0) {
         return Err("input source contains a NUL byte".into());
     }
-    let filename = CString::new(args.module_name.as_bytes())?;
-    let runtime = Runtime::new()?;
-    let context = Context::full(&runtime)?;
+    let filename = CString::new(args.module_name.as_bytes()).map_err(|err| err.to_string())?;
+    let runtime = Runtime::new().map_err(|err| err.to_string())?;
+    let context = Context::full(&runtime).map_err(|err| err.to_string())?;
     let payload = context.with(|ctx| match args.kind {
         BytecodeKind::Script => compile_script(ctx, &source, &filename),
         BytecodeKind::Module => compile_module(ctx, &source, &args.module_name),
@@ -200,15 +200,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.tick_hz,
         &source,
         &payload,
-    )?;
+    )
+    .map_err(|err| err.to_string())?;
     if let Some(parent) = args
         .output
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
     {
-        std::fs::create_dir_all(parent)?;
+        std::fs::create_dir_all(parent).map_err(|err| err.to_string())?;
     }
-    std::fs::write(&args.output, &artifact)?;
+    std::fs::write(&args.output, &artifact).map_err(|err| err.to_string())?;
     if let Some(metadata_path) = args.metadata {
         let metadata_value = serde_json::json!({
             "entryFormat": bytecode::ENTRY_FORMAT,
@@ -226,14 +227,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "sourceSha256": bytecode::sha256_hex(&source),
             "payloadSha256": bytecode::sha256_hex(&payload),
         });
-        let metadata_bytes = serde_json::to_vec_pretty(&metadata_value)?;
+        let metadata_bytes =
+            serde_json::to_vec_pretty(&metadata_value).map_err(|err| err.to_string())?;
         if let Some(parent) = metadata_path
             .parent()
             .filter(|path| !path.as_os_str().is_empty())
         {
-            std::fs::create_dir_all(parent)?;
+            std::fs::create_dir_all(parent).map_err(|err| err.to_string())?;
         }
-        std::fs::write(metadata_path, metadata_bytes)?;
+        std::fs::write(metadata_path, metadata_bytes).map_err(|err| err.to_string())?;
     }
     eprintln!(
         "wrote {} bytes of QuickJS {:?} bytecode to {} (engine ABI {:02x?})",
@@ -243,6 +245,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &bytecode::engine_abi()[..8]
     );
     Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let handle = std::thread::Builder::new()
+        .name("pocketjs-bytecode".into())
+        .stack_size(8 * 1024 * 1024)
+        .spawn(run_compiler)?;
+    match handle.join() {
+        Ok(result) => result.map_err(Into::into),
+        Err(payload) => std::panic::resume_unwind(payload),
+    }
 }
 
 #[cfg(test)]

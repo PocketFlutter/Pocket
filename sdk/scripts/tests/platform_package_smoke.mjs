@@ -212,7 +212,7 @@ for (const template of ["app", "game"]) {
   const url = suffix => "http://127.0.0.1/api/projects/" + template + "/preview/" + suffix;
   const call = (suffix, init) => manager.handle(new Request(url(suffix), init), template, suffix);
   let reader;
-  const snapshot = async () => { const response = await call("snapshot"); assert.equal(response.status, 200); const value = await response.json(); assert.equal(value.status.state, "ready", JSON.stringify(value.status)); return value.frame; };
+  const snapshot = async () => { const response = await call("snapshot"); assert.equal(response.status, 200, response.status === 200 ? undefined : await response.text()); const value = await response.json(); assert.equal(value.status.state, "ready", JSON.stringify(value.status)); return value.frame; };
   const has = (frame, text) => frame.ops.some(op => op.type === "text" && op.text === text);
   const waitFor = async (predicate, expected) => {
     const deadline = Date.now() + 5000;
@@ -236,7 +236,7 @@ for (const template of ["app", "game"]) {
   };
   try {
     const stream = await call("stream");
-    assert.equal(stream.status, 200);
+    assert.equal(stream.status, 200, stream.status === 200 ? undefined : await stream.text());
     reader = stream.body?.getReader();
     await reader?.read();
     if (template === "app") {

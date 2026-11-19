@@ -837,7 +837,7 @@ unsafe fn command_inner(command: &Value, handle: &mut Handle) -> (bool, Value) {
     }
 }
 
-fn main() -> io::Result<()> {
+fn run_probe() -> io::Result<()> {
     let stdin = io::stdin();
     // Do not retain StdoutLock for the process lifetime: the native Worker
     // wake callback writes an out-of-band line while this loop is blocked in a
@@ -876,6 +876,19 @@ fn main() -> io::Result<()> {
 
     unsafe { destroy(&mut handle) };
     Ok(())
+}
+
+fn main() -> io::Result<()> {
+    // Match macOS/Linux 8 MiB stack size so QuickJS's 4 MiB stack guard triggers
+    // cleanly even on Windows MSVC where the default PE main stack is 1 MiB.
+    let handle = std::thread::Builder::new()
+        .name("pocket-probe".into())
+        .stack_size(8 * 1024 * 1024)
+        .spawn(run_probe)?;
+    match handle.join() {
+        Ok(result) => result,
+        Err(payload) => std::panic::resume_unwind(payload),
+    }
 }
 
 #[cfg(test)]

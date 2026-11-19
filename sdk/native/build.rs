@@ -671,4 +671,11 @@ void pocket_worker_ui_detach(pocket_worker_ui *bridge) {"#,
         .file(adapted.join("src/quickjs_ui.c"))
         .file(adapted.join("src/runner.c"))
         .compile("pocket_worker");
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        match env::var("CARGO_CFG_TARGET_ENV").as_deref() {
+            Ok("msvc") => println!("cargo:rustc-link-arg-bins=/STACK:8388608"),
+            Ok("gnu") => println!("cargo:rustc-link-arg-bins=-Wl,--stack,8388608"),
+            _ => {}
+        }
+    }
 }
