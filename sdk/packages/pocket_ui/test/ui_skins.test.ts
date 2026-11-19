@@ -97,7 +97,10 @@ mock.module("@pocket/ui", () => ({
 }));
 
 const {
+  DEFAULT_UI_SKIN_MOTION,
+  UI_SKIN_FORBIDDEN_KERNEL_KEYS,
   UI_SKIN_KIT_SLOTS,
+  UiSkinProvider,
   defaultSkinAdapter,
   defineUiSkin,
   SkinBackButton,
@@ -107,6 +110,7 @@ const {
   listUiSkins,
   registerUiSkin,
   resolveDefaultSkinTokens,
+  resolveUiSkinMotion,
 } = skinsModule;
 const {
   looseleafSkinAdapter,
@@ -355,4 +359,151 @@ test("every JSX class literal in unified skin adapters & SkinStudioPage compiles
       expect(unknownUtilities(match[1]!)).toEqual([]);
     }
   }
+});
+
+test("all 4 official adapters expose valid motion defaults via resolveUiSkinMotion, and resolveUiSkinMotion clamps duration & respects reducedMotion", () => {
+  expect(resolveUiSkinMotion(defaultSkinAdapter.motion)).toEqual({
+    routeTransition: "IOS_SPRING_PARALLAX",
+    routeTransitionDurationMs: 220,
+  });
+  expect(resolveUiSkinMotion(looseleafSkinAdapter.motion)).toEqual({
+    routeTransition: "SHARED_AXIS_Z",
+    routeTransitionDurationMs: 220,
+  });
+  expect(resolveUiSkinMotion(arcSkinAdapter.motion)).toEqual({
+    routeTransition: "IOS_SPRING_PARALLAX",
+    routeTransitionDurationMs: 200,
+  });
+  expect(resolveUiSkinMotion(liquidGlassSkinAdapter.motion)).toEqual({
+    routeTransition: "LIQUID_GLASS_MORPH",
+    routeTransitionDurationMs: 240,
+  });
+
+  // Fallback and clamping to [0, 600]
+  expect(resolveUiSkinMotion(undefined)).toEqual(DEFAULT_UI_SKIN_MOTION);
+  expect(
+    resolveUiSkinMotion({
+      routeTransition: "PORTAL_EXPAND",
+      routeTransitionDurationMs: -50,
+    }),
+  ).toEqual({
+    routeTransition: "PORTAL_EXPAND",
+    routeTransitionDurationMs: 0,
+  });
+  expect(
+    resolveUiSkinMotion({
+      routeTransition: "PORTAL_EXPAND",
+      routeTransitionDurationMs: 9999,
+    }),
+  ).toEqual({
+    routeTransition: "PORTAL_EXPAND",
+    routeTransitionDurationMs: 600,
+  });
+
+  // reducedMotion === true forces routeTransitionDurationMs to 0
+  expect(resolveUiSkinMotion(liquidGlassSkinAdapter.motion, true)).toEqual({
+    routeTransition: "LIQUID_GLASS_MORPH",
+    routeTransitionDurationMs: 0,
+  });
+});
+
+test("defineUiSkin and registerUiSkin enforce the invariant @pocket/ui kernel boundary and throw TypeError on forbidden kernel keys", () => {
+  expect(UI_SKIN_FORBIDDEN_KERNEL_KEYS).toEqual([
+    "lifecycle",
+    "router",
+    "backNavigation",
+    "hostBridge",
+    "systemUi",
+    "routeRetention",
+    "ime",
+    "media",
+  ]);
+  for (const forbiddenKey of UI_SKIN_FORBIDDEN_KERNEL_KEYS) {
+    expect(() =>
+      defineUiSkin({
+        id: `bad-${forbiddenKey}`,
+        label: "Bad Skin",
+        [forbiddenKey]: () => {},
+      } as any),
+    ).toThrow(TypeError);
+    expect(() =>
+      registerUiSkin({
+        ...defaultSkinAdapter,
+        id: `bad-reg-${forbiddenKey}`,
+        [forbiddenKey]: {},
+      } as any),
+    ).toThrow(TypeError);
+  }
+  expect(() =>
+    registerUiSkin(
+      Object.assign(Object.create({ lifecycle: {} }), {
+        id: "proto-bad",
+        label: "Bad",
+        description: "",
+        resolveTokens: defaultSkinAdapter.resolveTokens,
+        kit: defaultSkinAdapter.kit,
+      }) as any,
+    ),
+  ).toThrow(TypeError);
+});
+
+test("registerUiSkin and UiSkinProvider safely normalize missing kit slots and recover from throwing or partial resolveTokens", () => {
+  const customButton = (props: any) => ({ type: "malformed-custom-button", props }) as any;
+  const malformedRegistered = registerUiSkin({
+    id: "malformed-reg",
+    label: "Malformed Registered",
+    description: "Missing kit slots",
+    resolveTokens: () => {
+      throw new Error("resolveTokens boom");
+    },
+    kit: { Button: customButton } as any,
+  });
+
+  expect(malformedRegistered.kit.Button).toBe(customButton);
+  expect(malformedRegistered.kit.Dialog).toBe(defaultSkinAdapter.kit.Dialog);
+  expect(malformedRegistered.kit.Paragraph).toBe(defaultSkinAdapter.kit.Paragraph);
+  for (const slot of UI_SKIN_KIT_SLOTS) {
+    expect(typeof malformedRegistered.kit[slot]).toBe("function");
+  }
+
+  const providerThrowingEl = UiSkinProvider({
+    skin: "malformed-reg",
+    mode: "dark",
+    accent: "teal",
+  }) as any;
+  const throwingCtx = providerThrowingEl.props.value;
+  expect(throwingCtx.adapter().kit.Button).toBe(customButton);
+  expect(throwingCtx.adapter().kit.Dialog).toBe(defaultSkinAdapter.kit.Dialog);
+  const fallbackTokens = throwingCtx.tokens();
+  const baseDarkTeal = resolveDefaultSkinTokens("dark", "teal");
+  expect(fallbackTokens).toEqual({
+    ...baseDarkTeal,
+    id: "malformed-reg",
+    label: "Malformed Registered",
+  });
+
+  const rawProviderAdapter = {
+    id: "malformed-inline",
+    label: "Malformed Inline",
+    description: "Partial tokens and kit",
+    resolveTokens: () => ({ ink: "#112233", surfaceBg: undefined }) as any,
+    kit: undefined as any,
+  };
+  const providerPartialEl = UiSkinProvider({
+    skin: "malformed-inline",
+    mode: "light",
+    accent: "blue",
+    skins: [rawProviderAdapter],
+  }) as any;
+  const partialCtx = providerPartialEl.props.value;
+  for (const slot of UI_SKIN_KIT_SLOTS) {
+    expect(partialCtx.adapter().kit[slot]).toBe(defaultSkinAdapter.kit[slot]);
+  }
+  const baseLightBlue = resolveDefaultSkinTokens("light", "blue");
+  expect(partialCtx.tokens()).toEqual({
+    ...baseLightBlue,
+    id: "malformed-inline",
+    label: "Malformed Inline",
+    ink: "#112233",
+  });
 });

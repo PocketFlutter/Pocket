@@ -3,6 +3,7 @@
 **/.build/
 **/.swiftpm/
 **/.pocket-build/
+**/.pocket/
 **/node_modules/
 sdk/prebuilt/
 **/__pycache__/

@@ -438,6 +438,22 @@ Record each migration in `docs/` with original paths and behaviors, retained imp
 
 Ablation removed the Dart application widget tree and simulated runtime, JS-painted on-screen keyboard, duplicate ActionBar, and empty ScrollRail, WrapLines, and pagination wrappers. Real compilation, clicks, and bytecode changes still drive the UI. Continue looking for duplicate state and wrappers in large files. Splitting a file should preserve the existing state machine and rendering backend.
 
+### 7.1 Invariant `@pocket/ui` kernel vs skin-configurable surface
+
+`@pocket/ui` strictly separates its runtime behavioral kernel from the visual skin extension surface:
+
+- **Invariant `@pocket/ui` Kernel** (immutable across all skins, guarded at runtime by `UI_SKIN_FORBIDDEN_KERNEL_KEYS` + `assertSkinKernelBoundary`):
+  - App and route lifecycle management (`PocketLifecycleProvider`, `createPocketLifecycleController`, `usePocketAppLifecycle`, `usePocketRouteLifecycle`).
+  - Retained `RouteView` slots (`active` vs `visible` separating logical route activity from transition display) and `createPocketRouter`.
+  - `PocketAppShell`'s simulation-clock `createPocketRouteTransitionController` and swipe-back gesture negotiation.
+  - `PocketBackRouteActiveProvider` and `usePocketBackHandler` LIFO interception across retained routes and overlays.
+  - `HostBridge` IME `textInput.*` dispatch (`deliverTextInputEvent`).
+  - `media.setCurrentPage` route gating.
+  - `createPocketSystemUiSync` status/navigation bar synchronization and automatic `platform.presets` / `accessibility.preferences` inheritance.
+- **Skin-Configurable Extension Surface**:
+  - `resolveTokens` (semantic theme tokens), `kit` (23 visual component slots in `UI_SKIN_KIT_SLOTS`), optional `Provider`, `floatingBottomBar`, and `motion: UiSkinMotionConfig` (`routeTransition`, `routeTransitionDurationMs`, clamped to `[0, 600]ms` and overridden to `0ms` when `reduceMotion` is active).
+- **Demo Showcase adoption (`../../demo/js/`)**: Uses unified `@pocket/ui` `Skin*` primitives, `ShowcaseSystemUiSync`, and `usePocketAppLifecycle` / `usePocketRouteLifecycle` with live `platform.presets.skin` propagation to the `profile` and `lobby` MiniApps.
+
 ## 8. Where to make changes
 
 | Change | Start here | Acceptance |

@@ -99,6 +99,7 @@ export const looseleafSkinAdapter: UiSkinAdapter = {
   id: "looseleaf",
   label: "Looseleaf",
   description: "Hand-drawn cream paper, felt-tip pen, highlighter marker & masking tape UI.",
+  motion: { routeTransition: "SHARED_AXIS_Z", routeTransitionDurationMs: 220 },
   resolveTokens: resolveLooseleafSkinTokens,
   Provider(props) {
     return (

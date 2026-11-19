@@ -1,7 +1,7 @@
 import { Show, createEffect, createSignal, untrack, type JSX } from "solid-js";
 import { Focusable, Modal, View } from "@pocketjs/framework/solid/components";
 import { onFrame } from "@pocketjs/framework/solid/lifecycle";
-import { MobileParagraph } from "@pocket/ui";
+import { MobileParagraph, useRouteActive } from "@pocket/ui";
 import { createArcSpring } from "./motion.ts";
 import { resolveArcPalette, useArcTheme, type ArcThemeMode } from "./tokens.ts";
 import { ArcActionButton, ArcSurface } from "./skins.tsx";
@@ -115,7 +115,8 @@ export function ArcDialog(props: {
   children?: JSX.Element;
 }): JSX.Element {
   const ctx = useArcTheme();
-  const isOpen = () => (typeof props.open === "function" ? props.open() : props.open);
+  const routeActive = useRouteActive();
+  const isOpen = () => routeActive() && (typeof props.open === "function" ? props.open() : props.open);
   const presence = createArcSpring(() => (isOpen() ? 1 : 0), {
     preset: "calm",
     reducedMotion: ctx.reducedMotion,
@@ -125,7 +126,7 @@ export function ArcDialog(props: {
   const clampedPresence = () => Math.max(0, Math.min(1, presence()));
 
   return (
-    <Show when={isOpen() || presence() > 0.01}>
+    <Show when={routeActive() && (isOpen() || presence() > 0.01)}>
       <Modal
         open
         backdropClass="bg-transparent"
@@ -230,14 +231,15 @@ export function ArcBottomSheet(props: {
   children?: JSX.Element;
 }): JSX.Element {
   const ctx = useArcTheme();
-  const isOpen = () => (typeof props.open === "function" ? props.open() : props.open);
+  const routeActive = useRouteActive();
+  const isOpen = () => routeActive() && (typeof props.open === "function" ? props.open() : props.open);
   const presence = createArcSpring(() => (isOpen() ? 1 : 0), {
     preset: "calm",
     reducedMotion: ctx.reducedMotion,
   });
   const pal = () =>
     resolveArcPalette(resolveOverlayMode(props.isDark, ctx.mode()), ctx.accent());
-  const mounted = () => isOpen() || presence() > 0.005;
+  const mounted = () => routeActive() && (isOpen() || presence() > 0.005);
 
   let panelNode: { id: number } | undefined;
   const [panelHeight, setPanelHeight] = createSignal(0);

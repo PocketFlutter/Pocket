@@ -2319,11 +2319,12 @@ export function MobilePopup(props: {
   const presence = usePresenceTransition(() => typeof props.open === "function" ? props.open() : props.open, {
     durationMs: 260, easing: motionEaseOut,
   });
+  const routeActive = useRouteActive();
   usePocketBackHandler(() => {
     if (!presence.interactive()) return true;
     props.onClose();
     return true;
-  }, () => Boolean(typeof props.open === "function" ? props.open() : props.open));
+  }, () => routeActive() && Boolean(typeof props.open === "function" ? props.open() : props.open));
   let panelNode: { id: number } | undefined;
   const [panelHeight, setPanelHeight] = createSignal(0);
   const syncPanelHeight = (): void => {
@@ -2450,11 +2451,12 @@ export function MobileDialog(props: {
   const presence = usePresenceTransition(() => typeof props.open === "function" ? props.open() : props.open, {
     durationMs: MOBILE_MOTION.overlay, easing: motionEaseOut,
   });
+  const routeActive = useRouteActive();
   usePocketBackHandler(() => {
     if (!presence.interactive()) return true;
     props.onClose();
     return true;
-  }, () => Boolean(typeof props.open === "function" ? props.open() : props.open));
+  }, () => routeActive() && Boolean(typeof props.open === "function" ? props.open() : props.open));
   return (
     <Show when={presence.mounted()}>
       <MobileModalBackdrop progress={presence.progress} />

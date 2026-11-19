@@ -38,6 +38,7 @@ import {
   defaultSkinAdapter,
   stateParam,
   useOptionalPocketRouter,
+  usePocketAppLifecycle,
   useRouteParams,
   useSearchState,
   useUiSkin,
@@ -226,6 +227,7 @@ function SkinStudioContent(props: {
   onChangeAccent: (next: UiSkinAccent) => void;
 }): JSX.Element {
   const skin = useUiSkin();
+  const appLifecycle = usePocketAppLifecycle();
   const router = useOptionalPocketRouter();
   const routeParams = useRouteParams<{ tab?: string }>({ routeId: "skins" });
   const [fallbackTab, setFallbackTab] = useSearchState(
@@ -447,6 +449,14 @@ function SkinStudioContent(props: {
                 title={skin.adapter().label}
                 detail={skin.adapter().description}
                 trailing={<SkinBadge label="ACTIVE" tone="success" />}
+              />
+              <SkinListTile
+                title="Skin-Configurable Surface"
+                detail={`Motion: ${skin.motion().routeTransition} (${skin.motion().routeTransitionDurationMs}ms) · Floating Bar: ${skin.adapter().floatingBottomBar ? "Yes" : "No"} · 23 Kit Slots`}
+              />
+              <SkinListTile
+                title="Invariant @pocket/ui Kernel"
+                detail={`Lifecycle: ${appLifecycle.state()} · Retained Routes · Active-Route Back Isolation · IME & SystemUI`}
               />
               <SkinAccordion
                 title="Token & behavior inheritance"

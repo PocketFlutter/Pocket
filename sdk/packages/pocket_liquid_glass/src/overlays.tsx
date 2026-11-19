@@ -12,7 +12,7 @@
 import { For, Show, createEffect, createSignal, untrack, type JSX } from "solid-js";
 import { Focusable, Modal, Text, View } from "@pocketjs/framework/solid/components";
 import { onFrame } from "@pocketjs/framework/solid/lifecycle";
-import { MobileParagraph } from "@pocket/ui";
+import { MobileParagraph, useRouteActive } from "@pocket/ui";
 import { LiquidGlassButton } from "./controls.tsx";
 import { LiquidGlassListTile } from "./navigation.tsx";
 import { createGlassSpring } from "./motion.ts";
@@ -211,7 +211,8 @@ export function LiquidGlassDialog(props: {
   children?: JSX.Element;
 }): JSX.Element {
   const ctx = useLiquidGlass();
-  const isOpen = () => (typeof props.open === "function" ? props.open() : props.open);
+  const routeActive = useRouteActive();
+  const isOpen = () => routeActive() && (typeof props.open === "function" ? props.open() : props.open);
   const presence = createGlassSpring(() => (isOpen() ? 1 : 0), {
     preset: "sheet",
     reducedMotion: ctx.reducedMotion,
@@ -220,7 +221,7 @@ export function LiquidGlassDialog(props: {
   const clamped = () => Math.max(0, Math.min(1, presence()));
 
   return (
-    <Show when={isOpen() || presence() > 0.01}>
+    <Show when={routeActive() && (isOpen() || presence() > 0.01)}>
       <Modal
         open
         backdropClass="bg-transparent"
@@ -340,13 +341,14 @@ export function LiquidGlassSheet(props: {
   children?: JSX.Element;
 }): JSX.Element {
   const ctx = useLiquidGlass();
-  const isOpen = () => (typeof props.open === "function" ? props.open() : props.open);
+  const routeActive = useRouteActive();
+  const isOpen = () => routeActive() && (typeof props.open === "function" ? props.open() : props.open);
   const presence = createGlassSpring(() => (isOpen() ? 1 : 0), {
     preset: "sheet",
     reducedMotion: ctx.reducedMotion,
     quantizeStep: 0.005,
   });
-  const mounted = () => isOpen() || presence() > 0.005;
+  const mounted = () => routeActive() && (isOpen() || presence() > 0.005);
 
   let panelNode: { id: number } | undefined;
   const [panelHeight, setPanelHeight] = createSignal(0);

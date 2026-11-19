@@ -12,7 +12,7 @@
  * route -> mobile/ui dependency cycle.
  */
 
-import { createContext, useContext, type Accessor, type JSX } from "solid-js";
+import { createContext, createMemo, useContext, type Accessor, type JSX } from "solid-js";
 import { View, type ViewProps } from "@pocketjs/framework/solid/components";
 
 export type RouteActiveSource = boolean | (() => boolean) | undefined;
@@ -31,6 +31,8 @@ function resolveActive(value: RouteActiveSource): boolean {
 export interface RouteViewProps extends ViewProps {
   /** Whether this route is the current visible/interactive route. */
   active?: RouteActiveSource;
+  /** Optional visual display predicate during route transitions/gestures. Defaults to active. */
+  visible?: RouteActiveSource;
 }
 
 /**
@@ -41,7 +43,10 @@ export interface RouteViewProps extends ViewProps {
  */
 export function RouteView(props: RouteViewProps): JSX.Element {
   const parentActive = useRouteActive();
-  const active = (): boolean => parentActive() && resolveActive(props.active);
+  const active = createMemo(() => parentActive() && resolveActive(props.active));
+  const visible = createMemo(() =>
+    props.visible === undefined ? active() : parentActive() && resolveActive(props.visible),
+  );
 
   return (
     <RouteActivityContext.Provider value={active}>
@@ -52,7 +57,7 @@ export function RouteView(props: RouteViewProps): JSX.Element {
         onPress={props.onPress}
         ref={props.ref}
         nodeRef={props.nodeRef}
-        style={{ ...(props.style ?? {}), display: active() ? 0 : 1 }}
+        style={{ ...(props.style ?? {}), display: visible() ? 0 : 1 }}
       >
         {props.children}
       </View>

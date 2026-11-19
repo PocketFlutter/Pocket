@@ -12,7 +12,7 @@ Before implementing and verifying System UI preset propagation and dual MiniApp 
 
 - **JS-owned policy and rendering**: No Dart state machine, Flutter `Navigator`, or native animation controller was added. Flutter remains strictly the surface/compositor and transport host.
 - **Single timeline & dismissal barrier**: `SystemAppSurfaces` (`presentation="mini-app"`) retains its single virtual-clock timeline (`420ms` cubic entry, `360ms` quadratic exit) and `kernel.onBeforeDismiss` barrier for both `"sheet"` and `"page"` modes.
-- **No duplicate child chrome**: Child MiniApps (`demo/js/apps/profile/app.tsx`, `demo/js/apps/lobby/app.tsx`) use `<MobileThemeProvider>` and `<SafeAreaScaffold reservedActions="mini-app">` without manual `<Button debugName="Back">` controls in `MobileAppBar.leading`, avoiding collisions with the host-rendered `mini-app-back` (`"page"`) or `mini-app-close` (`"sheet"`) affordance while keeping explicit in-body result-return actions (`"Return to Showcase"`, `"Return visits to caller"`).
+- **No duplicate child chrome**: Child MiniApps (`demo/js/apps/profile/app.tsx`, `demo/js/apps/lobby/app.tsx`) compose `<UiSkinProvider>` + `<SafeAreaScaffold reservedActions="mini-app">` and `Skin*` primitives without manual `<Button debugName="Back">` controls in the app bar leading slot, avoiding collisions with the host-rendered `mini-app-back` (`"page"`) or `mini-app-close` (`"sheet"`) affordance while keeping explicit in-body result-return actions (`"Return to Showcase"`, `"Return visits to caller"`).
 
 ---
 
@@ -27,21 +27,22 @@ export interface PocketSystemPresets {
   accentColor: string;
   density: "auto" | "touch" | "desktop";
   presentationStyle: "sheet" | "page";
+  skin?: string;
 }
 ```
 
 ### End-to-End Flow
 
 1. **Kernel ownership (`sdk/packages/pocket_ui/src/system.ts`)**:
-   - `installPocketSystem(manifest, { presets })` initializes global presets (using `manifest.applications.presentation.style` as the fallback `presentationStyle`, defaulting to `"sheet"`).
+   - `installPocketSystem(manifest, { presets })` initializes global presets (using `manifest.applications.presentation.style` as the fallback `presentationStyle`, defaulting to `"sheet"`; `DEFAULT_SYSTEM_PRESETS` omits `skin` unless explicitly set or reset).
    - `kernel.setPresets(partial)` updates global presets (if not disposed), notifies `SystemAppSurfaces` subscribers when changed, and broadcasts per-app resolved `platform.presets` events to resident child runtimes when changed (or when `record.presetsPending` is set).
    - During `openApp`, `prewarmApp`, and `handleGenerationChange`, `emitPresets(target)` posts `platform.presets` **before** `onInit` / `onLoad` / `onWillAppear`. If the host returns `{ accepted: false }` (e.g., while a child runtime has not yet completed `firstFrameReady`), `record.presetsPending` is marked `true` and `lifecycle()` queues subsequent lifecycle events behind it; `flushLifecycle` / `flushForegroundWork` / `flushPendingLaunches` re-send `platform.presets` before flushing `lifecycleQueue` (`onInit`, `onLoad`, `onWillAppear`), `platform.launch`, and `onDidAppear`.
    - **True first-frame zero-delta delivery (`initialEvents`)**: `PocketSystemKernel` attaches `initialEvents: [{ method: "platform.presets", params }]` (resolved with the 4-tier `presentationStyle` priority, including `launchOptions.presentationStyle`) on `system.runtime.create` and `system.runtime.prepareOpen`. `PocketSystemHost` (`sdk/lib/src/pocket_system_host.dart`) validates and forwards the opaque `initialEvents` list through `PocketSession.initialEvents` (`sdk/lib/src/pocket_session.dart`) and `PocketGuestSession` (`sdk/lib/src/pocket_app.dart`) into the child `PocketView` (`sdk/packages/pocket_flutter/lib/src/pocket_view.dart`). During `_PocketViewState._start()`, `_sendInitialEvents()` dispatches those opaque events directly to the native runtime alongside `_reportSafeArea()` (`display.viewport`) and evaluates the zero-elapsed-time frame (`delta = 0`) **before** `onReady` (`_onFirstFrame`) admits the first frame—even when the child surface starts Offstage (`active: false`). The JS `presetsPending` retry remains as an idempotent fallback.
    - `platform.presets.get` / `platform.requestPresets()` was ablated; presets are delivered strictly via the single event-push (`platform.presets` + `platform.launch`) and `HostBridge.getLatestSystemPresets()` ingress snapshot contract (matching `display.viewport`).
-2. **HostBridge ingress & guest reactivity (`sdk/packages/pocket_ui/src/host.ts`, `display.ts`, `platform.ts`, `mobile.tsx`, `sdk/packages/pocket_vn/src/view.tsx`)**:
+2. **HostBridge ingress & guest reactivity (`sdk/packages/pocket_ui/src/host.ts`, `display.ts`, `platform.ts`, `mobile.tsx`, `skins.tsx`, `sdk/packages/pocket_vn/src/view.tsx`)**:
    - `HostBridge` caches the latest merged `HostSystemPresetsSnapshot` at ingress (`getLatestSystemPresets()`) on both `platform.presets` and `platform.launch` events (via the shared `isSystemPresetsEvent` predicate)—mirroring `getLatestDisplayViewport()` without general event replay overhead.
    - `createSystemPresets()` (`useSystemPresets`) reads the ingress snapshot synchronously before mount without mutating `lastAppliedEvent` (so `onMount` still syncs `setPresets` and invokes `options.onChange`) and updates reactively on `platform.presets` / `platform.launch`.
-   - `<MobileThemeProvider>` automatically subscribes to `createSystemPresets()` whenever explicit `theme` or `density` props are omitted, memoizing `createMobileTheme(presets.darkMode, presets.accentColor)` and providing `presets.density` to the entire child guest tree.
+   - `<UiSkinProvider>` inside child MiniApps (`demo/js/apps/profile/app.tsx`, `demo/js/apps/lobby/app.tsx`) and `<MobileThemeProvider>` automatically subscribe to `createSystemPresets()` whenever explicit props are omitted, inheriting `presets.skin` alongside `darkMode`, `accentColor`, `density`, and `presentationStyle` live from `platform.presets` / `platform.launch` while composing `<SafeAreaScaffold reservedActions="mini-app">` and `Skin*` primitives.
    - `NovelView` (`sdk/packages/pocket_vn/src/view.tsx`) subscribes to `createSystemPresets()` and applies `MINI_APP_HOST_ACTION_RESERVE` (`60px`) on the left in `"page"` mode (clearing `mini-app-back`) and on the right in `"sheet"` mode (clearing `mini-app-close`).
 
 ---

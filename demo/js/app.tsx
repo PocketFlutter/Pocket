@@ -78,16 +78,27 @@ import {
   ShadcnToggleGroup,
   ShadcnTooltip,
   ShadcnTypography,
+  PocketLifecycleProvider,
   PocketRouteScope,
   PocketRouterProvider,
   PocketVirtualList,
   SkinAppBar,
-  SkinBackdrop,
+  SkinBackButton,
+  SkinBadge,
+  SkinButton,
+  SkinCard,
   SkinDialog,
+  SkinListTile,
   SkinNavigationBar,
+  SkinParagraph,
+  SkinScaffold,
+  SkinSegmentedControl,
   UiSkinProvider,
   createPocketRouter,
+  createPocketSystemUiSync,
   defaultSkinAdapter,
+  getUiSkin,
+  useUiSkin,
   type PocketHistoryEntry,
   type PocketRouteDefinition,
 } from "@pocket/ui";
@@ -102,6 +113,9 @@ import { liquidGlassSkinAdapter } from "@pocket/liquid_glass";
 import { HardwarePage, MobileUiPage, TransitionsPage } from "./mobile-pages.tsx";
 import { createHostBridge, hostError, type HostBridge, type HostEvent, type JsonValue } from "@pocket/ui/host";
 import {
+  PocketBackInterceptorProvider,
+  PocketBackRouteActiveProvider,
+  createPocketBackInterceptorRegistry,
   createPocketBackNavigation,
   shouldCommitPocketBackGesture,
   type PocketBackGestureEvent,
@@ -110,7 +124,7 @@ import { VideoPage } from "./video-page.tsx";
 import { RecordingPanel } from "./recording-panel.tsx";
 import { MiniAppUpdatesPage } from "./mini-app-updates.tsx";
 import { createPocketPlatformClient, type AppLaunchOptions } from "@pocket/ui/platform";
-import { createPlatformExperience, isUnsupportedPlatformError } from "@pocket/ui/platform-experience";
+import { createPlatformExperience } from "@pocket/ui/platform-experience";
 import { SystemAppSurfaces } from "@pocket/ui/system-surfaces";
 import { installShowcaseSystem } from "./system.ts";
 import { showcaseUpdateState } from "./update-state.ts";
@@ -709,10 +723,12 @@ function App() {
     if (next !== directLaunch()) setDirectLaunch(next);
   });
   onCleanup(unsubscribeDirectLaunch);
+  const backInterceptors = createPocketBackInterceptorRegistry();
   const backNavigation = createPocketBackNavigation(host);
   backNavigation.setHandler(async () => {
     cancelBackGesture();
     if (await system.handleBack()) return true;
+    if (backInterceptors.dispatch()) return true;
     if (state().routeStack.length > 1) {
       dispatch({ type: "popRoute" });
       return true;
@@ -725,11 +741,14 @@ function App() {
     }
   });
   const syncSystemPresets = (): void => {
+    const skin = state().uiSkin;
+    const hadSkin = system.presets().skin !== undefined;
     void system.setPresets({
       darkMode: mobileDark(),
       accentColor: state().accentColor,
       density: state().interfaceDensity,
       presentationStyle: state().miniAppPresentationStyle,
+      ...(skin !== "default" || hadSkin ? { skin } : {}),
     });
   };
   createEffect(() => {
@@ -737,34 +756,12 @@ function App() {
     syncSystemPresets();
   });
   const experience = createPlatformExperience(host);
-  let systemUiKey = "";
-  const syncSystemUi = (force = false): void => {
-    const dark = mobileDark();
-    const key = `${state().route}:${dark}`;
-    if (!force && key === systemUiKey) return;
-    systemUiKey = key;
-    void experience.systemUi.set({
-      statusBarColor: 0x00000000,
-      statusBarIconBrightness: dark ? "light" : "dark",
-      statusBarBrightness: dark ? "dark" : "light",
-      systemNavigationBarColor: dark ? 0xff0e1728 : 0xfff5f6fa,
-      systemNavigationBarIconBrightness: dark ? "light" : "dark",
-    }).catch((error: unknown) => {
-      if (!isUnsupportedPlatformError(error)) console.warn("system UI", hostError(error).code);
-    });
-  };
-  createEffect(() => {
-    if (!preferencesReady()) return;
-    syncSystemUi();
-  });
-  const removeExperienceLifecycle = platform.onLifecycle((event) => {
-    if (preferencesReady() && (event.state === "onResume" || event.state === "onDidAppear")) syncSystemUi(true);
-  });
   let requestSequence = 0;
   let lastPublishedPerformanceContext = "";
   const routeTransitionDuration = 220;
   const routeTransitionTickHz = simulationHz();
   let previousRoute: Route = initialDemoState().route;
+  const [customTransitionOverride, setCustomTransitionOverride] = createSignal(false);
   const [backGesture, setBackGesture] = createSignal<ActiveBackGesture | undefined>(undefined);
   let cancelBackGesture = (): void => {};
 
@@ -1106,6 +1103,11 @@ function App() {
       }
     }
     setState((current) => reduceDemoState(current, event));
+    if (event.type === "setTransitionMode") {
+      setCustomTransitionOverride(true);
+    } else if (event.type === "resetAppearance") {
+      setCustomTransitionOverride(false);
+    }
     syncRouterFromDemoEvent(event, state());
     if (
       event.type === "setUiSkin" ||
@@ -1209,7 +1211,7 @@ function App() {
     }
     // Root showcase navigation remains the same stack; MiniApp calls above it
     // use their existing invocation frame and request/result path.
-    return current.routeStack.length > 1;
+    return backInterceptors.count() === 0 && current.routeStack.length > 1;
   };
 
   const finishBackGesture = (gesture: ActiveBackGesture): void => {
@@ -1343,15 +1345,24 @@ function App() {
 
   const isShowcaseRoute = (route: Route): boolean =>
     route === "mobile" || route === "transitions" || route === "hardware" || route === "video" || route === "apple" || route === "looseleaf" || route === "skins" || route === "uikit-gallery" || route === "router" || route === "ecosystem";
+  const effectiveTransitionMode = (): TransitionMode =>
+    customTransitionOverride()
+      ? state().transitionMode
+      : (getUiSkin(state().uiSkin).motion?.routeTransition ?? state().transitionMode);
+  const effectiveTransitionDuration = (): number =>
+    accessibility().reduceMotion
+      ? 0
+      : (getUiSkin(state().uiSkin).motion?.routeTransitionDurationMs ?? routeTransitionDuration);
   const transitionDescriptor = () => {
     const transition = routeTransition();
     const width = Math.max(1, contentPaneWidth());
+    const mode = effectiveTransitionMode();
     if (!transition || (transition.direction === "forward" &&
         !isShowcaseRoute(transition.from) && !isShowcaseRoute(transition.to))) {
-      return computeTransitionDescriptor(state().transitionMode, 1, false, width);
+      return computeTransitionDescriptor(mode, 1, false, width);
     }
     return computeTransitionDescriptor(
-      state().transitionMode,
+      mode,
       transition.progress,
       transition.direction === "reverse",
       width,
@@ -1368,8 +1379,9 @@ function App() {
     host.tick();
     const transition = routeTransition();
     if (transition) {
+      const duration = effectiveTransitionDuration();
       const elapsedMs = transition.elapsedMs + 1000 / routeTransitionTickHz;
-      const progress = Math.max(0, Math.min(1, elapsedMs / routeTransitionDuration));
+      const progress = duration <= 0 ? 1 : Math.max(0, Math.min(1, elapsedMs / duration));
       if (progress >= 1) {
         setRouteTransition(undefined);
       } else {
@@ -1558,7 +1570,6 @@ function App() {
       if (bridge.__pocketEvent === receive) bridge.__pocketEvent = previous;
       system.dispose();
       backNavigation.dispose();
-      removeExperienceLifecycle();
       experience.dispose();
       platform.dispose();
       host.dispose();
@@ -1638,21 +1649,14 @@ function App() {
 
   const renderRouteAppBar = (route: Route): JSX.Element => {
     const leading = route === "home"
-      ? <MobileBackButton onPress={requestCloseContainer} />
+      ? <SkinBackButton onPress={requestCloseContainer} />
       : isPrimaryRoute(route)
-      ? undefined
-      : <MobileBackButton onPress={() => dispatch({ type: "popRoute" })} />;
+        ? undefined
+        : <SkinBackButton onPress={() => dispatch({ type: "popRoute" })} />;
     const trailing = route === "home"
-      ? <MobileButton label="退出容器" kind="danger" compact onPress={requestCloseContainer} />
+      ? <SkinButton label="退出容器" variant="danger" compact onPress={requestCloseContainer} />
       : undefined;
-    return state().uiSkin === "default" ? (
-      <MobileAppBar
-        title={routeTitle(route)}
-        centered={!isPrimaryRoute(route)}
-        leading={leading}
-        trailing={trailing}
-      />
-    ) : (
+    return (
       <SkinAppBar
         title={routeTitle(route)}
         centered={!isPrimaryRoute(route)}
@@ -1667,23 +1671,14 @@ function App() {
   // display.viewport; consume it once at the SystemUI shell so every route
   // (including the Home header and mobile AppBar) starts below the status bar
   // without teaching each page its own safe-area state.
-  const activeSkinCanvasBg = (): string => {
-    const skin = state().uiSkin;
-    const mode = mobileDark() ? "dark" : "light";
-    const adapter =
-      skin === "looseleaf"
-        ? looseleafSkinAdapter
-        : skin === "arc"
-          ? arcSkinAdapter
-          : skin === "liquid-glass"
-            ? liquidGlassSkinAdapter
-            : defaultSkinAdapter;
-    return adapter.resolveTokens(mode, state().accentColor).canvasBg;
-  };
+  const activeSkinCanvasBg = (): string =>
+    getUiSkin(state().uiSkin).resolveTokens(mobileDark() ? "dark" : "light", state().accentColor).canvasBg;
 
   return (
     <Show when={preferencesReady() || directLaunch()}>
     {() => (
+    <PocketBackInterceptorProvider value={backInterceptors}>
+    <PocketLifecycleProvider bridge={host} platform={platform}>
     <PocketRouterProvider router={showcaseRouter}>
     <AppleSemanticsProvider bridge={host}>
     <AccessibilityPreferencesProvider value={accessibility}>
@@ -1696,6 +1691,7 @@ function App() {
       skins={[defaultSkinAdapter, looseleafSkinAdapter, arcSkinAdapter, liquidGlassSkinAdapter]}
       onSkinChange={(next) => dispatch({ type: "setUiSkin", value: next as ShowcaseSkin })}
     >
+    <ShowcaseSystemUiSync experience={experience} ready={preferencesReady} route={() => state().route} />
     <SurfaceEnvironmentProvider bridge={host}>
     <WidgetSnapshotProvider bridge={host}>
     <ShowcaseSurfaceGate
@@ -1728,47 +1724,30 @@ function App() {
                   : 1,
               }}
             >
+              <PocketBackRouteActiveProvider active={() => state().route === route}>
               <PocketRouteScope routeId={route}>
-              <SafeAreaScaffold
+              <SkinScaffold
                 edges={route === "uikit-gallery" ? [] : isPrimaryRoute(route) || route === "skins" || route === "router" || route === "ecosystem" ? ["top"] : ["top", "bottom"]}
                 geometry={() => displayGeometry()}
                 class="flex-col w-full h-full"
-                style={{ bgColor: activeSkinCanvasBg() }}
+                backdrop={state().uiSkin !== "default" && route !== "skins" && route !== "uikit-gallery"}
                 appBar={route === "uikit-gallery" ? undefined : () => renderRouteAppBar(route)}
-                bottomBar={route !== "uikit-gallery" && isPrimaryRoute(route) ? (
-                  state().uiSkin === "default" ? (
-                    <NavigationBar
-                      route={route}
-                      onNavigate={navigate}
-                      items={showcaseTabs}
-                      visible
-                      dark={mobileDark()}
-                      accentColor={theme().accentColor}
-                      geometry={() => displayGeometry()}
-                    />
-                  ) : (
-                    <SkinNavigationBar
-                      route={route}
-                      onNavigate={navigate}
-                      items={showcaseTabs}
-                      visible
-                      geometry={() => displayGeometry()}
-                    />
-                  )
-                ) : undefined}
+                bottomBar={route !== "uikit-gallery" && isPrimaryRoute(route)
+                  ? () => (
+                      <SkinNavigationBar
+                        route={route}
+                        onNavigate={navigate}
+                        items={showcaseTabs}
+                        visible
+                        geometry={() => displayGeometry()}
+                      />
+                    )
+                  : undefined}
               >
-                {state().uiSkin === "default" || route === "skins" || route === "uikit-gallery" ? (
-                  renderRoute(route)
-                ) : (
-                  <View class="relative flex-1 flex-col w-full h-full overflow-hidden" style={{ posType: 0 }}>
-                    <SkinBackdrop />
-                    <View class="relative flex-1 flex-col w-full h-full overflow-hidden" style={{ posType: 0 }}>
-                      {renderRoute(route)}
-                    </View>
-                  </View>
-                )}
-              </SafeAreaScaffold>
+                {renderRoute(route)}
+              </SkinScaffold>
               </PocketRouteScope>
+              </PocketBackRouteActiveProvider>
             </RouteView>
           )}</For>
         </FocusScope>
@@ -1785,24 +1764,12 @@ function App() {
         }}
       />
       <Show when={!directLaunch()}>
-        <Show
-          when={state().uiSkin === "default"}
-          fallback={
-            <SkinDialog
-              open={state().detailsOpen}
-              title={state().selectedComponent ?? "Component"}
-              body={componentDetails[state().selectedComponent ?? ""] ?? "Official guest composition."}
-              onClose={() => dispatch({ type: "closeDetails" })}
-            />
-          }
-        >
-          <MobileDialog
-            open={state().detailsOpen}
-            title={state().selectedComponent ?? "Component"}
-            body={componentDetails[state().selectedComponent ?? ""] ?? "Official guest composition."}
-            onClose={() => dispatch({ type: "closeDetails" })}
-          />
-        </Show>
+        <SkinDialog
+          open={state().detailsOpen}
+          title={state().selectedComponent ?? "Component"}
+          body={componentDetails[state().selectedComponent ?? ""] ?? "Official guest composition."}
+          onClose={() => dispatch({ type: "closeDetails" })}
+        />
       </Show>
     </ShowcaseSurfaceGate>
     </WidgetSnapshotProvider>
@@ -1811,9 +1778,29 @@ function App() {
     </AccessibilityPreferencesProvider>
     </AppleSemanticsProvider>
     </PocketRouterProvider>
+    </PocketLifecycleProvider>
+    </PocketBackInterceptorProvider>
     )}
     </Show>
   );
+}
+
+function ShowcaseSystemUiSync(props: {
+  experience: ReturnType<typeof createPlatformExperience>;
+  ready: () => boolean;
+  route: () => Route;
+}): JSX.Element {
+  const skin = useUiSkin();
+  createPocketSystemUiSync({
+    experience: props.experience,
+    enabled: props.ready,
+    key: props.route,
+    navigationBarColor: () =>
+      skin.skinId() === "default"
+        ? (skin.tokens().dark ? 0xff0e1728 : 0xfff5f6fa)
+        : undefined,
+  });
+  return null;
 }
 
 function ShowcaseSurfaceGate(props: {
@@ -1844,52 +1831,54 @@ function HomePage(props: {
   fullscreenOpenAvailable: () => boolean;
   setMiniAppOpenMode: (mode: "embedded" | "fullscreen") => void;
 }): JSX.Element {
-  const theme = useMobileTheme();
+  const { tokens } = useUiSkin();
   return (
     <ScrollablePage>
       <View class="flex-col gap-3 p-4 pb-6">
         <ScrollContourItem
           defaultInBand
           class={
-            theme().name === "dark"
+            tokens().dark
               ? "flex-col gap-1.5 p-4 rounded-xl bg-[#18181B] border-[#27272A]"
               : "flex-col gap-1.5 p-4 rounded-xl bg-[#18181B] border-[#18181B]"
           }
           style={{ radius: 12, borderWidth: 1 }}
         >
           <Text class="text-xs text-[#A1A1AA] font-bold">POCKET SHOWCASE</Text>
-          <MobileParagraph text="Made to feel native." class="text-2xl text-[#FAFAFA] font-bold" />
-          <MobileParagraph text="Small building blocks. Real possibilities." class="text-xs text-[#A1A1AA]" />
+          <SkinParagraph text="Made to feel native." class="text-2xl text-[#FAFAFA] font-bold" style={{ textColor: "#FAFAFA" }} />
+          <SkinParagraph text="Small building blocks. Real possibilities." class="text-xs text-[#A1A1AA]" style={{ textColor: "#A1A1AA" }} />
         </ScrollContourItem>
         <HomeExplore dispatch={props.dispatch} />
-        <MobileCard title="UIKit Gallery · 1:1 Liquid Glass Replica" detail="Full-bleed 21-component gallery, morphing menus, submenus, context menu lift & Siri edge glow at >=60 FPS.">
-          <MobileButton label="Open 1:1 UIKit Gallery" onPress={() => props.dispatch({ type: "navigate", route: "uikit-gallery" })} />
-        </MobileCard>
-        <MobileCard title="Playground" detail="A small interaction. An immediate response.">
+        <SkinCard title="Playground" detail="A small interaction. An immediate response.">
           <Named name="CounterCard">
             <View class="flex-row items-center justify-between gap-3">
               <View class="flex-col gap-1 flex-1" style={{ minW: 0 }}>
-                <Text class={theme().name === "dark" ? "text-sm text-[#FAFAFA] font-bold" : "text-sm text-[#09090B] font-bold"}>Counter</Text>
-                <MobileParagraph text={props.state().lastAction} class={theme().name === "dark" ? "text-xs text-[#A1A1AA]" : "text-xs text-[#71717A]"} />
+                <Text class="text-sm font-bold" style={{ textColor: tokens().ink }}>Counter</Text>
+                <SkinParagraph text={props.state().lastAction} muted />
               </View>
               <View class="flex-row items-center gap-2">
-                <MobileButton label="−" kind="tonal" onPress={() => props.dispatch({ type: "decrement" })} />
-                <Text class={theme().name === "dark" ? "text-xl text-[#FAFAFA] font-bold" : "text-xl text-[#09090B] font-bold"}>{String(props.state().count).padStart(2, "0")}</Text>
-                <MobileButton label="+1" onPress={() => props.dispatch({ type: "increment" })} />
+                <SkinButton label="−" variant="tonal" onPress={() => props.dispatch({ type: "decrement" })} />
+                <Text class="text-xl font-bold" style={{ textColor: tokens().ink }}>{String(props.state().count).padStart(2, "0")}</Text>
+                <SkinButton label="+1" onPress={() => props.dispatch({ type: "increment" })} />
               </View>
             </View>
           </Named>
-          <Text class={theme().name === "dark" ? "text-sm text-[#FAFAFA] font-bold" : "text-sm text-[#09090B] font-bold"}>Input round-trip</Text>
+          <Text class="text-sm font-bold" style={{ textColor: tokens().ink }}>Input round-trip</Text>
           <InputField
             value={() => props.state().draft}
             onInput={(value) => props.dispatch({ type: "draft", value })}
             onSubmit={(value) => props.dispatch({ type: "draft", value })}
-            appearance={theme().name === "dark"
-              ? { fillColor: "#09090B", textColor: "#FAFAFA", placeholderColor: "#A1A1AA", borderColor: "#27272A", focusedBorderColor: "#FAFAFA", borderRadius: 8 }
-              : { fillColor: "#FFFFFF", textColor: "#09090B", placeholderColor: "#71717A", borderColor: "#E4E4E7", focusedBorderColor: "#18181B", borderRadius: 8 }}
+            appearance={{
+              fillColor: (tokens().surfaceBg.startsWith("#") ? tokens().surfaceBg : (tokens().dark ? "#09090B" : "#FFFFFF")) as `#${string}`,
+              textColor: (tokens().ink.startsWith("#") ? tokens().ink : (tokens().dark ? "#FAFAFA" : "#09090B")) as `#${string}`,
+              placeholderColor: (tokens().inkMuted.startsWith("#") ? tokens().inkMuted : (tokens().dark ? "#A1A1AA" : "#71717A")) as `#${string}`,
+              borderColor: (tokens().border.startsWith("#") ? tokens().border : (tokens().dark ? "#27272A" : "#E4E4E7")) as `#${string}`,
+              focusedBorderColor: (tokens().accentBg.startsWith("#") ? tokens().accentBg : (tokens().dark ? "#FAFAFA" : "#18181B")) as `#${string}`,
+              borderRadius: 8,
+            }}
           />
-          <MobileParagraph text={`Draft: ${props.state().draft || "(empty)"}`} class={theme().name === "dark" ? "text-xs text-[#A1A1AA]" : "text-xs text-[#71717A]"} />
-        </MobileCard>
+          <SkinParagraph text={`Draft: ${props.state().draft || "(empty)"}`} muted />
+        </SkinCard>
         <PlatformAppsCard
           state={props.state}
           dispatch={props.dispatch}
@@ -1899,10 +1888,13 @@ function HomePage(props: {
           fullscreenOpenAvailable={props.fullscreenOpenAvailable}
           setMiniAppOpenMode={props.setMiniAppOpenMode}
         />
-        <MobileListTile
+        <SkinCard title="UIKit Gallery · 1:1 Liquid Glass Replica" detail="Full-bleed 21-component gallery, morphing menus, submenus, context menu lift & Siri edge glow at >=60 FPS.">
+          <SkinButton label="Open 1:1 UIKit Gallery" onPress={() => props.dispatch({ type: "navigate", route: "uikit-gallery" })} />
+        </SkinCard>
+        <SkinListTile
           title={props.runtime.phase === "ready" ? "Runtime ready" : props.runtime.phase === "error" ? "Runtime unavailable" : "Connecting"}
           detail="Explore the host behind your experience."
-          trailing={<MobileButton label="Open Host details" kind="text" onPress={() => props.dispatch({ type: "navigate", route: "about" })} />}
+          trailing={<SkinButton label="Open Host details" variant="ghost" onPress={() => props.dispatch({ type: "navigate", route: "about" })} />}
         />
       </View>
     </ScrollablePage>
@@ -1930,7 +1922,7 @@ function PlatformAppsCard(props: {
   fullscreenOpenAvailable: () => boolean;
   setMiniAppOpenMode: (mode: "embedded" | "fullscreen") => void;
 }): JSX.Element {
-  const theme = useMobileTheme();
+  const { tokens } = useUiSkin();
   const [status, setStatus] = createSignal("Preparing apps...");
   const [showAllOfficial, setShowAllOfficial] = createSignal(false);
   const [launchOverride, setLaunchOverride] = createSignal<"default" | MiniAppPresentationMode>("default");
@@ -1981,18 +1973,27 @@ function PlatformAppsCard(props: {
     ? `${props.state().miniAppPresentationStyle} (global)`
     : `${launchOverride()} (override)`;
   return (
-    <MobileCard>
+    <SkinCard>
       <View class="flex-row items-center justify-between gap-2 w-full" style={{ minW: 0 }}>
         <View class="flex-1 min-w-0" style={{ minW: 0 }}>
-          <MobileListTile title="Mini Apps" detail="A little more to explore." />
+          <SkinListTile title="Mini Apps" detail="A little more to explore." />
         </View>
-        <MobileBadge label={`${2 + officialDemos().filter((demo) => demo.installed).length} INSTALLED`} tone="neutral" />
+        <SkinBadge label={`${2 + officialDemos().filter((demo) => demo.installed).length} INSTALLED`} tone="neutral" />
       </View>
       <View class="flex-col gap-2 w-full" style={{ minW: 0 }}>
-        <Text class={theme().name === "dark" ? "text-xs text-[#FAFAFA] font-bold" : "text-xs text-[#09090B] font-bold"}>
+        <SkinButton label="Open profile app" onPress={() => void open("pocket.demo.profile")} />
+        <SkinButton label="Open lobby app" variant="ghost" onPress={() => void open("pocket.demo.lobby")} />
+        <SkinButton
+          label="Manage MiniApp versions"
+          variant="outline"
+          onPress={() => props.dispatch({ type: "navigate", route: "miniapps" })}
+        />
+      </View>
+      <View class="flex-col gap-2 w-full" style={{ minW: 0 }}>
+        <Text class="text-xs font-bold" style={{ textColor: tokens().ink }}>
           MiniApp container
         </Text>
-        <MobileSegmentedControl
+        <SkinSegmentedControl
           items={[
             { id: "embedded", label: "嵌入 Pocket 广场" },
             ...(props.fullscreenOpenAvailable()
@@ -2007,32 +2008,26 @@ function PlatformAppsCard(props: {
           }}
         />
         <Show when={!props.fullscreenOpenAvailable()}>
-          <MobileParagraph
+          <SkinParagraph
             text="This host provides embedded MiniApps; fullscreen Flutter routes are unavailable."
-            class={theme().name === "dark" ? "text-xs text-[#A1A1AA]" : "text-xs text-[#71717A]"}
-            fallbackInsetPx={72}
+            muted
           />
         </Show>
       </View>
-      <View class="flex-col gap-2 w-full" style={{ minW: 0 }}>
-        <MobileButton label="Open profile app" onPress={() => void open("pocket.demo.profile")} />
-        <MobileButton label="Open lobby app" kind="text" onPress={() => void open("pocket.demo.lobby")} />
-        <MobileButton
-          label="Manage MiniApp versions"
-          kind="outlined"
-          onPress={() => props.dispatch({ type: "navigate", route: "miniapps" })}
-        />
-      </View>
       <View
-        class={theme().name === "dark"
-          ? "flex-col w-full gap-2 p-3 rounded-xl bg-[#09090B] border-[#27272A]"
-          : "flex-col w-full gap-2 p-3 rounded-xl bg-[#FAFAFA] border-[#E4E4E7]"}
-        style={{ minW: 0, radius: 12, borderWidth: 1 }}
+        class="flex-col w-full gap-2 p-3 rounded-xl"
+        style={{
+          minW: 0,
+          radius: tokens().radiusSurface,
+          borderWidth: 1,
+          bgColor: tokens().surfaceBg,
+          borderColor: tokens().border,
+        }}
       >
-        <Text class={theme().name === "dark" ? "text-xs text-[#FAFAFA] font-bold" : "text-xs text-[#09090B] font-bold"}>
+        <Text class="text-xs font-bold" style={{ textColor: tokens().ink }}>
           Global default presentation
         </Text>
-        <MobileSegmentedControl
+        <SkinSegmentedControl
           items={[
             { id: "sheet", label: "Sheet (Bottom-Up)" },
             { id: "page", label: "Page (Push)" },
@@ -2040,10 +2035,10 @@ function PlatformAppsCard(props: {
           active={props.state().miniAppPresentationStyle}
           onChange={(id) => props.dispatch({ type: "setMiniAppPresentationStyle", value: id as MiniAppPresentationMode })}
         />
-        <Text class={theme().name === "dark" ? "text-xs text-[#FAFAFA] font-bold" : "text-xs text-[#09090B] font-bold"}>
+        <Text class="text-xs font-bold" style={{ textColor: tokens().ink }}>
           Launch override
         </Text>
-        <MobileSegmentedControl
+        <SkinSegmentedControl
           items={[
             { id: "default", label: "Default" },
             { id: "sheet", label: "Force Sheet" },
@@ -2052,24 +2047,22 @@ function PlatformAppsCard(props: {
           active={launchOverride()}
           onChange={(id) => setLaunchOverride(id as "default" | MiniAppPresentationMode)}
         />
-        <MobileParagraph
+        <SkinParagraph
           text={`Effective · Profile: ${effectiveProfileStyle()} · Lobby: ${effectiveLobbyStyle()}`}
-          class={theme().name === "dark" ? "text-xs text-[#A1A1AA]" : "text-xs text-[#71717A]"}
-          fallbackInsetPx={96}
+          muted
         />
         <View class="flex-row flex-wrap items-center gap-1.5 pt-1 w-full" style={{ minW: 0 }}>
-          <MobileButton label="Profile · Sheet" kind="tonal" compact onPress={() => void open("pocket.demo.profile", "sheet")} />
-          <MobileButton label="Profile · Page" kind="tonal" compact onPress={() => void open("pocket.demo.profile", "page")} />
-          <MobileButton label="Lobby · Sheet" kind="tonal" compact onPress={() => void open("pocket.demo.lobby", "sheet")} />
-          <MobileButton label="Lobby · Page" kind="tonal" compact onPress={() => void open("pocket.demo.lobby", "page")} />
+          <SkinButton label="Profile · Sheet" variant="tonal" compact onPress={() => void open("pocket.demo.profile", "sheet")} />
+          <SkinButton label="Profile · Page" variant="tonal" compact onPress={() => void open("pocket.demo.profile", "page")} />
+          <SkinButton label="Lobby · Sheet" variant="tonal" compact onPress={() => void open("pocket.demo.lobby", "sheet")} />
+          <SkinButton label="Lobby · Page" variant="tonal" compact onPress={() => void open("pocket.demo.lobby", "page")} />
         </View>
       </View>
       <View class="flex-col w-full gap-1.5 pt-2" style={{ minW: 0 }}>
-        <Text class={theme().name === "dark" ? "text-sm text-[#FAFAFA] font-bold" : "text-sm text-[#09090B] font-bold"}>Official upstream demos</Text>
-        <MobileParagraph
+        <Text class="text-sm font-bold" style={{ textColor: tokens().ink }}>Official upstream demos</Text>
+        <SkinParagraph
           text="Pointer/touch fallback is available where listed; it does not emulate a physical gamepad."
-          class={theme().name === "dark" ? "text-xs text-[#A1A1AA]" : "text-xs text-[#71717A]"}
-          fallbackInsetPx={72}
+          muted
         />
         <For each={visibleOfficialDemos()}>{(demo) => {
           const fallback = demo.pointerFallbackCapabilities.length > 0
@@ -2088,9 +2081,18 @@ function PlatformAppsCard(props: {
             .filter((value, index, values) => value.length > 0 && values.indexOf(value) === index)
             .join(" · ");
           return (
-            <View class="flex-col w-full gap-1 p-2 rounded-lg bg-[#09090B] border-[#27272A]" style={{ minW: 0, radius: 8, borderWidth: 1 }}>
-              <MobileListTile title={demo.title} detail={details} />
-              <MobileButton
+            <View
+              class="flex-col w-full gap-1 p-2 rounded-lg"
+              style={{
+                minW: 0,
+                radius: 8,
+                borderWidth: 1,
+                bgColor: tokens().surfaceBg,
+                borderColor: tokens().border,
+              }}
+            >
+              <SkinListTile title={demo.title} detail={details} />
+              <SkinButton
                 label={demo.installed ? `Open ${demo.id} demo` : "Not installed in this host"}
                 disabled={!demo.installed}
                 onPress={() => void open(demo.appId)}
@@ -2099,32 +2101,32 @@ function PlatformAppsCard(props: {
           );
         }}</For>
         <Show when={officialDemos().length > 6}>
-          <MobileButton
-            kind="text"
+          <SkinButton
+            variant="ghost"
             label={showAllOfficial() ? "Show fewer demos" : `Show all ${officialDemos().length} demos`}
             onPress={() => setShowAllOfficial(!showAllOfficial())}
           />
         </Show>
         <Show when={officialDemos().length === 0}>
-          <MobileParagraph text="No official demos are staged in this build." class={theme().name === "dark" ? "text-xs text-[#A1A1AA]" : "text-xs text-[#71717A]"} />
+          <SkinParagraph text="No official demos are staged in this build." muted />
         </Show>
       </View>
-      <MobileParagraph text={status()} class={theme().name === "dark" ? "text-xs text-[#B9C5D8]" : "text-xs text-slate-500"} />
+      <SkinParagraph text={status()} muted />
       <Show when={message() !== "No app messages yet"}>
-        <MobileParagraph text={message()} class={theme().name === "dark" ? "text-xs text-[#B9C5D8]" : "text-xs text-slate-500"} />
+        <SkinParagraph text={message()} muted />
       </Show>
-      <MobileButton label="Prewarm lobby" kind="text" onPress={() => {
+      <SkinButton label="Prewarm lobby" variant="ghost" onPress={() => {
         void props.system.ready.then(() => props.platform.prewarm("pocket.demo.lobby")).then(
           () => setStatus("Lobby prewarmed; its guest clock is paused"),
           (error) => setStatus(hostError(error).message),
         );
       }} />
-    </MobileCard>
+    </SkinCard>
   );
 }
 
 function HomeExplore(props: { dispatch: (event: DemoEvent) => void }): JSX.Element {
-  const theme = useMobileTheme();
+  const { tokens } = useUiSkin();
   const features = [
     { title: "Mobile UI", detail: "Components", route: "mobile" as const },
     { title: "Transitions", detail: "Motion", route: "transitions" as const },
@@ -2135,28 +2137,29 @@ function HomeExplore(props: { dispatch: (event: DemoEvent) => void }): JSX.Eleme
     <ScrollContourItem class="flex-row gap-2">
       <For each={features}>{(feature) => (
         <Focusable
-          class={
-            theme().name === "dark"
-              ? "flex-1 flex-col gap-2 h-[104] p-2.5 rounded-xl bg-[#09090B] border-[#27272A] focus:bg-[#18181B] overflow-hidden"
-              : "flex-1 flex-col gap-2 h-[104] p-2.5 rounded-xl bg-white border-[#E4E4E7] focus:bg-[#F4F4F5] overflow-hidden"
-          }
-          style={{ radius: 12, borderWidth: 1 }}
+          class="flex-1 flex-col gap-2 h-[104] p-2.5 rounded-xl overflow-hidden"
+          style={{
+            radius: tokens().radiusSurface,
+            borderWidth: 1,
+            bgColor: tokens().surfaceRaisedBg,
+            borderColor: tokens().border,
+          }}
           onPress={() => props.dispatch({ type: "navigate", route: feature.route })}
         >
           <View
-            class={
-              theme().name === "dark"
-                ? "w-[30] h-[30] items-center justify-center rounded-lg bg-[#27272A]"
-                : "w-[30] h-[30] items-center justify-center rounded-lg bg-[#F4F4F5]"
-            }
+            class="w-[30] h-[30] items-center justify-center rounded-lg"
+            style={{
+              bgColor: tokens().surfaceMutedBg,
+              radius: 8,
+            }}
           >
             <Show when={feature.route === "mobile"}><Image class="w-[20] h-[20]" src="icons/components.svg" /></Show>
             <Show when={feature.route === "transitions"}><Image class="w-[20] h-[20]" src="icons/motion.svg" /></Show>
             <Show when={feature.route === "hardware"}><Image class="w-[20] h-[20]" src="icons/hardware.svg" /></Show>
-            <Show when={feature.route === "video"}><Text class={theme().name === "dark" ? "text-sm text-[#FAFAFA]" : "text-sm text-[#09090B]"}>▶</Text></Show>
+            <Show when={feature.route === "video"}><Text class="text-sm" style={{ textColor: tokens().ink }}>▶</Text></Show>
           </View>
-          <Text class={theme().name === "dark" ? "text-xs text-[#FAFAFA] font-bold" : "text-xs text-[#09090B] font-bold"}>{feature.title}</Text>
-          <Text class={theme().name === "dark" ? "text-xs text-[#A1A1AA]" : "text-xs text-[#71717A]"}>{feature.detail}</Text>
+          <Text class="text-xs font-bold" style={{ textColor: tokens().ink }}>{feature.title}</Text>
+          <Text class="text-xs" style={{ textColor: tokens().inkMuted }}>{feature.detail}</Text>
         </Focusable>
       )}</For>
     </ScrollContourItem>

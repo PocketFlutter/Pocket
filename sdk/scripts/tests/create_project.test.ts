@@ -678,7 +678,11 @@ test("Test 4: Real buildGuest + native pocket_probe Preview runtime execution", 
     await waitFor((f) => has(f, "买牛奶"), "IME committed 买牛奶 into SkinInput");
     await click("保存并返回");
     await waitFor(
-      (f) => has(f, "你好，PocketJS") && has(f, "买牛奶") && has(f, "设置"),
+      (f) =>
+        has(f, "你好，PocketJS") &&
+        has(f, "买牛奶") &&
+        has(f, "设置") &&
+        !has(f, "保存并返回"),
       "saved note 买牛奶 and popped back to home",
     );
 

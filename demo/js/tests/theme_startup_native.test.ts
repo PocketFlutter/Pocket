@@ -9,8 +9,8 @@ import {
 
 const width = 390;
 const height = 844;
-const darkCanvas = 0xff0e1728;
-const lightCanvas = 0xfff5f6fa;
+const darkCanvas = 0xff09090b;
+const lightCanvas = 0xfffafafa;
 
 function rootColor(frame: Frame): number | undefined {
   const frameWidth = frame.width ?? width;

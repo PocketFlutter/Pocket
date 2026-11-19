@@ -4,6 +4,12 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@pocket/ui": "file:../../../../sdk/packages/pocket_ui",
+    "@pocket/looseleaf": "file:../../../../sdk/packages/pocket_looseleaf",
+    "@pocket/arc": "file:../../../../sdk/packages/pocket_arc",
+    "@pocket/liquid_glass": "file:../../../../sdk/packages/pocket_liquid_glass"
+  },
+  "overrides": {
     "@pocket/ui": "file:../../../../sdk/packages/pocket_ui"
   }
 }

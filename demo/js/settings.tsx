@@ -1,16 +1,16 @@
 import { Show, createSignal, type JSX } from "solid-js";
 import { Text, View } from "@pocketjs/framework/solid/components";
 import {
-  MobileAlert,
-  MobileBadge,
-  MobileButton,
-  MobileCard,
-  MobileDialog,
-  MobileListTile,
-  MobileParagraph,
-  MobileSegmentedControl,
   ScrollablePage,
-  useMobileTheme,
+  SkinAlert,
+  SkinBadge,
+  SkinButton,
+  SkinCard,
+  SkinDialog,
+  SkinListTile,
+  SkinParagraph,
+  SkinSegmentedControl,
+  useUiSkin,
 } from "@pocket/ui";
 import { version } from "./package.json";
 import type {
@@ -69,7 +69,7 @@ export function SettingsPage(props: {
   ready: () => boolean;
   status: () => string;
 }): JSX.Element {
-  const theme = useMobileTheme();
+  const { tokens } = useUiSkin();
   const [resetOpen, setResetOpen] = createSignal(false);
   return (
     <ScrollablePage>
@@ -77,24 +77,21 @@ export function SettingsPage(props: {
         <Show
           when={props.ready()}
           fallback={
-            <MobileAlert
+            <SkinAlert
               title="Loading preferences"
               body="Getting your saved appearance from this device."
               tone="info"
             />
           }
         >
-          <MobileCard title="Appearance" detail="Choose how Pocket looks, everywhere.">
+          <SkinCard title="Appearance" detail="Choose how Pocket looks, everywhere.">
             <Text
-              class={
-                theme().name === "dark"
-                  ? "text-sm font-bold text-[#FAFAFA]"
-                  : "text-sm font-bold text-[#09090B]"
-              }
+              class="text-sm font-bold"
+              style={{ textColor: tokens().ink }}
             >
               Theme
             </Text>
-            <MobileSegmentedControl
+            <SkinSegmentedControl
               items={[
                 { id: "light", label: "Light" },
                 { id: "dark", label: "Dark" },
@@ -105,15 +102,12 @@ export function SettingsPage(props: {
               }
             />
             <Text
-              class={
-                theme().name === "dark"
-                  ? "text-sm font-bold text-[#FAFAFA]"
-                  : "text-sm font-bold text-[#09090B]"
-              }
+              class="text-sm font-bold"
+              style={{ textColor: tokens().ink }}
             >
               Accent color
             </Text>
-            <MobileSegmentedControl
+            <SkinSegmentedControl
               accentActive
               items={[
                 { id: "blue", label: "Blue" },
@@ -127,15 +121,12 @@ export function SettingsPage(props: {
               }
             />
             <Text
-              class={
-                theme().name === "dark"
-                  ? "text-sm font-bold text-[#FAFAFA]"
-                  : "text-sm font-bold text-[#09090B]"
-              }
+              class="text-sm font-bold"
+              style={{ textColor: tokens().ink }}
             >
               UI skin
             </Text>
-            <MobileSegmentedControl
+            <SkinSegmentedControl
               accentActive
               items={[
                 { id: "default", label: "Default" },
@@ -148,12 +139,12 @@ export function SettingsPage(props: {
                 props.dispatch({ type: "setUiSkin", value: id as ShowcaseSkin })
               }
             />
-          </MobileCard>
-          <MobileCard
+          </SkinCard>
+          <SkinCard
             title="Interface density"
             detail="Automatic adapts to your window size."
           >
-            <MobileSegmentedControl
+            <SkinSegmentedControl
               items={[
                 { id: "auto", label: "Automatic" },
                 { id: "touch", label: "Comfortable" },
@@ -167,12 +158,12 @@ export function SettingsPage(props: {
                 })
               }
             />
-          </MobileCard>
-          <MobileCard
+          </SkinCard>
+          <SkinCard
             title="MiniApp presentation"
             detail="Default transition when a manifest sets no presentation.style."
           >
-            <MobileSegmentedControl
+            <SkinSegmentedControl
               items={[
                 { id: "sheet", label: "Sheet (Bottom-Up)" },
                 { id: "page", label: "Page (Push)" },
@@ -185,52 +176,48 @@ export function SettingsPage(props: {
                 })
               }
             />
-            <MobileParagraph
+            <SkinParagraph
               text='Profile uses "page"; Lobby follows this setting.'
-              class={
-                theme().name === "dark"
-                  ? "text-xs text-[#A1A1AA]"
-                  : "text-xs text-[#71717A]"
-              }
+              muted
             />
-          </MobileCard>
-          <MobileCard title="Your preferences">
-            <MobileListTile title="Device storage" detail={props.status()} />
-            <MobileButton
+          </SkinCard>
+          <SkinCard title="Your preferences">
+            <SkinListTile title="Device storage" detail={props.status()} />
+            <SkinButton
               label="Reset appearance"
-              kind="outlined"
+              variant="outline"
               onPress={() => setResetOpen(true)}
             />
-          </MobileCard>
+          </SkinCard>
         </Show>
-        <MobileCard
+        <SkinCard
           title="About Pocket"
           detail="An interactive collection of components, motion and device experiences."
         >
-          <MobileListTile
+          <SkinListTile
             title="Version"
             detail={version}
-            trailing={<MobileBadge label="SHOWCASE" tone="neutral" />}
+            trailing={<SkinBadge label="SHOWCASE" tone="neutral" />}
           />
-          <MobileListTile
+          <SkinListTile
             title="Device capabilities"
             detail="Camera, photos, location and other device features ask for access when you use them."
           />
           <View class="flex-row flex-wrap items-center gap-2">
-            <MobileButton
+            <SkinButton
               label="Open Skin Studio"
-              kind="tonal"
+              variant="tonal"
               compact
               onPress={() => props.dispatch({ type: "navigate", route: "skins" })}
             />
-            <MobileButton
+            <SkinButton
               label="Explore device capabilities"
-              kind="text"
+              variant="ghost"
               onPress={() => props.dispatch({ type: "navigate", route: "hardware" })}
             />
           </View>
-        </MobileCard>
-        <MobileDialog
+        </SkinCard>
+        <SkinDialog
           open={resetOpen()}
           title="Reset appearance?"
           body="Restore the default UI skin, light theme, blue accent, automatic density and bottom-up sheet MiniApp presentation. Your other data stays on this device."

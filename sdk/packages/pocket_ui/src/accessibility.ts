@@ -45,9 +45,12 @@ export interface AccessibilityPreferencesOptions {
 
 export type AccessibilityPreferencesAccessor = () => AccessibilityPreferences;
 
+const defaultAccessibilityPreferencesAccessor: AccessibilityPreferencesAccessor =
+  () => DEFAULT_ACCESSIBILITY_PREFERENCES;
+
 /** One app-level provider keeps preference policy on the JS-owned tree. */
-export const AccessibilityPreferencesContext = createContext<AccessibilityPreferencesAccessor>(
-  () => DEFAULT_ACCESSIBILITY_PREFERENCES,
+export const AccessibilityPreferencesContext = createContext<AccessibilityPreferencesAccessor | undefined>(
+  undefined,
 );
 
 export function AccessibilityPreferencesProvider(props: {
@@ -62,6 +65,10 @@ export function AccessibilityPreferencesProvider(props: {
 
 /** Read the nearest app-level preference signal, or the explicit defaults. */
 export function useAccessibilityPreferences(): AccessibilityPreferencesAccessor {
+  return useContext(AccessibilityPreferencesContext) ?? defaultAccessibilityPreferencesAccessor;
+}
+
+export function useInheritedAccessibilityPreferences(): AccessibilityPreferencesAccessor | undefined {
   return useContext(AccessibilityPreferencesContext);
 }
 

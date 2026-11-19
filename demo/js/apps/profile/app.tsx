@@ -1,18 +1,25 @@
 import { For, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import { mount } from "@pocketjs/framework/solid";
+import { after, simulationHz } from "@pocketjs/framework/clock";
 import { Text, View } from "@pocketjs/framework/solid/components";
 import {
-  MobileAppBar,
-  MobileBadge,
-  MobileButton,
-  MobileCard,
-  MobileThemeProvider,
-  SafeAreaScaffold,
+  PocketAppShell,
   ScrollablePage,
+  SkinBadge,
+  SkinButton,
+  SkinCard,
+  SkinParagraph,
   StatusBar,
-  useMobileTheme,
+  UiSkinProvider,
+  createPocketRouter,
+  defaultSkinAdapter,
+  usePocketAppLifecycle,
+  useUiSkin,
 } from "@pocket/ui";
-import type { JsonValue } from "@pocket/ui/host";
+import { looseleafSkinAdapter } from "@pocket/looseleaf";
+import { arcSkinAdapter } from "@pocket/arc";
+import { liquidGlassSkinAdapter } from "@pocket/liquid_glass";
+import { createHostBridge, type JsonValue } from "@pocket/ui/host";
 import { createPocketPlatformClient } from "@pocket/ui/platform";
 
 const LOBBY_APP_ID = "pocket.demo.lobby";
@@ -62,27 +69,99 @@ function errorText(error: unknown): string {
 }
 
 function ProfileSummary(props: { profile: () => Profile }): JSX.Element {
-  const theme = useMobileTheme();
-  const isDark = () => theme().name === "dark";
+  const { tokens } = useUiSkin();
   return (
     <View class="flex-col gap-1">
-      <Text class={isDark() ? "text-xs text-[#A1A1AA]" : "text-xs text-slate-600"}>Current selection</Text>
-      <Text class={isDark() ? "text-lg text-[#FAFAFA] font-bold" : "text-lg text-slate-950 font-bold"}>{props.profile().name}</Text>
-      <Text class={isDark() ? "text-xs text-[#A1A1AA]" : "text-xs text-slate-600"}>{props.profile().role}</Text>
-      <Text class={isDark() ? "text-xs text-[#A1A1AA]" : "text-xs text-slate-600"}>UID {props.profile().uid} · VIP {props.profile().vipLevel}</Text>
+      <SkinParagraph text="Current selection" muted />
+      <Text class="text-lg font-bold" style={{ textColor: tokens().ink }}>{props.profile().name}</Text>
+      <SkinParagraph text={props.profile().role} muted />
+      <SkinParagraph text={`UID ${props.profile().uid} · VIP ${props.profile().vipLevel}`} muted />
     </View>
   );
 }
 
+function ProfilePage(props: {
+  selected: () => ProfileKey;
+  stored: () => Profile | undefined;
+  busy: () => boolean;
+  status: () => string;
+  statusOk: () => boolean;
+  selectedProfile: () => Profile;
+  onChooseProfile: (key: ProfileKey) => void;
+  onSaveAndOpenLobby: () => void;
+  onReturnToShowcase: () => void;
+  onRefreshIdentity: () => void;
+}): JSX.Element {
+  usePocketAppLifecycle({
+    onResume: () => {
+      props.onRefreshIdentity();
+    },
+  });
+
+  return (
+    <ScrollablePage>
+      <View class="flex-col gap-3 p-4">
+        <StatusBar label="Identity namespace" detail={props.status()} ok={props.statusOk()} />
+        <SkinCard
+          title="PocketNexus identity"
+          detail="A real JS-owned profile guest. The saved value is shared only through the host allowlist."
+        >
+          <ProfileSummary profile={props.selectedProfile} />
+        </SkinCard>
+        <SkinCard title="Choose an account" detail="Select the identity to share with Lobby.">
+          <View class="flex-col gap-2">
+            <For each={Object.entries(PROFILES) as [ProfileKey, Profile][]}>
+              {([key, profile]) => (
+                <SkinButton
+                  label={`${profile.name} (VIP ${profile.vipLevel})`}
+                  variant={props.selected() === key ? "primary" : "outline"}
+                  disabled={props.busy()}
+                  onPress={() => props.onChooseProfile(key)}
+                />
+              )}
+            </For>
+          </View>
+        </SkinCard>
+        <SkinCard
+          title="Host-backed flow"
+          detail={props.stored() ? `Last shared value: ${props.stored()!.name} · ${props.stored()!.uid}` : "No identity has been saved in this session."}
+        >
+          <View class="flex-col gap-2">
+            <SkinButton
+              label="Save identity & open Lobby"
+              disabled={props.busy()}
+              onPress={props.onSaveAndOpenLobby}
+            />
+            <SkinButton
+              label="Return to Showcase"
+              variant="outline"
+              disabled={props.busy()}
+              onPress={props.onReturnToShowcase}
+            />
+          </View>
+        </SkinCard>
+      </View>
+    </ScrollablePage>
+  );
+}
+
 function ProfileApp(): JSX.Element {
-  const platform = createPocketPlatformClient();
+  const host = createHostBridge(undefined, {
+    timeoutFrames: 30 * simulationHz(),
+    scheduleTimeout: (frames, cb) => after(frames / simulationHz(), cb),
+  });
+  const platform = createPocketPlatformClient(undefined, { bridge: host, media: false });
+  const router = createPocketRouter({
+    routes: [{ id: "home", path: "/", primary: true }],
+    fallbackRouteId: "home",
+  });
   const [selected, setSelected] = createSignal<ProfileKey>("alex");
   const [stored, setStored] = createSignal<Profile | undefined>(undefined);
   const [busy, setBusy] = createSignal(false);
   const [status, setStatus] = createSignal("Choose Alex or Lin, then open the lobby.");
   const [statusOk, setStatusOk] = createSignal(true);
 
-  onMount(async () => {
+  const refreshSharedIdentity = async (initial = false): Promise<void> => {
     try {
       const value = await platform.storage.get("userInfo", SHARED_NAMESPACE);
       const profile = profileFromValue(value);
@@ -90,15 +169,26 @@ function ProfileApp(): JSX.Element {
         const match = (Object.keys(PROFILES) as ProfileKey[]).find((key) => PROFILES[key].uid === profile.uid);
         if (match) setSelected(match);
         setStored(match ? PROFILES[match] : profile);
-        setStatus(`Shared identity restored for ${profile.name}.`);
+        if (initial) {
+          setStatus(`Shared identity restored for ${profile.name}.`);
+        }
       }
     } catch (error) {
-      setStatus(`Shared identity unavailable: ${errorText(error)}`);
-      setStatusOk(false);
+      if (initial) {
+        setStatus(`Shared identity unavailable: ${errorText(error)}`);
+        setStatusOk(false);
+      }
     }
+  };
+
+  onMount(() => {
+    void refreshSharedIdentity(true);
   });
 
-  onCleanup(() => platform.dispose());
+  onCleanup(() => {
+    platform.dispose();
+    host.dispose();
+  });
 
   const selectedProfile = (): Profile => PROFILES[selected()];
 
@@ -153,62 +243,60 @@ function ProfileApp(): JSX.Element {
   };
 
   return (
-    <MobileThemeProvider>
-      <SafeAreaScaffold
+    <UiSkinProvider
+      skins={[
+        defaultSkinAdapter,
+        looseleafSkinAdapter,
+        arcSkinAdapter,
+        liquidGlassSkinAdapter,
+      ]}
+    >
+      <PocketAppShell
+        router={router}
+        host={host}
+        platform={platform}
         reservedActions="mini-app"
-        appBar={() => (
-          <MobileAppBar
-            title="Pocket Profile"
-            subtitle="pocket.demo.profile · shared identity"
-            trailing={<MobileBadge label="Guest A" tone="accent" />}
-          />
-        )}
-      >
-        <ScrollablePage>
-          <View class="flex-col gap-3 p-4">
-            <StatusBar label="Identity namespace" detail={status()} ok={statusOk()} />
-            <MobileCard
-              title="PocketNexus identity"
-              detail="A real JS-owned profile guest. The saved value is shared only through the host allowlist."
-            >
-              <ProfileSummary profile={selectedProfile} />
-            </MobileCard>
-            <MobileCard title="Choose an account" detail="Select the identity to share with Lobby.">
-              <View class="flex-col gap-2">
-                <For each={Object.entries(PROFILES) as [ProfileKey, Profile][]}>
-                  {([key, profile]) => (
-                    <MobileButton
-                      label={`${profile.name} (VIP ${profile.vipLevel})`}
-                      kind={selected() === key ? "filled" : "outlined"}
-                      disabled={busy()}
-                      onPress={() => chooseProfile(key)}
-                    />
-                  )}
-                </For>
-              </View>
-            </MobileCard>
-            <MobileCard
-              title="Host-backed flow"
-              detail={stored() ? `Last shared value: ${stored()!.name} · ${stored()!.uid}` : "No identity has been saved in this session."}
-            >
-              <View class="flex-col gap-2">
-                <MobileButton
-                  label="Save identity & open Lobby"
-                  disabled={busy()}
-                  onPress={() => { void saveAndOpenLobby(); }}
-                />
-                <MobileButton
-                  label="Return to Showcase"
-                  kind="outlined"
-                  disabled={busy()}
-                  onPress={() => { void returnToShowcase({ profile: (stored() ?? selectedProfile()) as unknown as JsonValue, source: "profile" }); }}
-                />
-              </View>
-            </MobileCard>
-          </View>
-        </ScrollablePage>
-      </SafeAreaScaffold>
-    </MobileThemeProvider>
+        onRootBack={async () => {
+          await returnToShowcase({
+            profile: (stored() ?? selectedProfile()) as unknown as JsonValue,
+            source: "profile",
+            back: true,
+          });
+          return true;
+        }}
+        routes={[
+          {
+            id: "home",
+            title: "Pocket Profile",
+            subtitle: "pocket.demo.profile · shared identity",
+            trailing: () => <SkinBadge label="Guest A" tone="accent" />,
+            render: () => (
+              <ProfilePage
+                selected={selected}
+                stored={stored}
+                busy={busy}
+                status={status}
+                statusOk={statusOk}
+                selectedProfile={selectedProfile}
+                onChooseProfile={chooseProfile}
+                onSaveAndOpenLobby={() => {
+                  void saveAndOpenLobby();
+                }}
+                onReturnToShowcase={() => {
+                  void returnToShowcase({
+                    profile: (stored() ?? selectedProfile()) as unknown as JsonValue,
+                    source: "profile",
+                  });
+                }}
+                onRefreshIdentity={() => {
+                  void refreshSharedIdentity(false);
+                }}
+              />
+            ),
+          },
+        ]}
+      />
+    </UiSkinProvider>
   );
 }
 

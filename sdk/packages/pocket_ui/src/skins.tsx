@@ -12,15 +12,34 @@ import {
   For,
   Show,
   createContext,
+  createEffect,
   createMemo,
+  onCleanup,
   useContext,
   type Accessor,
   type JSX,
 } from "solid-js";
+import { after } from "@pocketjs/framework/clock";
 import { Focusable, Text, View, type ViewProps } from "@pocketjs/framework/solid/components";
+import {
+  AccessibilityPreferencesProvider,
+  createAccessibilityPreferences,
+  useInheritedAccessibilityPreferences,
+} from "./accessibility.ts";
 import { usePocketBackHandler } from "./back-navigation.ts";
+import { createSystemPresets } from "./display.ts";
+import { TRANSITION_MODES, type TransitionMode } from "./legacy.ts";
 import { MobileBackButton } from "./navigation.tsx";
-import { InputField, NavigationBar, SafeAreaScaffold, type InputFieldColor, type NavigationItem, type SafeAreaEdges } from "./ui.tsx";
+import { useRouteActive } from "./route.tsx";
+import {
+  InputField,
+  NavigationBar,
+  SafeAreaScaffold,
+  type InputFieldColor,
+  type NavigationItem,
+  type SafeAreaEdges,
+  type SafeAreaReservedActions,
+} from "./ui.tsx";
 import {
   DesignDensityProvider,
   MobileAccordion,
@@ -130,6 +149,7 @@ export interface SkinBackdropProps {
 export interface SkinScaffoldProps {
   edges?: SafeAreaEdges;
   geometry?: () => DisplayGeometry;
+  reservedActions?: SafeAreaReservedActions;
   appBar?: JSX.Element | (() => JSX.Element);
   bottomBar?: JSX.Element | (() => JSX.Element);
   backdrop?: boolean;
@@ -273,6 +293,7 @@ export interface SkinToastProps {
   body?: string;
   tone?: "info" | "success" | "warning" | "danger";
   actionLabel?: string;
+  durationMs?: number;
   onAction?: () => void;
   onDismiss?: () => void;
 }
@@ -364,11 +385,69 @@ export interface UiSkinKit {
 
 export const UI_SKIN_KIT_SLOTS = ["Backdrop", "AppBar", "BackButton", "NavigationBar", "Card", "ListTile", "Button", "Badge", "SegmentedControl", "Switch", "Checkbox", "RadioGroup", "Input", "Progress", "Stepper", "Alert", "Toast", "Dialog", "Sheet", "Metric", "EmptyState", "Accordion", "Paragraph"] as const satisfies readonly (keyof UiSkinKit)[];
 
+export interface UiSkinMotionConfig {
+  readonly routeTransition?: TransitionMode;
+  readonly routeTransitionDurationMs?: number;
+}
+
+export const DEFAULT_UI_SKIN_MOTION: Readonly<Required<UiSkinMotionConfig>> = Object.freeze({
+  routeTransition: "IOS_SPRING_PARALLAX",
+  routeTransitionDurationMs: 220,
+});
+
+export const UI_SKIN_FORBIDDEN_KERNEL_KEYS = [
+  "lifecycle",
+  "router",
+  "backNavigation",
+  "hostBridge",
+  "systemUi",
+  "routeRetention",
+  "ime",
+  "media",
+] as const;
+
+const MAX_SKIN_TRANSITION_DURATION_MS = 600;
+
+export function resolveUiSkinMotion(
+  motion: UiSkinMotionConfig | undefined,
+  reducedMotion = false,
+): Readonly<Required<UiSkinMotionConfig>> {
+  const mode =
+    motion?.routeTransition && TRANSITION_MODES.includes(motion.routeTransition)
+      ? motion.routeTransition
+      : DEFAULT_UI_SKIN_MOTION.routeTransition;
+  const rawDuration = motion?.routeTransitionDurationMs;
+  const clampedDuration =
+    typeof rawDuration === "number" && Number.isFinite(rawDuration)
+      ? Math.max(0, Math.min(MAX_SKIN_TRANSITION_DURATION_MS, Math.round(rawDuration)))
+      : DEFAULT_UI_SKIN_MOTION.routeTransitionDurationMs;
+  return {
+    routeTransition: mode,
+    routeTransitionDurationMs: reducedMotion ? 0 : clampedDuration,
+  };
+}
+
+export function assertSkinKernelBoundary(
+  candidate: unknown,
+  context = "UiSkinAdapter",
+): void {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return;
+  const record = candidate as Record<string, unknown>;
+  for (const key of UI_SKIN_FORBIDDEN_KERNEL_KEYS) {
+    if (key in record && record[key] !== undefined) {
+      throw new TypeError(
+        `[${context}] Forbidden kernel property "${key}": lifecycle, routing, back-navigation, IME, media, and host system integration belong to the invariant @pocket/ui kernel and cannot be overridden by a skin.`,
+      );
+    }
+  }
+}
+
 export interface UiSkinAdapter {
   readonly id: UiSkinId;
   readonly label: string;
   readonly description: string;
   readonly floatingBottomBar?: boolean;
+  readonly motion?: UiSkinMotionConfig;
   resolveTokens: (mode: UiSkinThemeMode, accent: UiSkinAccent) => UiSkinTokens;
   Provider?: (props: UiSkinProviderSlotProps) => JSX.Element;
   readonly kit: UiSkinKit;
@@ -485,6 +564,10 @@ export const defaultSkinAdapter: UiSkinAdapter = {
   id: "default",
   label: "Default UI",
   description: "Built-in Option C / Shadcn cross-platform mobile & desktop design system.",
+  motion: {
+    routeTransition: "IOS_SPRING_PARALLAX",
+    routeTransitionDurationMs: 220,
+  },
   resolveTokens: resolveDefaultSkinTokens,
   kit: {
     Backdrop(props) {
@@ -588,17 +671,17 @@ export const defaultSkinAdapter: UiSkinAdapter = {
       );
     },
     Button(props) {
-      return (
-        <View class={props.fullWidth ? "w-full" : ""}>
-          <MobileButton
-            label={props.label}
-            kind={mapButtonKind(props.variant)}
-            compact={props.compact}
-            disabled={props.disabled}
-            onPress={props.onPress}
-          />
-        </View>
+      const button = (
+        <MobileButton
+          label={props.label}
+          kind={mapButtonKind(props.variant)}
+          compact={props.compact}
+          disabled={props.disabled}
+          onPress={props.onPress}
+        />
       );
+      if (props.fullWidth !== true) return button;
+      return <View class="w-full">{button}</View>;
     },
     Badge(props) {
       return <MobileBadge label={props.label} tone={mapBadgeTone(props.tone)} />;
@@ -889,6 +972,7 @@ export interface DefineUiSkinOptions {
   readonly label: string;
   readonly description?: string;
   readonly floatingBottomBar?: boolean;
+  readonly motion?: UiSkinMotionConfig;
   readonly resolveTokens?: (
     mode: UiSkinThemeMode,
     accent: UiSkinAccent,
@@ -904,11 +988,13 @@ export interface DefineUiSkinOptions {
  * token-driven `defaultSkinAdapter.kit` defaults for the rest.
  */
 export function defineUiSkin(options: DefineUiSkinOptions): UiSkinAdapter {
+  assertSkinKernelBoundary(options, "defineUiSkin");
   return {
     id: options.id,
     label: options.label,
     description: options.description ?? `Custom Pocket UI skin (${options.label})`,
     floatingBottomBar: options.floatingBottomBar,
+    ...(options.motion ? { motion: options.motion } : {}),
     resolveTokens: (mode, accent) => {
       const base = resolveDefaultSkinTokens(mode, accent);
       return {
@@ -926,14 +1012,38 @@ export function defineUiSkin(options: DefineUiSkinOptions): UiSkinAdapter {
   };
 }
 
+function normalizeUiSkinAdapter(adapter: UiSkinAdapter): UiSkinAdapter {
+  if (
+    adapter === defaultSkinAdapter ||
+    UI_SKIN_KIT_SLOTS.every((slot) => typeof adapter.kit?.[slot] === "function")
+  ) {
+    return adapter;
+  }
+  const normalizedKit = { ...defaultSkinAdapter.kit } as Record<
+    UiSkinKitSlot,
+    unknown
+  >;
+  for (const slot of UI_SKIN_KIT_SLOTS) {
+    if (typeof adapter.kit?.[slot] === "function") {
+      normalizedKit[slot] = adapter.kit[slot];
+    }
+  }
+  return {
+    ...adapter,
+    kit: normalizedKit as unknown as UiSkinKit,
+  };
+}
+
 const skinRegistry = new Map<UiSkinId, UiSkinAdapter>([
   [defaultSkinAdapter.id, defaultSkinAdapter],
 ]);
 
 /** Register or update a pluggable UI skin adapter in the global registry. */
 export function registerUiSkin(adapter: UiSkinAdapter): UiSkinAdapter {
-  skinRegistry.set(adapter.id, adapter);
-  return adapter;
+  assertSkinKernelBoundary(adapter, "registerUiSkin");
+  const normalized = normalizeUiSkinAdapter(adapter);
+  skinRegistry.set(normalized.id, normalized);
+  return normalized;
 }
 
 /** Look up a registered UI skin adapter, falling back cleanly to `default`. */
@@ -952,6 +1062,7 @@ export interface UiSkinContextValue {
   accent: Accessor<UiSkinAccent>;
   density: Accessor<DesignDensity | "auto">;
   reducedMotion: Accessor<boolean>;
+  motion: Accessor<Readonly<Required<UiSkinMotionConfig>>>;
   adapter: Accessor<UiSkinAdapter>;
   tokens: Accessor<UiSkinTokens>;
   availableSkins: Accessor<readonly UiSkinAdapter[]>;
@@ -966,6 +1077,7 @@ const defaultSkinContext: UiSkinContextValue = {
   accent: () => "blue",
   density: () => "auto",
   reducedMotion: () => false,
+  motion: () => DEFAULT_UI_SKIN_MOTION,
   adapter: () => defaultSkinAdapter,
   tokens: () => resolveDefaultSkinTokens("light", "blue"),
   availableSkins: () => listUiSkins(),
@@ -999,7 +1111,19 @@ export function UiSkinProvider(props: {
   onAccentChange?: (next: UiSkinAccent) => void;
   children?: JSX.Element;
 }): JSX.Element {
-  const parent = useContext(UiSkinContext);
+  const rawParent = useContext(UiSkinContext);
+  const parent = rawParent !== defaultSkinContext ? rawParent : undefined;
+  const hostPresets =
+    !parent &&
+    (props.skin === undefined ||
+      props.mode === undefined ||
+      props.accent === undefined ||
+      props.density === undefined)
+      ? createSystemPresets()
+      : undefined;
+  const inheritedA11y = useInheritedAccessibilityPreferences();
+  const ownedA11y = !parent && !inheritedA11y ? createAccessibilityPreferences() : undefined;
+  const resolvedA11y = inheritedA11y ?? ownedA11y;
 
   const mergedAdapters = createMemo<readonly UiSkinAdapter[]>(() => {
     const map = new Map<UiSkinId, UiSkinAdapter>();
@@ -1010,6 +1134,7 @@ export function UiSkinProvider(props: {
     }
     if (props.skins) {
       for (const item of props.skins) {
+        assertSkinKernelBoundary(item, "UiSkinProvider");
         map.set(item.id, item);
         skinRegistry.set(item.id, item);
       }
@@ -1021,28 +1146,34 @@ export function UiSkinProvider(props: {
     if (props.skin !== undefined) {
       return typeof props.skin === "function" ? props.skin() : props.skin;
     }
-    return parent ? parent.skinId() : "default";
+    if (parent) return parent.skinId();
+    return hostPresets ? (hostPresets().skin ?? "default") : "default";
   };
 
   const mode = (): UiSkinThemeMode => {
     if (props.mode !== undefined) {
       return typeof props.mode === "function" ? props.mode() : props.mode;
     }
-    return parent ? parent.mode() : "light";
+    if (parent) return parent.mode();
+    return hostPresets ? (hostPresets().darkMode ? "dark" : "light") : "light";
   };
 
   const accent = (): UiSkinAccent => {
     if (props.accent !== undefined) {
       return typeof props.accent === "function" ? props.accent() : props.accent;
     }
-    return parent ? parent.accent() : "blue";
+    if (parent) return parent.accent();
+    return hostPresets
+      ? ((hostPresets().accentColor as UiSkinAccent | undefined) ?? "blue")
+      : "blue";
   };
 
   const density = (): DesignDensity | "auto" => {
     if (props.density !== undefined) {
       return typeof props.density === "function" ? props.density() : props.density;
     }
-    return parent ? parent.density() : "auto";
+    if (parent) return parent.density();
+    return hostPresets ? (hostPresets().density ?? "auto") : "auto";
   };
 
   const reducedMotion = (): boolean => {
@@ -1051,21 +1182,41 @@ export function UiSkinProvider(props: {
         ? props.reducedMotion()
         : props.reducedMotion;
     }
-    return parent ? parent.reducedMotion() : false;
+    if (parent) return parent.reducedMotion();
+    return resolvedA11y ? resolvedA11y().reduceMotion : false;
   };
 
   const adapter = createMemo<UiSkinAdapter>(() => {
     const target = skinId();
     const list = mergedAdapters();
-    return (
+    const raw =
       list.find((entry) => entry.id === target) ??
       skinRegistry.get(target) ??
-      defaultSkinAdapter
-    );
+      defaultSkinAdapter;
+    return normalizeUiSkinAdapter(raw);
   });
 
-  const tokens = createMemo<UiSkinTokens>(() =>
-    adapter().resolveTokens(mode(), accent()),
+  const tokens = createMemo<UiSkinTokens>(() => {
+    const m = mode();
+    const a = accent();
+    const current = adapter();
+    if (current === defaultSkinAdapter) return resolveDefaultSkinTokens(m, a);
+    const base = resolveDefaultSkinTokens(m, a);
+    try {
+      const resolved = current.resolveTokens?.(m, a);
+      if (resolved && typeof resolved === "object" && !Array.isArray(resolved)) {
+        const merged: Record<string, unknown> = { ...base, id: current.id, label: current.label };
+        for (const [k, v] of Object.entries(resolved)) {
+          if (v !== undefined) merged[k] = v;
+        }
+        return merged as unknown as UiSkinTokens;
+      }
+    } catch {}
+    return { ...base, id: current.id, label: current.label };
+  });
+
+  const motion = createMemo(() =>
+    resolveUiSkinMotion(adapter().motion, reducedMotion()),
   );
 
   const syncedMobileTheme = createMemo<MobileTheme>(() =>
@@ -1078,6 +1229,7 @@ export function UiSkinProvider(props: {
     accent,
     density,
     reducedMotion,
+    motion,
     adapter,
     tokens,
     availableSkins: mergedAdapters,
@@ -1086,22 +1238,32 @@ export function UiSkinProvider(props: {
     setAccent: props.onAccentChange ?? parent?.setAccent,
   };
 
+  const innerTree = (): JSX.Element => (
+    <MobileThemeProvider theme={syncedMobileTheme} density={density}>
+      <DesignDensityProvider density={density}>
+        <AdapterProviderChain
+          adapters={mergedAdapters}
+          index={0}
+          mode={mode}
+          accent={accent}
+          density={density}
+          reducedMotion={reducedMotion}
+        >
+          {props.children}
+        </AdapterProviderChain>
+      </DesignDensityProvider>
+    </MobileThemeProvider>
+  );
+
   return (
     <UiSkinContext.Provider value={contextValue}>
-      <MobileThemeProvider theme={syncedMobileTheme} density={density}>
-        <DesignDensityProvider density={density}>
-          <AdapterProviderChain
-            adapters={mergedAdapters}
-            index={0}
-            mode={mode}
-            accent={accent}
-            density={density}
-            reducedMotion={reducedMotion}
-          >
-            {props.children}
-          </AdapterProviderChain>
-        </DesignDensityProvider>
-      </MobileThemeProvider>
+      {ownedA11y ? (
+        <AccessibilityPreferencesProvider value={ownedA11y}>
+          {innerTree()}
+        </AccessibilityPreferencesProvider>
+      ) : (
+        innerTree()
+      )}
     </UiSkinContext.Provider>
   );
 }
@@ -1179,6 +1341,7 @@ export function SkinScaffold(props: SkinScaffoldProps): JSX.Element {
     <SafeAreaScaffold
       edges={props.edges}
       geometry={props.geometry}
+      reservedActions={props.reservedActions}
       class={props.class ?? "relative flex-col w-full h-full overflow-hidden"}
       style={{
         posType: 0,
@@ -1343,6 +1506,23 @@ export function SkinAlert(props: SkinAlertProps): JSX.Element {
 
 export function SkinToast(props: SkinToastProps): JSX.Element {
   const ctx = useUiSkin();
+  createEffect(() => {
+    const open = props.open;
+    const onDismiss = props.onDismiss;
+    const durationMs = props.durationMs;
+    if (
+      open &&
+      onDismiss &&
+      typeof durationMs === "number" &&
+      Number.isFinite(durationMs) &&
+      durationMs > 0
+    ) {
+      const cancel = after(durationMs / 1000, () => {
+        props.onDismiss?.();
+      });
+      onCleanup(cancel);
+    }
+  });
   return (
     <Show when={ctx.adapter()} keyed>
       {(active) => active.kit.Toast(props)}
@@ -1352,10 +1532,11 @@ export function SkinToast(props: SkinToastProps): JSX.Element {
 
 export function SkinDialog(props: SkinDialogProps): JSX.Element {
   const ctx = useUiSkin();
+  const routeActive = useRouteActive();
   usePocketBackHandler(() => {
     props.onClose();
     return true;
-  }, () => Boolean(props.open));
+  }, () => routeActive() && Boolean(props.open));
   return (
     <Show when={ctx.adapter()} keyed>
       {(active) => active.kit.Dialog(props)}
@@ -1365,10 +1546,11 @@ export function SkinDialog(props: SkinDialogProps): JSX.Element {
 
 export function SkinSheet(props: SkinSheetProps): JSX.Element {
   const ctx = useUiSkin();
+  const routeActive = useRouteActive();
   usePocketBackHandler(() => {
     props.onClose();
     return true;
-  }, () => Boolean(props.open));
+  }, () => routeActive() && Boolean(props.open));
   return (
     <Show when={ctx.adapter()} keyed>
       {(active) => active.kit.Sheet(props)}

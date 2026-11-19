@@ -108,6 +108,8 @@ export interface PocketSystemPresetUpdate {
   presentationStyle?: MiniAppPresentationStyleInput;
   defaultPresentationStyle?: MiniAppPresentationStyleInput;
   presentation?: { style?: MiniAppPresentationStyleInput };
+  skin?: string;
+  uiSkin?: string;
 }
 
 /** Outer container policy for calls made by the root SystemUI. */
@@ -984,7 +986,8 @@ class PocketSystemKernelImpl implements PocketSystemKernel {
       next.colorScheme !== this.currentPresets.colorScheme ||
       next.accentColor !== this.currentPresets.accentColor ||
       next.density !== this.currentPresets.density ||
-      next.presentationStyle !== this.currentPresets.presentationStyle;
+      next.presentationStyle !== this.currentPresets.presentationStyle ||
+      next.skin !== this.currentPresets.skin;
     this.currentPresets = next;
     if (changed) {
       this.notifyPresentation();

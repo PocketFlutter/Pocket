@@ -314,13 +314,13 @@ test("source-backed mobile controls, transitions, and contracts", () => {
   assert.match(appSource, /onFrame\(\(\) =>/);
   assert.match(displaySource, /ui\?: \{ __viewport/);
   // Secondary routes hide the bottom NavigationBar; primary routes mount it per route.
-  assert.match(appSource, /bottomBar=\{isPrimaryRoute\(route\) \? \(/);
+  assert.match(appSource, /bottomBar=\{[^\n]*isPrimaryRoute\(route\)/);
   assert.match(appSource, /items=\{showcaseTabs\}/);
   assert.doesNotMatch(appSource, /width: wide\(\) \? 640/);
   assert.doesNotMatch(appSource, /badge="JS-owned"/);
   assert.match(appSource, /contentWidth/);
   assert.match(appSource, /mobileDark/);
-  assert.match(appSource, /<SafeAreaScaffold/);
+  assert.match(appSource, /<(?:SafeAreaScaffold|SkinScaffold)/);
   assert.match(uiSource, /export const TabBar = NavigationBar/);
   assert.match(appSource, /createDisplayGeometry/);
   assert.match(displaySource, /display\.viewport/);

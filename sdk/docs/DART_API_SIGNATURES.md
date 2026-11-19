@@ -6,7 +6,7 @@ This catalog lists declarations importable from each package library after apply
 
 Source-first reuse note: outside the retained parent `pocket_host/`, this work checked `README.md`, `docs/02_ARCHITECTURE_AND_MEMORY_DESIGN.md`, `docs/03_DUAL_HOST_UI_COMPONENTS_SPEC.md`, `docs/04_DEVELOPER_GUIDE_AND_VERIFICATION.md`, and `docs/04_BIDIRECTIONAL_FFI_WASM_AND_YOOASSET_HOTUPDATE.md` in `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo`. These preserve the earlier Flutter/WeChat host split, component-to-host projections, and run/regression scenarios. The necessary adaptation is to use only current SDK library exports and apply every Dart `show`/`hide`, keeping app UI policy and composition in JS and Dart at the rendering/input/lifecycle/native boundary. Validation checks the biometrics and root SDK facade filters, default parameter signatures, and current source SHA markers.
 
-Coverage: 556 public declarations and 2796 declared members across 22 library entrances; 109 inventoried source digests.
+Coverage: 615 public declarations and 3098 declared members across 22 library entrances; 109 inventoried source digests.
 
 ## Packages and imports
 
@@ -162,6 +162,96 @@ Source: [packages/pocket_audio/lib/src/pocket_audio_plugin.dart](../packages/poc
 
 Entry: [packages/pocket_biometrics/lib/pocket_biometrics.dart](../packages/pocket_biometrics/lib/pocket_biometrics.dart)
 
+### `HardwareCapabilities`
+
+**Class** `abstract final class HardwareCapabilities`
+
+Members:
+- `static const String permissions = 'hardware.permissions'`
+- `static const String requestPermission = 'hardware.permissions.request'`
+- `static const String cameraPreviewStart = 'hardware.camera.preview.start'`
+- `static const String cameraPreviewStop = 'hardware.camera.preview.stop'`
+- `static const String cameraLensSwitch = 'hardware.camera.lens.switch'`
+- `static const String cameraFlashToggle = 'hardware.camera.flash.toggle'`
+- `static const String cameraCapture = 'hardware.camera.capture'`
+- `static const String photosList = 'hardware.photos.list'`
+- `static const String photosDelete = 'hardware.photos.delete'`
+- `static const String bluetoothScan = 'hardware.bluetooth.scan'`
+- `static const String bluetoothConnect = 'hardware.bluetooth.connect'`
+- `static const String bluetoothDisconnect = 'hardware.bluetooth.disconnect'`
+- `static const String bluetoothRead = 'hardware.bluetooth.read'`
+- `static const String bluetoothWrite = 'hardware.bluetooth.write'`
+- `static const String bluetoothNotifications = 'hardware.bluetooth.notifications'`
+- `static const String sensorsRead = 'hardware.sensors.read'`
+- `static const String sensorsWatch = 'hardware.sensors.watch'`
+- `static const String biometricAuthenticate = 'hardware.biometrics.authenticate'`
+- `static const String locationCurrent = 'hardware.location.current'`
+- `static const String weatherCurrent = 'hardware.weather.current'`
+- `static const Set<String> all = <String>{permissions, requestPermission, cameraPreviewStart, cameraPreviewStop, cameraLensSwitch, cameraFlashToggle, cameraCapture, photosList, photosDelete, bluetoothScan, bluetoothConnect, bluetoothDisconnect, bluetoothRead, bluetoothWrite, bluetoothNotifications, sensorsRead, sensorsWatch, biometricAuthenticate, locationCurrent, weatherCurrent}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L201)
+
+### `HardwarePermissions`
+
+**Class** `abstract final class HardwarePermissions`
+
+Members:
+- `static const String camera = 'hardware.camera'`
+- `static const String photos = 'hardware.photos'`
+- `static const String bluetooth = 'hardware.bluetooth'`
+- `static const String sensors = 'hardware.sensors'`
+- `static const String biometrics = 'hardware.biometrics'`
+- `static const String location = 'hardware.location'`
+- `static const String microphone = 'hardware.microphone'`
+- `static const String network = 'hardware.network'`
+- `static const Set<String> all = <String>{camera, photos, bluetooth, sensors, biometrics, location, microphone, network}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L179)
+
+### `HardwarePlatform`
+
+**Class** `abstract interface class HardwarePlatform`
+
+Members:
+- `Future<Map<String, dynamic>> invoke( String method, [ Map<String, dynamic> arguments = const <String, dynamic>{}, ])`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L254)
+
+### `HardwarePlatformException`
+
+**Class** `final class HardwarePlatformException implements Exception`
+
+Members:
+- `const HardwarePlatformException(this.code, this.message)`
+- `final String code`
+- `final String message`
+- `String toString()`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L281)
+
+### `HardwareStreamingPlatform`
+
+**Class** `abstract interface class HardwareStreamingPlatform`
+
+Members:
+- `Stream<Object?> get hardwareEvents`
+- `Future<Map<String, dynamic>> startHardwareStream( Map<String, dynamic> arguments, )`
+- `Future<Map<String, dynamic>> stopHardwareStream( Map<String, dynamic> arguments, )`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L265)
+
+### `HardwareTextureCallback`
+
+**Typedef** `typedef HardwareTextureCallback = void Function(int textureId);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L249)
+
+### `HardwareWeatherFetcher`
+
+**Typedef** `typedef HardwareWeatherFetcher = Future<Map<String, dynamic>> Function(Uri uri);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L364)
+
 ### `PocketBiometricsPlugin`
 
 **Class** `final class PocketBiometricsPlugin extends HardwareCapabilityPlugin`
@@ -177,6 +267,96 @@ Source: [packages/pocket_biometrics/lib/pocket_biometrics.dart](../packages/pock
 
 Entry: [packages/pocket_bluetooth/lib/pocket_bluetooth.dart](../packages/pocket_bluetooth/lib/pocket_bluetooth.dart)
 
+### `HardwareCapabilities`
+
+**Class** `abstract final class HardwareCapabilities`
+
+Members:
+- `static const String permissions = 'hardware.permissions'`
+- `static const String requestPermission = 'hardware.permissions.request'`
+- `static const String cameraPreviewStart = 'hardware.camera.preview.start'`
+- `static const String cameraPreviewStop = 'hardware.camera.preview.stop'`
+- `static const String cameraLensSwitch = 'hardware.camera.lens.switch'`
+- `static const String cameraFlashToggle = 'hardware.camera.flash.toggle'`
+- `static const String cameraCapture = 'hardware.camera.capture'`
+- `static const String photosList = 'hardware.photos.list'`
+- `static const String photosDelete = 'hardware.photos.delete'`
+- `static const String bluetoothScan = 'hardware.bluetooth.scan'`
+- `static const String bluetoothConnect = 'hardware.bluetooth.connect'`
+- `static const String bluetoothDisconnect = 'hardware.bluetooth.disconnect'`
+- `static const String bluetoothRead = 'hardware.bluetooth.read'`
+- `static const String bluetoothWrite = 'hardware.bluetooth.write'`
+- `static const String bluetoothNotifications = 'hardware.bluetooth.notifications'`
+- `static const String sensorsRead = 'hardware.sensors.read'`
+- `static const String sensorsWatch = 'hardware.sensors.watch'`
+- `static const String biometricAuthenticate = 'hardware.biometrics.authenticate'`
+- `static const String locationCurrent = 'hardware.location.current'`
+- `static const String weatherCurrent = 'hardware.weather.current'`
+- `static const Set<String> all = <String>{permissions, requestPermission, cameraPreviewStart, cameraPreviewStop, cameraLensSwitch, cameraFlashToggle, cameraCapture, photosList, photosDelete, bluetoothScan, bluetoothConnect, bluetoothDisconnect, bluetoothRead, bluetoothWrite, bluetoothNotifications, sensorsRead, sensorsWatch, biometricAuthenticate, locationCurrent, weatherCurrent}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L201)
+
+### `HardwarePermissions`
+
+**Class** `abstract final class HardwarePermissions`
+
+Members:
+- `static const String camera = 'hardware.camera'`
+- `static const String photos = 'hardware.photos'`
+- `static const String bluetooth = 'hardware.bluetooth'`
+- `static const String sensors = 'hardware.sensors'`
+- `static const String biometrics = 'hardware.biometrics'`
+- `static const String location = 'hardware.location'`
+- `static const String microphone = 'hardware.microphone'`
+- `static const String network = 'hardware.network'`
+- `static const Set<String> all = <String>{camera, photos, bluetooth, sensors, biometrics, location, microphone, network}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L179)
+
+### `HardwarePlatform`
+
+**Class** `abstract interface class HardwarePlatform`
+
+Members:
+- `Future<Map<String, dynamic>> invoke( String method, [ Map<String, dynamic> arguments = const <String, dynamic>{}, ])`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L254)
+
+### `HardwarePlatformException`
+
+**Class** `final class HardwarePlatformException implements Exception`
+
+Members:
+- `const HardwarePlatformException(this.code, this.message)`
+- `final String code`
+- `final String message`
+- `String toString()`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L281)
+
+### `HardwareStreamingPlatform`
+
+**Class** `abstract interface class HardwareStreamingPlatform`
+
+Members:
+- `Stream<Object?> get hardwareEvents`
+- `Future<Map<String, dynamic>> startHardwareStream( Map<String, dynamic> arguments, )`
+- `Future<Map<String, dynamic>> stopHardwareStream( Map<String, dynamic> arguments, )`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L265)
+
+### `HardwareTextureCallback`
+
+**Typedef** `typedef HardwareTextureCallback = void Function(int textureId);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L249)
+
+### `HardwareWeatherFetcher`
+
+**Typedef** `typedef HardwareWeatherFetcher = Future<Map<String, dynamic>> Function(Uri uri);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L364)
+
 ### `PocketBluetoothPlugin`
 
 **Class** `final class PocketBluetoothPlugin extends HardwareCapabilityPlugin`
@@ -191,6 +371,96 @@ Source: [packages/pocket_bluetooth/lib/pocket_bluetooth.dart](../packages/pocket
 ### Import `package:pocket_camera/pocket_camera.dart`
 
 Entry: [packages/pocket_camera/lib/pocket_camera.dart](../packages/pocket_camera/lib/pocket_camera.dart)
+
+### `HardwareCapabilities`
+
+**Class** `abstract final class HardwareCapabilities`
+
+Members:
+- `static const String permissions = 'hardware.permissions'`
+- `static const String requestPermission = 'hardware.permissions.request'`
+- `static const String cameraPreviewStart = 'hardware.camera.preview.start'`
+- `static const String cameraPreviewStop = 'hardware.camera.preview.stop'`
+- `static const String cameraLensSwitch = 'hardware.camera.lens.switch'`
+- `static const String cameraFlashToggle = 'hardware.camera.flash.toggle'`
+- `static const String cameraCapture = 'hardware.camera.capture'`
+- `static const String photosList = 'hardware.photos.list'`
+- `static const String photosDelete = 'hardware.photos.delete'`
+- `static const String bluetoothScan = 'hardware.bluetooth.scan'`
+- `static const String bluetoothConnect = 'hardware.bluetooth.connect'`
+- `static const String bluetoothDisconnect = 'hardware.bluetooth.disconnect'`
+- `static const String bluetoothRead = 'hardware.bluetooth.read'`
+- `static const String bluetoothWrite = 'hardware.bluetooth.write'`
+- `static const String bluetoothNotifications = 'hardware.bluetooth.notifications'`
+- `static const String sensorsRead = 'hardware.sensors.read'`
+- `static const String sensorsWatch = 'hardware.sensors.watch'`
+- `static const String biometricAuthenticate = 'hardware.biometrics.authenticate'`
+- `static const String locationCurrent = 'hardware.location.current'`
+- `static const String weatherCurrent = 'hardware.weather.current'`
+- `static const Set<String> all = <String>{permissions, requestPermission, cameraPreviewStart, cameraPreviewStop, cameraLensSwitch, cameraFlashToggle, cameraCapture, photosList, photosDelete, bluetoothScan, bluetoothConnect, bluetoothDisconnect, bluetoothRead, bluetoothWrite, bluetoothNotifications, sensorsRead, sensorsWatch, biometricAuthenticate, locationCurrent, weatherCurrent}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L201)
+
+### `HardwarePermissions`
+
+**Class** `abstract final class HardwarePermissions`
+
+Members:
+- `static const String camera = 'hardware.camera'`
+- `static const String photos = 'hardware.photos'`
+- `static const String bluetooth = 'hardware.bluetooth'`
+- `static const String sensors = 'hardware.sensors'`
+- `static const String biometrics = 'hardware.biometrics'`
+- `static const String location = 'hardware.location'`
+- `static const String microphone = 'hardware.microphone'`
+- `static const String network = 'hardware.network'`
+- `static const Set<String> all = <String>{camera, photos, bluetooth, sensors, biometrics, location, microphone, network}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L179)
+
+### `HardwarePlatform`
+
+**Class** `abstract interface class HardwarePlatform`
+
+Members:
+- `Future<Map<String, dynamic>> invoke( String method, [ Map<String, dynamic> arguments = const <String, dynamic>{}, ])`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L254)
+
+### `HardwarePlatformException`
+
+**Class** `final class HardwarePlatformException implements Exception`
+
+Members:
+- `const HardwarePlatformException(this.code, this.message)`
+- `final String code`
+- `final String message`
+- `String toString()`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L281)
+
+### `HardwareStreamingPlatform`
+
+**Class** `abstract interface class HardwareStreamingPlatform`
+
+Members:
+- `Stream<Object?> get hardwareEvents`
+- `Future<Map<String, dynamic>> startHardwareStream( Map<String, dynamic> arguments, )`
+- `Future<Map<String, dynamic>> stopHardwareStream( Map<String, dynamic> arguments, )`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L265)
+
+### `HardwareTextureCallback`
+
+**Typedef** `typedef HardwareTextureCallback = void Function(int textureId);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L249)
+
+### `HardwareWeatherFetcher`
+
+**Typedef** `typedef HardwareWeatherFetcher = Future<Map<String, dynamic>> Function(Uri uri);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L364)
 
 ### `PocketCameraPlugin`
 
@@ -2804,6 +3074,124 @@ Source: [packages/pocket_flutter/lib/src/pocket_host_fonts.dart](../packages/poc
 
 Entry: [packages/pocket_hardware/lib/pocket_hardware.dart](../packages/pocket_hardware/lib/pocket_hardware.dart)
 
+### `HardwareCapabilities`
+
+**Class** `abstract final class HardwareCapabilities`
+
+Members:
+- `static const String permissions = 'hardware.permissions'`
+- `static const String requestPermission = 'hardware.permissions.request'`
+- `static const String cameraPreviewStart = 'hardware.camera.preview.start'`
+- `static const String cameraPreviewStop = 'hardware.camera.preview.stop'`
+- `static const String cameraLensSwitch = 'hardware.camera.lens.switch'`
+- `static const String cameraFlashToggle = 'hardware.camera.flash.toggle'`
+- `static const String cameraCapture = 'hardware.camera.capture'`
+- `static const String photosList = 'hardware.photos.list'`
+- `static const String photosDelete = 'hardware.photos.delete'`
+- `static const String bluetoothScan = 'hardware.bluetooth.scan'`
+- `static const String bluetoothConnect = 'hardware.bluetooth.connect'`
+- `static const String bluetoothDisconnect = 'hardware.bluetooth.disconnect'`
+- `static const String bluetoothRead = 'hardware.bluetooth.read'`
+- `static const String bluetoothWrite = 'hardware.bluetooth.write'`
+- `static const String bluetoothNotifications = 'hardware.bluetooth.notifications'`
+- `static const String sensorsRead = 'hardware.sensors.read'`
+- `static const String sensorsWatch = 'hardware.sensors.watch'`
+- `static const String biometricAuthenticate = 'hardware.biometrics.authenticate'`
+- `static const String locationCurrent = 'hardware.location.current'`
+- `static const String weatherCurrent = 'hardware.weather.current'`
+- `static const Set<String> all = <String>{permissions, requestPermission, cameraPreviewStart, cameraPreviewStop, cameraLensSwitch, cameraFlashToggle, cameraCapture, photosList, photosDelete, bluetoothScan, bluetoothConnect, bluetoothDisconnect, bluetoothRead, bluetoothWrite, bluetoothNotifications, sensorsRead, sensorsWatch, biometricAuthenticate, locationCurrent, weatherCurrent}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L201)
+
+### `HardwareCapabilityPlugin`
+
+**Class** `class HardwareCapabilityPlugin extends PocketPlugin`
+
+Members:
+- `HardwareCapabilityPlugin({ HardwarePlatform? platform, HardwarePermissionHandler? permissionHandler, Set<HardwareFeature> features = HardwareFeatures.all, this.pluginId = hardwarePluginId, this.includeLegacyPermissions = false, HardwareWeatherFetcher? weatherFetcher, this.onTextureRegistered, this.onTextureReleased, this.requestTimeout = const Duration(seconds: 16), Set<String>? grantedPermissions, })`
+- `final Set<HardwareFeature> features`
+- `final String pluginId`
+- `final bool includeLegacyPermissions`
+- `final HardwareTextureCallback? onTextureRegistered`
+- `final HardwareTextureCallback? onTextureReleased`
+- `final Duration requestTimeout`
+- `static PocketPluginDescriptor descriptorFor({ Set<HardwareFeature> features = HardwareFeatures.all, String pluginId = hardwarePluginId, bool includeLegacyPermissions = false, })`
+- `PocketPluginDescriptor get descriptor`
+- `void register(PocketPluginContext context)`
+- `FutureOr<void> activate(PocketPluginContext context)`
+- `Future<void> deactivate(PocketPluginContext context)`
+- `Future<void> dispose()`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L434)
+
+### `HardwareFeature`
+
+**Enum** `enum HardwareFeature`
+
+Values:
+- `camera`
+- `bluetooth`
+- `sensors`
+- `location`
+- `biometrics`
+- `weather`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L16)
+
+### `HardwareFeatures`
+
+**Class** `abstract final class HardwareFeatures`
+
+Members:
+- `static const all = <HardwareFeature>{HardwareFeature.camera, HardwareFeature.bluetooth, HardwareFeature.sensors, HardwareFeature.location, HardwareFeature.biometrics, HardwareFeature.weather}`
+- `static Set<String> capabilities(HardwareFeature feature)`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L25)
+
+### `HardwarePermissionHandler`
+
+**Typedef** `typedef HardwarePermissionHandler = Future<Map<String, dynamic>> Function( String permission, { required bool request, });`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L358)
+
+### `HardwarePermissions`
+
+**Class** `abstract final class HardwarePermissions`
+
+Members:
+- `static const String camera = 'hardware.camera'`
+- `static const String photos = 'hardware.photos'`
+- `static const String bluetooth = 'hardware.bluetooth'`
+- `static const String sensors = 'hardware.sensors'`
+- `static const String biometrics = 'hardware.biometrics'`
+- `static const String location = 'hardware.location'`
+- `static const String microphone = 'hardware.microphone'`
+- `static const String network = 'hardware.network'`
+- `static const Set<String> all = <String>{camera, photos, bluetooth, sensors, biometrics, location, microphone, network}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L179)
+
+### `HardwarePlatform`
+
+**Class** `abstract interface class HardwarePlatform`
+
+Members:
+- `Future<Map<String, dynamic>> invoke( String method, [ Map<String, dynamic> arguments = const <String, dynamic>{}, ])`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L254)
+
+### `HardwarePlatformException`
+
+**Class** `final class HardwarePlatformException implements Exception`
+
+Members:
+- `const HardwarePlatformException(this.code, this.message)`
+- `final String code`
+- `final String message`
+- `String toString()`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L281)
+
 ### `HardwarePlugin`
 
 **Class** `final class HardwarePlugin extends HardwareCapabilityPlugin`
@@ -2813,6 +3201,90 @@ Members:
 - `HardwarePlugin({ HardwarePlatform? platform, PocketSystemPermissions? systemPermissions, HardwareWeatherFetcher? weatherFetcher, HardwareTextureCallback? onTextureRegistered, HardwareTextureCallback? onTextureReleased, Duration requestTimeout = const Duration(seconds: 16), Set<String>? grantedPermissions, })`
 
 Source: [packages/pocket_hardware/lib/src/hardware_plugin.dart](../packages/pocket_hardware/lib/src/hardware_plugin.dart#L8)
+
+### `HardwareStreamingPlatform`
+
+**Class** `abstract interface class HardwareStreamingPlatform`
+
+Members:
+- `Stream<Object?> get hardwareEvents`
+- `Future<Map<String, dynamic>> startHardwareStream( Map<String, dynamic> arguments, )`
+- `Future<Map<String, dynamic>> stopHardwareStream( Map<String, dynamic> arguments, )`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L265)
+
+### `HardwareTextureCallback`
+
+**Typedef** `typedef HardwareTextureCallback = void Function(int textureId);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L249)
+
+### `HardwareWeatherFetcher`
+
+**Typedef** `typedef HardwareWeatherFetcher = Future<Map<String, dynamic>> Function(Uri uri);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L364)
+
+### `MethodChannelHardwarePlatform`
+
+**Class** `final class MethodChannelHardwarePlatform implements HardwarePlatform, HardwareStreamingPlatform`
+
+Members:
+- `MethodChannelHardwarePlatform({MethodChannel? channel, EventChannel? events})`
+- `final MethodChannel channel`
+- `final EventChannel events`
+- `Stream<Object?> get hardwareEvents`
+- `Future<Map<String, dynamic>> startHardwareStream( Map<String, dynamic> arguments, )`
+- `Future<Map<String, dynamic>> stopHardwareStream( Map<String, dynamic> arguments, )`
+- `Future<Map<String, dynamic>> invoke( String method, [ Map<String, dynamic> arguments = const <String, dynamic>{}, ])`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L291)
+
+### `PocketPluginDescriptor`
+
+**Class** `final class PocketPluginDescriptor`
+
+Members:
+- `const PocketPluginDescriptor({ required this.id, required this.version, required this.capabilities, this.protocolVersion = currentProtocolVersion, this.kind = 'capability', this.permissions = const <String>{}, this.optionalPermissions = const <String>{}, this.limits = const PocketPluginLimits(), this.description = '', this.types = const <String, PocketPluginSchema>{}, })`
+- `static const int currentProtocolVersion = 1`
+- `final int protocolVersion`
+- `final String id`
+- `final String version`
+- `final String kind`
+- `final Set<String> permissions`
+- `final Set<String> optionalPermissions`
+- `final PocketPluginLimits limits`
+- `final Map<String, PocketPluginCapability> capabilities`
+- `final String description`
+- `final Map<String, PocketPluginSchema> types`
+- `Map<String, dynamic> toJson()`
+- `void validateSchemas()`
+
+Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L789)
+
+### `createHardwarePlatform`
+
+**function** `HardwarePlatform createHardwarePlatform(Set<HardwareFeature> features)`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L66)
+
+### `hardwareEventsChannelName`
+
+**Top-level variable** `const String hardwareEventsChannelName = 'com.pocketnexus.host/hardware/events'`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L14)
+
+### `hardwareMethodChannelName`
+
+**Top-level variable** `const String hardwareMethodChannelName = 'com.pocketnexus.host/hardware'`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L13)
+
+### `hardwarePluginId`
+
+**Top-level variable** `const String hardwarePluginId = 'flutter.hardware'`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L12)
 ## `pocket_hardware_core`
 
 ### Import `package:pocket_hardware_core/pocket_hardware_core.dart`
@@ -3262,6 +3734,96 @@ Source: [packages/pocket_live2d/lib/src/pocket_live2d_plugin.dart](../packages/p
 
 Entry: [packages/pocket_location/lib/pocket_location.dart](../packages/pocket_location/lib/pocket_location.dart)
 
+### `HardwareCapabilities`
+
+**Class** `abstract final class HardwareCapabilities`
+
+Members:
+- `static const String permissions = 'hardware.permissions'`
+- `static const String requestPermission = 'hardware.permissions.request'`
+- `static const String cameraPreviewStart = 'hardware.camera.preview.start'`
+- `static const String cameraPreviewStop = 'hardware.camera.preview.stop'`
+- `static const String cameraLensSwitch = 'hardware.camera.lens.switch'`
+- `static const String cameraFlashToggle = 'hardware.camera.flash.toggle'`
+- `static const String cameraCapture = 'hardware.camera.capture'`
+- `static const String photosList = 'hardware.photos.list'`
+- `static const String photosDelete = 'hardware.photos.delete'`
+- `static const String bluetoothScan = 'hardware.bluetooth.scan'`
+- `static const String bluetoothConnect = 'hardware.bluetooth.connect'`
+- `static const String bluetoothDisconnect = 'hardware.bluetooth.disconnect'`
+- `static const String bluetoothRead = 'hardware.bluetooth.read'`
+- `static const String bluetoothWrite = 'hardware.bluetooth.write'`
+- `static const String bluetoothNotifications = 'hardware.bluetooth.notifications'`
+- `static const String sensorsRead = 'hardware.sensors.read'`
+- `static const String sensorsWatch = 'hardware.sensors.watch'`
+- `static const String biometricAuthenticate = 'hardware.biometrics.authenticate'`
+- `static const String locationCurrent = 'hardware.location.current'`
+- `static const String weatherCurrent = 'hardware.weather.current'`
+- `static const Set<String> all = <String>{permissions, requestPermission, cameraPreviewStart, cameraPreviewStop, cameraLensSwitch, cameraFlashToggle, cameraCapture, photosList, photosDelete, bluetoothScan, bluetoothConnect, bluetoothDisconnect, bluetoothRead, bluetoothWrite, bluetoothNotifications, sensorsRead, sensorsWatch, biometricAuthenticate, locationCurrent, weatherCurrent}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L201)
+
+### `HardwarePermissions`
+
+**Class** `abstract final class HardwarePermissions`
+
+Members:
+- `static const String camera = 'hardware.camera'`
+- `static const String photos = 'hardware.photos'`
+- `static const String bluetooth = 'hardware.bluetooth'`
+- `static const String sensors = 'hardware.sensors'`
+- `static const String biometrics = 'hardware.biometrics'`
+- `static const String location = 'hardware.location'`
+- `static const String microphone = 'hardware.microphone'`
+- `static const String network = 'hardware.network'`
+- `static const Set<String> all = <String>{camera, photos, bluetooth, sensors, biometrics, location, microphone, network}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L179)
+
+### `HardwarePlatform`
+
+**Class** `abstract interface class HardwarePlatform`
+
+Members:
+- `Future<Map<String, dynamic>> invoke( String method, [ Map<String, dynamic> arguments = const <String, dynamic>{}, ])`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L254)
+
+### `HardwarePlatformException`
+
+**Class** `final class HardwarePlatformException implements Exception`
+
+Members:
+- `const HardwarePlatformException(this.code, this.message)`
+- `final String code`
+- `final String message`
+- `String toString()`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L281)
+
+### `HardwareStreamingPlatform`
+
+**Class** `abstract interface class HardwareStreamingPlatform`
+
+Members:
+- `Stream<Object?> get hardwareEvents`
+- `Future<Map<String, dynamic>> startHardwareStream( Map<String, dynamic> arguments, )`
+- `Future<Map<String, dynamic>> stopHardwareStream( Map<String, dynamic> arguments, )`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L265)
+
+### `HardwareTextureCallback`
+
+**Typedef** `typedef HardwareTextureCallback = void Function(int textureId);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L249)
+
+### `HardwareWeatherFetcher`
+
+**Typedef** `typedef HardwareWeatherFetcher = Future<Map<String, dynamic>> Function(Uri uri);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L364)
+
 ### `PocketLocationPlugin`
 
 **Class** `final class PocketLocationPlugin extends HardwareCapabilityPlugin`
@@ -3570,6 +4132,96 @@ Source: [packages/pocket_platform/lib/src/surface_bridge_plugin.dart](../package
 ### Import `package:pocket_sensors/pocket_sensors.dart`
 
 Entry: [packages/pocket_sensors/lib/pocket_sensors.dart](../packages/pocket_sensors/lib/pocket_sensors.dart)
+
+### `HardwareCapabilities`
+
+**Class** `abstract final class HardwareCapabilities`
+
+Members:
+- `static const String permissions = 'hardware.permissions'`
+- `static const String requestPermission = 'hardware.permissions.request'`
+- `static const String cameraPreviewStart = 'hardware.camera.preview.start'`
+- `static const String cameraPreviewStop = 'hardware.camera.preview.stop'`
+- `static const String cameraLensSwitch = 'hardware.camera.lens.switch'`
+- `static const String cameraFlashToggle = 'hardware.camera.flash.toggle'`
+- `static const String cameraCapture = 'hardware.camera.capture'`
+- `static const String photosList = 'hardware.photos.list'`
+- `static const String photosDelete = 'hardware.photos.delete'`
+- `static const String bluetoothScan = 'hardware.bluetooth.scan'`
+- `static const String bluetoothConnect = 'hardware.bluetooth.connect'`
+- `static const String bluetoothDisconnect = 'hardware.bluetooth.disconnect'`
+- `static const String bluetoothRead = 'hardware.bluetooth.read'`
+- `static const String bluetoothWrite = 'hardware.bluetooth.write'`
+- `static const String bluetoothNotifications = 'hardware.bluetooth.notifications'`
+- `static const String sensorsRead = 'hardware.sensors.read'`
+- `static const String sensorsWatch = 'hardware.sensors.watch'`
+- `static const String biometricAuthenticate = 'hardware.biometrics.authenticate'`
+- `static const String locationCurrent = 'hardware.location.current'`
+- `static const String weatherCurrent = 'hardware.weather.current'`
+- `static const Set<String> all = <String>{permissions, requestPermission, cameraPreviewStart, cameraPreviewStop, cameraLensSwitch, cameraFlashToggle, cameraCapture, photosList, photosDelete, bluetoothScan, bluetoothConnect, bluetoothDisconnect, bluetoothRead, bluetoothWrite, bluetoothNotifications, sensorsRead, sensorsWatch, biometricAuthenticate, locationCurrent, weatherCurrent}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L201)
+
+### `HardwarePermissions`
+
+**Class** `abstract final class HardwarePermissions`
+
+Members:
+- `static const String camera = 'hardware.camera'`
+- `static const String photos = 'hardware.photos'`
+- `static const String bluetooth = 'hardware.bluetooth'`
+- `static const String sensors = 'hardware.sensors'`
+- `static const String biometrics = 'hardware.biometrics'`
+- `static const String location = 'hardware.location'`
+- `static const String microphone = 'hardware.microphone'`
+- `static const String network = 'hardware.network'`
+- `static const Set<String> all = <String>{camera, photos, bluetooth, sensors, biometrics, location, microphone, network}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L179)
+
+### `HardwarePlatform`
+
+**Class** `abstract interface class HardwarePlatform`
+
+Members:
+- `Future<Map<String, dynamic>> invoke( String method, [ Map<String, dynamic> arguments = const <String, dynamic>{}, ])`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L254)
+
+### `HardwarePlatformException`
+
+**Class** `final class HardwarePlatformException implements Exception`
+
+Members:
+- `const HardwarePlatformException(this.code, this.message)`
+- `final String code`
+- `final String message`
+- `String toString()`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L281)
+
+### `HardwareStreamingPlatform`
+
+**Class** `abstract interface class HardwareStreamingPlatform`
+
+Members:
+- `Stream<Object?> get hardwareEvents`
+- `Future<Map<String, dynamic>> startHardwareStream( Map<String, dynamic> arguments, )`
+- `Future<Map<String, dynamic>> stopHardwareStream( Map<String, dynamic> arguments, )`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L265)
+
+### `HardwareTextureCallback`
+
+**Typedef** `typedef HardwareTextureCallback = void Function(int textureId);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L249)
+
+### `HardwareWeatherFetcher`
+
+**Typedef** `typedef HardwareWeatherFetcher = Future<Map<String, dynamic>> Function(Uri uri);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L364)
 
 ### `PocketSensorsPlugin`
 
@@ -5011,6 +5663,96 @@ Source: [packages/pocket_sync/lib/src/sync_plugin.dart](../packages/pocket_sync/
 ### Import `package:pocket_weather/pocket_weather.dart`
 
 Entry: [packages/pocket_weather/lib/pocket_weather.dart](../packages/pocket_weather/lib/pocket_weather.dart)
+
+### `HardwareCapabilities`
+
+**Class** `abstract final class HardwareCapabilities`
+
+Members:
+- `static const String permissions = 'hardware.permissions'`
+- `static const String requestPermission = 'hardware.permissions.request'`
+- `static const String cameraPreviewStart = 'hardware.camera.preview.start'`
+- `static const String cameraPreviewStop = 'hardware.camera.preview.stop'`
+- `static const String cameraLensSwitch = 'hardware.camera.lens.switch'`
+- `static const String cameraFlashToggle = 'hardware.camera.flash.toggle'`
+- `static const String cameraCapture = 'hardware.camera.capture'`
+- `static const String photosList = 'hardware.photos.list'`
+- `static const String photosDelete = 'hardware.photos.delete'`
+- `static const String bluetoothScan = 'hardware.bluetooth.scan'`
+- `static const String bluetoothConnect = 'hardware.bluetooth.connect'`
+- `static const String bluetoothDisconnect = 'hardware.bluetooth.disconnect'`
+- `static const String bluetoothRead = 'hardware.bluetooth.read'`
+- `static const String bluetoothWrite = 'hardware.bluetooth.write'`
+- `static const String bluetoothNotifications = 'hardware.bluetooth.notifications'`
+- `static const String sensorsRead = 'hardware.sensors.read'`
+- `static const String sensorsWatch = 'hardware.sensors.watch'`
+- `static const String biometricAuthenticate = 'hardware.biometrics.authenticate'`
+- `static const String locationCurrent = 'hardware.location.current'`
+- `static const String weatherCurrent = 'hardware.weather.current'`
+- `static const Set<String> all = <String>{permissions, requestPermission, cameraPreviewStart, cameraPreviewStop, cameraLensSwitch, cameraFlashToggle, cameraCapture, photosList, photosDelete, bluetoothScan, bluetoothConnect, bluetoothDisconnect, bluetoothRead, bluetoothWrite, bluetoothNotifications, sensorsRead, sensorsWatch, biometricAuthenticate, locationCurrent, weatherCurrent}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L201)
+
+### `HardwarePermissions`
+
+**Class** `abstract final class HardwarePermissions`
+
+Members:
+- `static const String camera = 'hardware.camera'`
+- `static const String photos = 'hardware.photos'`
+- `static const String bluetooth = 'hardware.bluetooth'`
+- `static const String sensors = 'hardware.sensors'`
+- `static const String biometrics = 'hardware.biometrics'`
+- `static const String location = 'hardware.location'`
+- `static const String microphone = 'hardware.microphone'`
+- `static const String network = 'hardware.network'`
+- `static const Set<String> all = <String>{camera, photos, bluetooth, sensors, biometrics, location, microphone, network}`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L179)
+
+### `HardwarePlatform`
+
+**Class** `abstract interface class HardwarePlatform`
+
+Members:
+- `Future<Map<String, dynamic>> invoke( String method, [ Map<String, dynamic> arguments = const <String, dynamic>{}, ])`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L254)
+
+### `HardwarePlatformException`
+
+**Class** `final class HardwarePlatformException implements Exception`
+
+Members:
+- `const HardwarePlatformException(this.code, this.message)`
+- `final String code`
+- `final String message`
+- `String toString()`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L281)
+
+### `HardwareStreamingPlatform`
+
+**Class** `abstract interface class HardwareStreamingPlatform`
+
+Members:
+- `Stream<Object?> get hardwareEvents`
+- `Future<Map<String, dynamic>> startHardwareStream( Map<String, dynamic> arguments, )`
+- `Future<Map<String, dynamic>> stopHardwareStream( Map<String, dynamic> arguments, )`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L265)
+
+### `HardwareTextureCallback`
+
+**Typedef** `typedef HardwareTextureCallback = void Function(int textureId);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L249)
+
+### `HardwareWeatherFetcher`
+
+**Typedef** `typedef HardwareWeatherFetcher = Future<Map<String, dynamic>> Function(Uri uri);`
+
+Source: [packages/pocket_hardware_core/lib/src/hardware_plugin.dart](../packages/pocket_hardware_core/lib/src/hardware_plugin.dart#L364)
 
 ### `PocketWeatherPlugin`
 

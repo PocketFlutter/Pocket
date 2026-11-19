@@ -134,6 +134,7 @@ export const liquidGlassSkinAdapter: UiSkinAdapter = {
   description:
     "GPU-budgeted refractive Liquid Glass controls with a specular vector fallback.",
   floatingBottomBar: true,
+  motion: { routeTransition: "LIQUID_GLASS_MORPH", routeTransitionDurationMs: 240 },
   resolveTokens: resolveLiquidGlassSkinTokens,
   Provider(props): JSX.Element {
     return (

@@ -220,6 +220,22 @@ export function createPocketBackInterceptorRegistry(): PocketBackInterceptorRegi
 
 const PocketBackInterceptorContext = createContext<PocketBackInterceptorRegistry | undefined>(undefined);
 
+const PocketBackRouteActiveContext = createContext<Accessor<boolean>>(() => true);
+
+export function PocketBackRouteActiveProvider(props: {
+  readonly active: Accessor<boolean>;
+  readonly children: JSX.Element;
+}): JSX.Element {
+  return PocketBackRouteActiveContext.Provider({
+    get value() {
+      return props.active;
+    },
+    get children() {
+      return props.children;
+    },
+  });
+}
+
 export function PocketBackInterceptorProvider(props: {
   readonly value: PocketBackInterceptorRegistry;
   readonly children: JSX.Element;
@@ -239,11 +255,15 @@ export function usePocketBackHandler(
   enabled: boolean | Accessor<boolean> = true,
 ): void {
   const registry = useContext(PocketBackInterceptorContext);
+  const routeActive = useContext(PocketBackRouteActiveContext);
   if (!registry) return;
   createEffect(() => {
-    const active = typeof enabled === "function" ? enabled() : enabled;
-    if (!active) return;
-    const unregister = registry.register(handler);
+    const isEnabled = typeof enabled === "function" ? enabled() : enabled;
+    if (!isEnabled || !routeActive()) return;
+    const unregister = registry.register(
+      handler,
+      () => routeActive() && (typeof enabled === "function" ? enabled() : enabled),
+    );
     onCleanup(unregister);
   });
 }

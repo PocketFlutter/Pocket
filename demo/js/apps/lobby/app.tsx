@@ -1,17 +1,24 @@
 import { createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import { mount } from "@pocketjs/framework/solid";
+import { after, simulationHz } from "@pocketjs/framework/clock";
 import { Text, View } from "@pocketjs/framework/solid/components";
 import {
-  MobileAppBar,
-  MobileBadge,
-  MobileButton,
-  MobileCard,
-  MobileThemeProvider,
-  SafeAreaScaffold,
+  PocketAppShell,
   ScrollablePage,
+  SkinBadge,
+  SkinButton,
+  SkinCard,
+  SkinParagraph,
   StatusBar,
-  useMobileTheme,
+  UiSkinProvider,
+  createPocketRouter,
+  defaultSkinAdapter,
+  useUiSkin,
 } from "@pocket/ui";
+import { looseleafSkinAdapter } from "@pocket/looseleaf";
+import { arcSkinAdapter } from "@pocket/arc";
+import { liquidGlassSkinAdapter } from "@pocket/liquid_glass";
+import { createHostBridge } from "@pocket/ui/host";
 import { createPocketPlatformClient } from "@pocket/ui/platform";
 
 const SHOWCASE_APP_ID = "pocket.host.demo";
@@ -50,44 +57,51 @@ function LobbyContent(props: {
   onSendUpdate: () => void;
   onReturnResult: () => void;
 }): JSX.Element {
-  const theme = useMobileTheme();
-  const isDark = () => theme().name === "dark";
+  const { tokens } = useUiSkin();
   return (
     <View class="flex-col gap-3 p-4">
       <StatusBar label="Lobby platform state" detail={props.status()} ok={props.statusOk()} />
-      <MobileCard
+      <SkinCard
         title="Shared identity"
         detail={props.identity() ? `${props.identity()!.role} · UID ${props.identity()!.uid}` : "Waiting for profile guest data"}
       >
-        <Text class={isDark() ? "text-xl text-[#FAFAFA] font-bold" : "text-xl text-slate-950 font-bold"}>{props.identity()?.name ?? "Guest"}</Text>
-        <Text class={isDark() ? "text-xs text-[#A1A1AA]" : "text-xs text-slate-600"}>Namespace: identity · storage.get()</Text>
-      </MobileCard>
-      <MobileCard title="Independent lobby counter" detail="This state belongs to Guest B and is not the profile state.">
+        <Text class="text-xl font-bold" style={{ textColor: tokens().ink }}>{props.identity()?.name ?? "Guest"}</Text>
+        <SkinParagraph text="Namespace: identity · storage.get()" muted />
+      </SkinCard>
+      <SkinCard title="Independent lobby counter" detail="This state belongs to Guest B and is not the profile state.">
         <View class="flex-row items-center justify-between">
           <View class="flex-col gap-1">
-            <Text class={isDark() ? "text-xs text-[#A1A1AA]" : "text-xs text-slate-600"}>visits</Text>
-            <Text class={isDark() ? "text-xl text-[#FAFAFA] font-bold" : "text-xl text-slate-950 font-bold"}>{props.visits()}</Text>
+            <Text class="text-xs" style={{ textColor: tokens().inkMuted }}>visits</Text>
+            <Text class="text-xl font-bold" style={{ textColor: tokens().ink }}>{props.visits()}</Text>
           </View>
           <View class="flex-col gap-1">
-            <Text class={isDark() ? "text-xs text-[#A1A1AA]" : "text-xs text-slate-600"}>count</Text>
-            <Text class={isDark() ? "text-xl text-[#FAFAFA] font-bold" : "text-xl text-slate-950 font-bold"}>{props.count()}</Text>
+            <Text class="text-xs" style={{ textColor: tokens().inkMuted }}>count</Text>
+            <Text class="text-xl font-bold" style={{ textColor: tokens().ink }}>{props.count()}</Text>
           </View>
         </View>
-        <MobileButton label="Increment lobby counter" onPress={props.onSendUpdate} />
-        <Text class={isDark() ? "text-xs text-[#A1A1AA]" : "text-xs text-slate-600"}>{props.lastMessage()}</Text>
-      </MobileCard>
-      <MobileCard title="Cross-app handoff" detail="The host receives both the message and the awaited return value.">
+        <SkinButton label="Increment lobby counter" onPress={props.onSendUpdate} />
+        <SkinParagraph text={props.lastMessage()} muted />
+      </SkinCard>
+      <SkinCard title="Cross-app handoff" detail="The host receives both the message and the awaited return value.">
         <View class="flex-col gap-2">
-          <MobileButton label="Send lobby update to Showcase" kind="outlined" onPress={props.onSendUpdate} />
-          <MobileButton label="Return visits to caller" onPress={props.onReturnResult} />
+          <SkinButton label="Send lobby update to Showcase" variant="outline" onPress={props.onSendUpdate} />
+          <SkinButton label="Return visits to caller" onPress={props.onReturnResult} />
         </View>
-      </MobileCard>
+      </SkinCard>
     </View>
   );
 }
 
 function LobbyApp(): JSX.Element {
-  const platform = createPocketPlatformClient();
+  const host = createHostBridge(undefined, {
+    timeoutFrames: 30 * simulationHz(),
+    scheduleTimeout: (frames, cb) => after(frames / simulationHz(), cb),
+  });
+  const platform = createPocketPlatformClient(undefined, { bridge: host, media: false });
+  const router = createPocketRouter({
+    routes: [{ id: "home", path: "/", primary: true }],
+    fallbackRouteId: "home",
+  });
   const [identity, setIdentity] = createSignal<Profile | undefined>(undefined);
   const [count, setCount] = createSignal(0);
   const [visits, setVisits] = createSignal(0);
@@ -114,6 +128,7 @@ function LobbyApp(): JSX.Element {
   onCleanup(() => {
     removeMessageListener?.();
     platform.dispose();
+    host.dispose();
   });
 
   const sendLobbyUpdate = async (): Promise<void> => {
@@ -154,31 +169,51 @@ function LobbyApp(): JSX.Element {
   };
 
   return (
-    <MobileThemeProvider>
-      <SafeAreaScaffold
+    <UiSkinProvider
+      skins={[
+        defaultSkinAdapter,
+        looseleafSkinAdapter,
+        arcSkinAdapter,
+        liquidGlassSkinAdapter,
+      ]}
+    >
+      <PocketAppShell
+        router={router}
+        host={host}
+        platform={platform}
         reservedActions="mini-app"
-        appBar={() => (
-          <MobileAppBar
-            title="Pocket Lobby"
-            subtitle="pocket.demo.lobby · independent state"
-            trailing={<MobileBadge label="Guest B" tone="success" />}
-          />
-        )}
-      >
-        <ScrollablePage>
-          <LobbyContent
-            status={status}
-            statusOk={statusOk}
-            identity={identity}
-            visits={visits}
-            count={count}
-            lastMessage={lastMessage}
-            onSendUpdate={() => { void sendLobbyUpdate(); }}
-            onReturnResult={() => { void returnResult(); }}
-          />
-        </ScrollablePage>
-      </SafeAreaScaffold>
-    </MobileThemeProvider>
+        onRootBack={async () => {
+          await returnResult();
+          return true;
+        }}
+        routes={[
+          {
+            id: "home",
+            title: "Pocket Lobby",
+            subtitle: "pocket.demo.lobby · independent state",
+            trailing: () => <SkinBadge label="Guest B" tone="success" />,
+            render: () => (
+              <ScrollablePage>
+                <LobbyContent
+                  status={status}
+                  statusOk={statusOk}
+                  identity={identity}
+                  visits={visits}
+                  count={count}
+                  lastMessage={lastMessage}
+                  onSendUpdate={() => {
+                    void sendLobbyUpdate();
+                  }}
+                  onReturnResult={() => {
+                    void returnResult();
+                  }}
+                />
+              </ScrollablePage>
+            ),
+          },
+        ]}
+      />
+    </UiSkinProvider>
   );
 }
 

@@ -34,7 +34,7 @@ const appIdPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const versionPattern = /^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/;
 
 export const FRAMEWORK_AGENT_DEVELOPER_INSTRUCTIONS = [
-  "Always use Pocket's built-in framework primitives first (`@pocket/ui`: `createPocketRouter`, `PocketAppShell` or retained `<RouteView>` + `<PocketRouteScope>`, `SkinScaffold`/`SafeAreaScaffold`, `SkinAppBar`/`MobileAppBar`, `SkinBackButton`/`MobileBackButton`, `SkinNavigationBar`/`NavigationBar`, `ScrollablePage`, `InputField`/`SkinInput`, and all 23 polymorphic `Skin*` controls inside `<UiSkinProvider>`; or `@pocket/vn` `createNovelEngine` + `NovelView` for visual novels). When custom brand styling is needed, plug in a custom skin via `defineUiSkin({ id, label, resolveTokens, kit })` + `registerUiSkin(...)` (or official skins `@pocket/looseleaf`, `@pocket/arc`, `@pocket/liquid_glass`) instead of hand-rolling raw `<View>` controls.",
+  "Always use Pocket's built-in framework primitives first (`@pocket/ui`: `createPocketRouter`, `PocketAppShell` or retained `<RouteView>` + `<PocketRouteScope>`, `SkinScaffold`/`SafeAreaScaffold`, `SkinAppBar`/`MobileAppBar`, `SkinBackButton`/`MobileBackButton`, `SkinNavigationBar`/`NavigationBar`, `ScrollablePage`, `InputField`/`SkinInput`, `usePocketAppLifecycle`/`usePocketRouteLifecycle`, and all 23 polymorphic `Skin*` controls inside `<UiSkinProvider>`; or `@pocket/vn` `createNovelEngine` + `NovelView` for visual novels). `PocketAppShell` + `UiSkinProvider` automatically manage skin-independent lifecycle & system integration (`platform.presets`, `accessibility.preferences`, `platform.systemUi`, media route visibility, IME, and active-route Back isolation across all skins). When custom brand styling is needed, plug in a custom skin via `defineUiSkin({ id, label, resolveTokens, kit })` + `registerUiSkin(...)` (or official skins `@pocket/looseleaf`, `@pocket/arc`, `@pocket/liquid_glass`) instead of hand-rolling raw `<View>` controls.",
   "Never hand-roll `<Show>`/`<Match>`/`<Dynamic>` page routers (visited routes stay mounted inside `<RouteView>` so page state and scroll offsets are preserved), HTML/DOM JSX tags (`<div>`, `<button>`, `<input>`), browser globals (`window`, `document`, `localStorage`), fake `<View>` inputs, or non-translation transforms (`scale`/`rotate`) on `<View>` ancestors containing `<Text>`. Run `npm run check && npm run build` to verify.",
 ].join("\n");
 
@@ -134,8 +134,10 @@ export function renderProjectAgentsMarkdown({ name, sdk, template = "app", flutt
     "## 2. 页面架构与路由导航（严禁 `<Show>` 手搓切页）",
     "",
     "- **标准多页应用**：使用 `@pocket/ui` 的 `createPocketRouter` + `PocketAppShell`（或常驻 `<RouteView>` + `<PocketRouteScope>` + `<SkinScaffold>` + `<SkinBackButton>` / `<MobileBackButton>` + `<SkinNavigationBar>`）。",
+    "- **不变 `@pocket/ui` 内核 vs 可配置皮肤边界（Invariant Kernel vs Skin-Configurable Surface）**：**不变 `@pocket/ui` 内核**独占应用与路由生命周期（`usePocketAppLifecycle` / `usePocketRouteLifecycle`）、常驻 `<RouteView>` 路由保持、内核级路由过渡与侧滑返回动画引擎（`createPocketRouteTransitionController`）、激活路由 Back 隔离、IME 文本输入派发、音视频路由可见性（`media`）以及宿主 `systemUi` / `hostBridge` 联动（**严禁在皮肤适配器上覆写，受 `UI_SKIN_FORBIDDEN_KERNEL_KEYS` 与 `assertSkinKernelBoundary` 运行时校验保护**）；**可配置皮肤表面**仅限 `resolveTokens`、`kit` 23 个视觉槽位、`Provider`、`floatingBottomBar` 以及 `motion: { routeTransition, routeTransitionDurationMs }` 默认过渡曲线建议（自动受 `accessibility.preferences.reduceMotion` 约束）。",
+    "- **皮肤无关的系统与生命周期管理（`PocketAppShell` + `UiSkinProvider`）**：`UiSkinProvider` 与 `PocketAppShell` 自动联动宿主 `platform.presets`（深色模式、强调色、界面密度与当前皮肤 ID）、`accessibility.preferences`（减弱动效）、`platform.systemUi` 状态栏/导航栏配色同步、音视频路由可见性（`media.setCurrentPage`）、IME 文本输入派发以及常驻路由的 Back 隔离，切换任意皮肤均不会卸载或重建已挂载页面。页面与业务组件统一使用 `usePocketAppLifecycle`（感知宿主 `onAppear` / `onResume` / `onForeground` / `onBackground` / `onUnload`）与 `usePocketRouteLifecycle`（感知当前路由 `onEnter` / `onLeave` / `onForeground` / `onBackground`）。",
     "- **原生返回与侧滑返回**：`PocketAppShell` 默认自动绑定全局 `HostBridge`（也可显式传入 `host={host}`），接管硬件返回键、iOS 边缘侧滑返回、顶栏标题/返回按钮以及主 Tab 切换；已访问过的路由在 `<RouteView>` 中保持挂载，自动保留页面局部状态与 `ScrollablePage` 滚动偏移。若使用 `ProjectSurfaceRoot`，切勿在子组件 `onCleanup` 中调用 `host.dispose()`。",
-    "- **返回键拦截与浮层关闭（`usePocketBackHandler`）**：`SkinDialog`、`SkinSheet`、`MobileDialog`、`MobilePopup` 已自动注册 `usePocketBackHandler`，打开时按硬件返回键或触发返回手势会优先关闭浮层而不会误退底层路由；自定义全屏遮罩也可调用 `usePocketBackHandler(() => { close(); return true; }, isOpen)`。",
+    "- **返回键拦截与浮层关闭（`usePocketBackHandler`）**：`SkinDialog`、`SkinSheet`、`MobileDialog`、`MobilePopup` 已自动注册 `usePocketBackHandler` 并按当前激活路由自动隔离（后台常驻路由上的弹窗绝不会抢夺前台路由的返回键），打开时按硬件返回键或触发返回手势会优先关闭当前路由浮层而不会误退底层路由；自定义全屏遮罩也可调用 `usePocketBackHandler(() => { close(); return true; }, isOpen)`。",
     "- **导航栏图标（`NavigationIconKind`）**：`NavigationItem.kind` 内置 8 种跨平台几何图标：`\"home\" | \"gallery\" | \"host\" | \"settings\" | \"profile\" | \"search\" | \"inbox\" | \"star\"`；也可通过 `NavigationItem.icon` 传入自定义 JSX 或 `({ active, color, dark }) => JSX.Element`。",
     "- **禁止 `<Show>` / `<Match>` / `<Dynamic>` 包裹整页切换**：手搓条件切页会卸载非当前页面，导致滚动偏移、IME 输入会话与组件状态丢失。",
     "",
@@ -213,7 +215,8 @@ export function renderProjectAgentsMarkdown({ name, sdk, template = "app", flutt
     "",
     "| 场景 | 必用内置组件 / API | 说明 |",
     "| --- | --- | --- |",
-    "| 应用外壳与多页路由 | `createPocketRouter` + `PocketAppShell`（或 `<RouteView>` + `<PocketRouteScope>`） | 自动管理页面栈、常驻挂载保活、返回键与 Tab 栏 |",
+    "| 应用外壳与多页路由 | `createPocketRouter` + `PocketAppShell`（或 `<RouteView>` + `<PocketRouteScope>`） | 自动管理页面栈、常驻挂载保活、返回键、Tab 栏与 `platform.systemUi` |",
+    "| 应用与路由生命周期 | `usePocketAppLifecycle`、`usePocketRouteLifecycle`、`PocketLifecycleProvider`、`createPocketSystemUiSync` | 皮肤无关的宿主前后台恢复（`onAppear`/`onResume`）与常驻路由进出钩子 |",
     "| 页面安全区与顶栏/底栏 | `SkinScaffold` / `SafeAreaScaffold`、`SkinAppBar` / `MobileAppBar`、`SkinBackButton` / `MobileBackButton`、`SkinNavigationBar` / `NavigationBar` | 唯一消费系统刘海/状态栏/底部手势区 inset 的入口 |",
     "| 页面滚动与长列表 | `ScrollablePage`、`PocketVirtualList` | 自动处理惯性滚动、安全区底部留白与虚拟化回收 |",
     "| 文本输入（IME） | `SkinInput` / `InputField` | 绑定真实系统宿主输入法、光标、选区与组合输入，严禁 `<View>` 伪造输入框 |",

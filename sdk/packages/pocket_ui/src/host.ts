@@ -75,6 +75,7 @@ export interface PocketSystemPresets {
   accentColor: string;
   density: PocketSystemDensity;
   presentationStyle: MiniAppPresentationStyle;
+  skin?: string;
 }
 
 export const DEFAULT_SYSTEM_PRESETS: PocketSystemPresets = {
@@ -145,12 +146,24 @@ export function parseSystemPresets(
     ?? top.presentation;
   const presentationStyle = normalizePresentationStyle(rawPresentation, fallback.presentationStyle);
 
+  const rawSkin = source.skin ?? source.uiSkin;
+  let skin: string | undefined = fallback.skin;
+  if (typeof rawSkin === "string") {
+    const trimmed = rawSkin.trim();
+    if (trimmed === "default") {
+      skin = fallback.skin !== undefined ? "default" : undefined;
+    } else if (trimmed.length > 0) {
+      skin = trimmed;
+    }
+  }
+
   return {
     darkMode,
     colorScheme,
     accentColor,
     density,
     presentationStyle,
+    ...(skin !== undefined ? { skin } : {}),
   };
 }
 
@@ -161,6 +174,7 @@ export function systemPresetsBridgeObject(presets: PocketSystemPresets): BridgeO
     accentColor: presets.accentColor,
     density: presets.density,
     presentationStyle: presets.presentationStyle,
+    ...(presets.skin !== undefined ? { skin: presets.skin } : {}),
   };
 }
 
@@ -175,7 +189,9 @@ export function isSystemPresetsEvent(
   return (
     isObject(payload.presets) ||
     typeof payload.presentationStyle === "string" ||
-    isObject(payload.presentation)
+    isObject(payload.presentation) ||
+    typeof payload.skin === "string" ||
+    typeof payload.uiSkin === "string"
   );
 }
 

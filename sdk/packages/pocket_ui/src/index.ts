@@ -19,6 +19,7 @@ export * from "./apple.tsx";
 export * from "./bytes.ts";
 export * from "./skins.tsx";
 export * from "./router.tsx";
+export * from "./lifecycle.tsx";
 export * from "./app-shell.tsx";
 export * from "./fast.tsx";
 

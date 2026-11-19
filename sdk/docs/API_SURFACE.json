@@ -1508,7 +1508,7 @@
             "registerArcSkin",
             "resolveArcSkinTokens"
           ],
-          "sourceSha256": "8f20d6f58b77dc1502401d04e8bdae4f7c1bf473829290cd53ea969238d88888",
+          "sourceSha256": "54b21897d4304cae6ed292fdb285efbe27433372acafa496f75020cd8831c92f",
           "reexports": []
         },
         {
@@ -1540,7 +1540,7 @@
             "ArcDialog",
             "ArcToast"
           ],
-          "sourceSha256": "2cd42f526adc98c8c56a5e5c114b365c1e44c52f485a4e9c5991f3f9ba0d18f7",
+          "sourceSha256": "ca1cdaa80829a4c9d37ec15dc37410f0419a540246c6a10c5ca7efc59e4c4e59",
           "reexports": [
             "export { ArcDialog as Dialog, ArcBottomSheet as BottomSheet, ArcSurface as Alert };"
           ]
@@ -1941,7 +1941,7 @@
             "registerLiquidGlassSkin",
             "resolveLiquidGlassSkinTokens"
           ],
-          "sourceSha256": "1156a1c52fbb8b1c5d6f24bb79ca23fa077dd0232022f044c483797d29f19f8c",
+          "sourceSha256": "7cb40124c61f307791769942a1cb7a4fe9a3c2b14e290a1a3a133c691c71a7e2",
           "reexports": []
         },
         {
@@ -2007,7 +2007,7 @@
             "LiquidGlassSheetAction",
             "LiquidGlassToast"
           ],
-          "sourceSha256": "5312c463fa4cf124079f1ee3d6ff4b51b33626cad20067605d6567e4e221ad6a",
+          "sourceSha256": "b04d9e0e735a3db31401539aa387c187765588877aea54be7d8143783177f533",
           "reexports": []
         },
         {
@@ -2290,7 +2290,7 @@
             "registerLooseleafSkin",
             "resolveLooseleafSkinTokens"
           ],
-          "sourceSha256": "8358c18ab6ba2f1add1b44a1d2fa93258ebe8c8b9651902e18e8365648b2939e",
+          "sourceSha256": "4dcfe2c8717cf230e754a011640f7431487c784ae06353ce002f647239a7da50",
           "reexports": []
         },
         {
@@ -2663,6 +2663,7 @@
         "./bytes": "./src/bytes.ts",
         "./skins": "./src/skins.tsx",
         "./router": "./src/router.tsx",
+        "./lifecycle": "./src/lifecycle.tsx",
         "./app-shell": "./src/app-shell.tsx",
         "./fast": "./src/fast.tsx",
         "./surface-catalog": "./src/surface-catalog.ts",
@@ -2693,9 +2694,10 @@
             "accessibilityPreferencesPayload",
             "createAccessibilityPreferences",
             "parseAccessibilityPreferences",
-            "useAccessibilityPreferences"
+            "useAccessibilityPreferences",
+            "useInheritedAccessibilityPreferences"
           ],
-          "sourceSha256": "d5eba12c8ad5d9a27301df10acf98880b61439d451d8059899974bf89aa5a4ab",
+          "sourceSha256": "0cdaa93d47dcfb00a66930baae210cf5ed852fe9653ed4892788d610abadcd12",
           "reexports": []
         },
         {
@@ -2703,9 +2705,12 @@
           "declarations": [
             "PocketAppRouteView",
             "PocketAppShell",
-            "PocketAppShellProps"
+            "PocketAppShellProps",
+            "PocketRouteTransitionController",
+            "PocketRouteTransitionState",
+            "createPocketRouteTransitionController"
           ],
-          "sourceSha256": "60731108c4e01424f211fcc20b8c743dff10d4db03e9cbbadfc64d5342c7abd7",
+          "sourceSha256": "668bf331b5771cec0e350ac3cf79266343e73374c63223ae89a7c15e6a2ca690",
           "reexports": [
             "export { usePocketBackHandler } from \"./back-navigation.ts\";"
           ]
@@ -2741,12 +2746,13 @@
             "PocketBackInterceptorProvider",
             "PocketBackInterceptorRegistry",
             "PocketBackRequestHandler",
+            "PocketBackRouteActiveProvider",
             "createPocketBackInterceptorRegistry",
             "createPocketBackNavigation",
             "shouldCommitPocketBackGesture",
             "usePocketBackHandler"
           ],
-          "sourceSha256": "015188a4a568b9cf8d1e4c734f46d57f0346cfba57d273893b3311b84cb6bcce",
+          "sourceSha256": "de02884f86a2bd0b7b18450faa69e0cb9a1ab7822a807912ee973abc5081ab65",
           "reexports": []
         },
         {
@@ -3195,7 +3201,7 @@
             "parseSystemPresets",
             "systemPresetsBridgeObject"
           ],
-          "sourceSha256": "7a983ea69369cf6e66913efe7e88181c032d7b33877cf4e7ff54b0595ac5b30a",
+          "sourceSha256": "9767bce3d22ea1dbcaba9d6f9d997ff32957dc251ecb18dd377f097cbf0e67a0",
           "reexports": []
         },
         {
@@ -3231,7 +3237,7 @@
         {
           "file": "packages/pocket_ui/src/index.ts",
           "declarations": [],
-          "sourceSha256": "35560c6b92ac4730cec8b72a051b689918b09ed3c727664163c7a48c9b8ea35f",
+          "sourceSha256": "40f0626827e9dc019d5c3f680cfaa74bf5853fa9980c6a2a10c506e724160957",
           "reexports": [
             "export * from \"./ui.tsx\";",
             "export * from \"./route.tsx\";",
@@ -3252,6 +3258,7 @@
             "export * from \"./bytes.ts\";",
             "export * from \"./skins.tsx\";",
             "export * from \"./router.tsx\";",
+            "export * from \"./lifecycle.tsx\";",
             "export * from \"./app-shell.tsx\";",
             "export * from \"./fast.tsx\";",
             "export * from \"./system-surfaces.tsx\";",
@@ -3291,6 +3298,27 @@
             "computeTransitionDescriptor"
           ],
           "sourceSha256": "2b7ce7d2c9e7f062c5c7ceeb7f2177155030126e3aeb81dda54e5c42331bd2db",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_ui/src/lifecycle.tsx",
+          "declarations": [
+            "CreatePocketLifecycleControllerOptions",
+            "PocketAppLifecycleEvent",
+            "PocketAppLifecycleState",
+            "PocketLifecycleController",
+            "PocketLifecycleHandlers",
+            "PocketLifecycleProvider",
+            "PocketRouteLifecycleHandlers",
+            "PocketSystemUiSyncOptions",
+            "createPocketLifecycleController",
+            "createPocketSystemUiSync",
+            "parseArgbHexColor",
+            "parsePocketAppLifecycleEvent",
+            "usePocketAppLifecycle",
+            "usePocketRouteLifecycle"
+          ],
+          "sourceSha256": "9fbe5c63d359a5fa3218e70cd8950534b1799e311e7fae989746033301a1c366",
           "reexports": []
         },
         {
@@ -3489,7 +3517,7 @@
             "useWindowSizeClass",
             "wrapTextLines"
           ],
-          "sourceSha256": "657820fd8c3f436cdeb7e23dd6cf165a2a8137c8c488be5f55a1dabd3a72b15a",
+          "sourceSha256": "8d87848617cc86dee5237be4c252ce76f29c00352cea97c56d8a0b638420bd48",
           "reexports": [
             "export { MOBILE_MOTION, motionEaseInOut, motionEaseOut } from \"./motion.ts\";"
           ]
@@ -3668,7 +3696,7 @@
             "RouteViewProps",
             "useRouteActive"
           ],
-          "sourceSha256": "344911a783f04977d5da31c86798b3a4c911f43df1ad29e850c0e0970c7d5d43",
+          "sourceSha256": "8210ba751816ea17fdae3d5e79111ea7d21e997302a6d6969aa58f433c9c062e",
           "reexports": []
         },
         {
@@ -3753,6 +3781,7 @@
         {
           "file": "packages/pocket_ui/src/skins.tsx",
           "declarations": [
+            "DEFAULT_UI_SKIN_MOTION",
             "DefineUiSkinOptions",
             "NamedUiSkinAccent",
             "SkinAccordion",
@@ -3809,6 +3838,7 @@
             "SkinTabs",
             "SkinToast",
             "SkinToastProps",
+            "UI_SKIN_FORBIDDEN_KERNEL_KEYS",
             "UI_SKIN_KIT_SLOTS",
             "UiSkinAccent",
             "UiSkinAdapter",
@@ -3816,21 +3846,24 @@
             "UiSkinContextValue",
             "UiSkinId",
             "UiSkinKit",
+            "UiSkinMotionConfig",
             "UiSkinProvider",
             "UiSkinProviderSlotProps",
             "UiSkinSurfaceVariant",
             "UiSkinThemeMode",
             "UiSkinTokens",
             "UiSkinTone",
+            "assertSkinKernelBoundary",
             "defaultSkinAdapter",
             "defineUiSkin",
             "getUiSkin",
             "listUiSkins",
             "registerUiSkin",
             "resolveDefaultSkinTokens",
+            "resolveUiSkinMotion",
             "useUiSkin"
           ],
-          "sourceSha256": "ce546279122dcfe7aac69471235efa8a5e5587b98c7364bdba9c199b28379cce",
+          "sourceSha256": "9f60a336c63c7e1d4c7bf26cc9f2fe1c888cdbcde6d595e6283bb1c83dc9d801",
           "reexports": [
             "export { toMobileColor };"
           ]
@@ -4007,7 +4040,7 @@
             "PocketSystemV1",
             "installPocketSystem"
           ],
-          "sourceSha256": "3f00bd5e5fc1dfec0241514f1d56b363643cef906b26dcc332377d986c575c53",
+          "sourceSha256": "dfa137fc1703f534084d84821afb890327d03e670bb66681ed627a1414455de5",
           "reexports": [
             "export { DEFAULT_SYSTEM_PRESETS, normalizePresentationStyle, parseSystemPresets, SYSTEM_PRESETS_EVENT, systemPresetsBridgeObject, type MiniAppPresentationStyle, type MiniAppPresentationStyleInput, type PocketSystemDensity, type PocketSystemPresets, };",
             "export { POCKET_MEMORY_POLICIES, POCKET_MEMORY_POLICY_BUDGETS } from \"./system-memory.ts\";",
@@ -5044,7 +5077,7 @@
         },
         {
           "file": "scripts/create_project.mjs",
-          "sourceSha256": "a3156ab7ebf708f7d451e9e576078a89cb705e16f21dc3973fd9248aa0665321"
+          "sourceSha256": "7402a0ae344e044ac3bc2d3f6041b29dbf1e13b33e93c9833ef000cad53e8531"
         },
         {
           "file": "scripts/editor_service.mjs",

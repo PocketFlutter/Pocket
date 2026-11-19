@@ -745,6 +745,7 @@ export const arcSkinAdapter: UiSkinAdapter = {
   id: "arc",
   label: "Arc",
   description: "Calm architectural 3-tier surfaces, concentric radii & physical springs (@uiarc).",
+  motion: { routeTransition: "IOS_SPRING_PARALLAX", routeTransitionDurationMs: 200 },
   resolveTokens: resolveArcSkinTokens,
   Provider(props) {
     return (
