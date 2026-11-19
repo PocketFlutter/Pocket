@@ -7771,7 +7771,7 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: lib/src/pocket_distribution.dart 8580d9a4e3392a10506c9ca202a9d9f602a358ef1952f06c165320c83a6404d0 -->
 <!-- api-source: lib/src/pocket_host_config.dart eabb17c27a7913f4c1867ca9d7ad723050d0de18e7567ccdebba6a61695cd22b -->
 <!-- api-source: lib/src/pocket_recordings.dart f1752b58909af49504a9f4aa160a0f3f41dd0a9b8f10dc19dfa966ffd1e6e522 -->
-<!-- api-source: lib/src/pocket_session.dart e680a3cbeb44c6301f863e3a633bd1946efde231f7e3350ea46676da23d1f5e3 -->
+<!-- api-source: lib/src/pocket_session.dart bb79644ee14821a6507c47add141ad85999934731b0d2dca0aa26598d18a67ce -->
 <!-- api-source: lib/src/pocket_system_host.dart 3570cc630592748a7caeb2a6dcbdf9d1f267973c41e807b58484c3faca4d8ae2 -->
 <!-- api-source: lib/src/pocket_worker.dart 7b8fe3cbf435f21882a8ef7939e421297b938bc8c07131495d118ff621e93f0e -->
 <!-- api-source: packages/pocket_archive/lib/pocket_archive.dart 3ae77c255d6b4d4fb82a990e129552a9c23260efe9cefcc7ced6463b977b9299 -->

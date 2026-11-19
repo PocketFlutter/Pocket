@@ -539,5 +539,43 @@ final class _LoopbackRedirectHttpClient implements HttpClient {
   void close({bool force = false}) => _inner.close(force: force);
 
   @override
+  Duration get idleTimeout => _inner.idleTimeout;
+
+  @override
+  set idleTimeout(Duration value) => _inner.idleTimeout = value;
+
+  @override
+  Duration? get connectionTimeout => _inner.connectionTimeout;
+
+  @override
+  set connectionTimeout(Duration? value) => _inner.connectionTimeout = value;
+
+  @override
+  bool get autoUncompress => _inner.autoUncompress;
+
+  @override
+  set autoUncompress(bool value) => _inner.autoUncompress = value;
+
+  @override
+  String? get userAgent => _inner.userAgent;
+
+  @override
+  set userAgent(String? value) => _inner.userAgent = value;
+
+  @override
+  int? get maxConnectionsPerHost => _inner.maxConnectionsPerHost;
+
+  @override
+  set maxConnectionsPerHost(int? value) => _inner.maxConnectionsPerHost = value;
+
+  @override
+  set badCertificateCallback(
+    bool Function(X509Certificate cert, String host, int port)? callback,
+  ) => _inner.badCertificateCallback = callback;
+
+  @override
+  set findProxy(String Function(Uri url)? f) => _inner.findProxy = f;
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

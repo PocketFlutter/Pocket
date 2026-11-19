@@ -404,7 +404,7 @@ const HTML_DOM_TAG_RE =
   /<(?:div|span|button|input|textarea|select|form|label|p|h[1-6]|ul|ol|li|a|img|svg|canvas|video|audio|table|thead|tbody|tr|td|th|iframe|section|article|aside|header|footer|main|nav|br|hr)(?=[\s/>])/;
 
 const BROWSER_GLOBAL_RE =
-  /\b(?:document\.(?:getElementById|querySelector|querySelectorAll|createElement|body|documentElement|cookie|addEventListener)|window\.(?:location|history|localStorage|sessionStorage|navigator|addEventListener|open|alert|confirm|prompt|requestAnimationFrame)|localStorage\.|sessionStorage\.|navigator\.(?:userAgent|clipboard|geolocation)|history\.(?:pushState|replaceState|back|forward))\b|\balert\s*\(/;
+  /\b(?:document\.(?:getElementById|querySelector|querySelectorAll|createElement|body|documentElement|cookie|addEventListener)|window\.(?:location|history|localStorage|sessionStorage|navigator|addEventListener|open|alert|confirm|prompt|requestAnimationFrame)|localStorage\.|sessionStorage\.|navigator\.(?:userAgent|clipboard|geolocation)|history\.(?:pushState|replaceState|back|forward))\b/;
 
 export function inspectGuestFrameworkConventionsDetailed(projectRoot, entryRelative) {
   const resolvedRoot = resolve(projectRoot);

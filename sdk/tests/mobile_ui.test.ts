@@ -61,7 +61,7 @@ export const ScrollablePageContext = createContext({
 export const ScrollContourItem = (props: any) => View(props);
 export const useScrollContourReserve = () => ({ leftReserve: () => 0, nodeRef: () => {}, reserve: () => 0, reserves: () => ({ left: 0, right: 0 }), syncLayout: () => false });
 `);
-    for (const file of ["responsive.ts", "host.ts", "display.ts", "motion.ts", "accessibility.ts", "route.tsx"]) {
+    for (const file of ["responsive.ts", "host.ts", "display.ts", "motion.ts", "accessibility.ts", "route.tsx", "back-navigation.ts"]) {
       writeFileSync(join(isolatedSourceRoot, file), readFileSync(join(import.meta.dir, "../packages/pocket_ui/src", file)));
     }
 

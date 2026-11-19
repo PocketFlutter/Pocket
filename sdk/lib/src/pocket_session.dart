@@ -301,6 +301,7 @@ final class PocketSession extends ChangeNotifier {
     // operation, including on failure, before admission or close completes.
     late final List<String> sources;
     await Future.wait<void>([
+      performance.initialize(),
       if (config.diagnostics != null)
         config.diagnostics!.ensureCollector().then<void>((_) {}),
       Future.wait<String>([

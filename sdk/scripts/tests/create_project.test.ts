@@ -370,13 +370,15 @@ test("Test 3: inspectGuestFrameworkConventionsDetailed & buildGuest strict vs wa
       all: [],
     });
 
-    // Comments and string literals mentioning HTML/DOM or window.location do NOT trigger false positives
+    // Comments and string literals mentioning HTML/DOM or window.location, or Solid alert() signal accessors, do NOT trigger false positives
     writeFileSync(
       join(cleanApp, "helper.ts"),
       [
+        'import { createSignal } from "solid-js";',
         "// <div> window.location.href document.getElementById('x')",
         '/* <button>localStorage.getItem("k")</button> */',
         'export const sample = "<div>window.location.href</div>";',
+        "const [alert, setAlert] = createSignal(false); export const readAlert = () => alert(); void setAlert;",
       ].join("\n"),
     );
     expect(inspectGuestFrameworkConventionsDetailed(cleanApp, "app.tsx")).toEqual({
@@ -384,6 +386,19 @@ test("Test 3: inspectGuestFrameworkConventionsDetailed & buildGuest strict vs wa
       warnings: [],
       all: [],
     });
+
+    const windowAlertApp = join(root, "window-alert-app");
+    await createStandaloneProject(windowAlertApp, { name: "Window Alert App", template: "app" });
+    writeFileSync(
+      join(windowAlertApp, "helper.ts"),
+      'export function notify() { window.alert("hi"); }\n',
+    );
+    const windowAlertReport = inspectGuestFrameworkConventionsDetailed(windowAlertApp, "app.tsx");
+    expect(
+      windowAlertReport.errors.some((line) =>
+        line.includes("detected browser DOM/history/storage global"),
+      ),
+    ).toBe(true);
 
     // Multi-branch <Show when={tab() === ...}> without PocketAppShell/RouteView emits a router warning
     const showRouterApp = join(root, "show-router-app");
