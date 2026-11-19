@@ -4,12 +4,26 @@
   "name": "PocketJS Flutter host showcase",
   "title": "PocketJS Flutter host showcase",
   "version": "0.1.0",
-  "build": 1,
+  "build": 3,
   "tickHz": 60,
   "reusePublishedPackages": [
     "pocket.demo.lantern"
   ],
   "entry": "app.tsx",
   "output": "showcase-app",
-  "framework": "solid"
+  "framework": "solid",
+  "template": "app",
+  "ecosystemModules": [
+    "apple-devices",
+    "apple-today",
+    "apple-lock",
+    "apple-live-activity",
+    "apple-watch",
+    "apple-clip",
+    "android-devices",
+    "android-widgets",
+    "android-live",
+    "android-wear",
+    "android-instant"
+  ]
 }
