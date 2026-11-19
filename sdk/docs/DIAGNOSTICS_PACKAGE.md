@@ -2,7 +2,7 @@
 
 ## Install from GitHub Packages
 
-PocketFlutter distributes a private npm package named
+PocketFlutter distributes a public npm package named
 `@pocketflutter/diagnostics` for cross-repository use. It exposes the same
 TypeScript entry points as the `@pocket/diagnostics` SDK workspace, including
 `/browser`, `/node`, `/file`, `/normalize`, and `/types`. The registry
@@ -33,7 +33,7 @@ console.log(await diagnostics.listLogs());
 await diagnostics.close();
 ```
 
-The manual **Publish Diagnostics Package** workflow stages the existing
+The manual **Publish SDK Packages** workflow stages the existing
 diagnostics source, package exports, and repository MIT license. It uses the
 workspace version and exercises an authenticated install in a clean consumer.
 The retained parent sources described below provide historical context for

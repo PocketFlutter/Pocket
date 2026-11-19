@@ -4,6 +4,8 @@ This index covers the Pocket SDK API. Its baseline is the current `sdk/package.j
 
 ## Documentation
 
+- Install the separately versioned TypeScript packages from the registry. [GitHub Packages](GITHUB_PACKAGES.md)
+
 - Standalone Studio installation, directory selection, and project binding without a Git checkout. [Install Studio](INSTALL_STUDIO.md)
 - Generated public constructors, fields, getters, methods, parameters, and defaults using actual export filters. [Dart signatures](DART_API_SIGNATURES.md)
 - Generated public types, properties, functions, and overloads based on package exports. [JS/TS signatures](JS_API_SIGNATURES.md)

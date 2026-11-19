@@ -1,0 +1,85 @@
+name: Publish SDK Packages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: pocket-sdk-packages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com
+          scope: "@pocketflutter"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Run host package regression tests
+        run: |
+          bun test sdk/packages/pocket_diagnostics/test sdk/packages/pocket_cos/test
+
+      - name: Pack SDK packages
+        run: |
+          stage="$RUNNER_TEMP/pocket-sdk-packages"
+          node sdk/scripts/package_github_packages.mjs --out "$stage" > "$RUNNER_TEMP/pocket-packages.json"
+          while IFS= read -r directory; do
+            (cd "$directory" && npm pack --ignore-scripts --json > pack.json)
+          done < <(jq -r '.[].directory' "$RUNNER_TEMP/pocket-packages.json")
+
+      - name: Check release integrity and publish staged tarballs
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          catalog="$RUNNER_TEMP/pocket-packages.json"
+          releases="$RUNNER_TEMP/pocket-new-packages.txt"
+          touch "$releases"
+          while IFS=$'\t' read -r name version directory; do
+            package="$name@$version"
+            integrity="$(jq -er '.[0].integrity' "$directory/pack.json")"
+            if published_integrity="$(npm view "$package" dist.integrity 2>"$RUNNER_TEMP/npm-view.log")"; then
+              if [[ "$published_integrity" != "$integrity" ]]; then
+                echo "$package differs from the staged tarball. Bump the workspace package version." >&2
+                exit 1
+              fi
+              echo "$package is already published with matching integrity."
+            elif grep -q 'E404' "$RUNNER_TEMP/npm-view.log"; then
+              printf '%s\n' "$directory" >> "$releases"
+            else
+              cat "$RUNNER_TEMP/npm-view.log" >&2
+              exit 1
+            fi
+          done < <(jq -r '.[] | [.name,.version,.directory] | @tsv' "$catalog")
+
+          while IFS= read -r directory; do
+            tarball="$(jq -er '.[0].filename' "$directory/pack.json")"
+            npm publish "$directory/$tarball" --ignore-scripts
+          done < "$releases"
+
+      - name: Verify installation and runtime from a clean consumer
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          consumer="$RUNNER_TEMP/pocket-packages-consumer"
+          mkdir "$consumer"
+          jq '{
+            name: "pocket-packages-consumer",
+            private: true,
+            type: "module",
+            dependencies: (map({key: (.name | sub("^@pocketflutter/"; "@pocket/")), value: ("npm:" + .name + "@" + .version)}) | from_entries)
+          }' "$RUNNER_TEMP/pocket-packages.json" > "$consumer/package.json"
+          (cd "$consumer" && npm install --ignore-scripts --no-audit)
+          bun sdk/scripts/verify_github_packages.ts "$consumer"
