@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { chromium } from "playwright";
@@ -10,7 +10,7 @@ const core = process.env.POCKET_CUBISM_WEB_CORE;
 // Official Core and sample assets are local development dependencies, not
 // redistributed test fixtures. Build them with build_hiyori_guest_fixture.ts.
 test.skipIf(!core || !process.env.POCKET_WEB_ENGINE || !process.env.POCKET_WEB_RUNTIME || !existsSync(join(fixture, "app.tsx")))(
-  "real Hiyori Guest animates through the same Web QJBC on main and render Worker",
+  "packaged Hiyori animates with default mesh selection, explicit CPU and render Worker",
   async () => {
     const work = mkdtempSync(join(tmpdir(), "pocket-live2d-web-"));
     const output = join(work, "web");
@@ -21,27 +21,46 @@ test.skipIf(!core || !process.env.POCKET_WEB_ENGINE || !process.env.POCKET_WEB_R
     try {
       await buildWeb({ projectRoot: fixture, outDir: output, enginePath: process.env.POCKET_WEB_ENGINE,
         runtimePath: process.env.POCKET_WEB_RUNTIME, live2dCorePath: core });
+      expect(JSON.parse(readFileSync(join(output, "pocket.config.json"), "utf8")).live2d.gpuMesh).toBe(true);
       server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch(request) {
         const url = new URL(request.url);
         if (url.pathname === "/") return new Response(`<!doctype html><style>body{margin:0}canvas{width:240px;height:340px}</style><canvas tabindex="0"></canvas><script type="module">
 import { PocketWebRuntime } from '/pocket-web.js';
-window.errors=[];window.frames=[];
+window.errors=[];window.frames=[];window.meshFrames=0;
 const debug=${JSON.stringify(Boolean(process.env.POCKET_LIVE2D_WEB_DEBUG))};
 const config=await fetch('/pocket.config.json').then(r=>r.json());
-window.runtime=new PocketWebRuntime({canvas:document.querySelector('canvas'),engineUrl:'/engine/pocketjs.wasm',qjbcUrl:'/app.qjbc',pakUrl:'/app.pak',config,renderWorker:new URL(location).searchParams.get('mode')==='worker',gameInput:true,onError:e=>errors.push(String(e.message||e))});
+const mode=new URL(location).searchParams.get('mode');
+if(mode==='cpu') config.live2d.gpuMesh=false;
+window.runtime=new PocketWebRuntime({canvas:document.querySelector('canvas'),engineUrl:'/engine/pocketjs.wasm',qjbcUrl:'/app.qjbc',pakUrl:'/app.pak',config,renderWorker:mode==='worker',gameInput:true,onError:e=>errors.push(String(e.message||e))});
 const invoke=runtime.live2d.invoke.bind(runtime.live2d);
 runtime.live2d.invoke=async(...args)=>{if(debug)console.log("invoke",args[0],frames.length);let result;try{result=await invoke(...args);}catch(e){errors.push(String(e.message||e)+" "+String(e.cause?.message||""));throw e;}if(debug)console.log('received',args[0]);if(args[0].endsWith('.update')){let sum=0;for(const d of result.drawables){const b=d.meshBytes;if(b.length>16){const v=new DataView(b.buffer,b.byteOffset,b.byteLength);for(let i=16;i<Math.min(256,b.length);i+=16)sum+=v.getFloat32(i,true);}}frames.push({count:result.drawables.length,sum});}return result;};
-try{if(debug)console.log("mount:start");await runtime.mount();window.ready=true;if(debug)console.log("mount:ready");}catch(e){errors.push(String(e.message||e));window.failed=true;}
+try {
+  if(debug)console.log("mount:start");
+  await runtime.mount();
+  const mesh=runtime.host.webMesh;
+  if(mesh) {
+    const frame=mesh.frame.bind(mesh);
+    mesh.frame=(...args)=>{
+      const accepted=frame(...args);
+      if(accepted===1) window.meshFrames++;
+      return accepted;
+    };
+  }
+  window.ready=true;
+  if(debug)console.log("mount:ready");
+} catch(e){errors.push(String(e.message||e));window.failed=true;}
 </script>`, { headers: { "content-type": "text/html", "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'unsafe-inline'; img-src 'self' data: blob:" } });
         const path = resolve(output, `.${url.pathname}`);
         if (!path.startsWith(output + sep)) return new Response("forbidden", { status: 403 });
         const type = ({ ".js": "text/javascript", ".wasm": "application/wasm", ".json": "application/json" } as Record<string,string>)[extname(path)] || "application/octet-stream";
         return new Response(Bun.file(path), { headers: { "content-type": type } });
       } });
-      browser = await chromium.launch({ headless: true });
+      // Headless Chromium defaults to SwiftShader here. Prefer Metal on macOS
+      // so a real GPU can exercise the mesh path when one is available.
+      browser = await chromium.launch({ headless: true, args: process.platform === "darwin" ? ["--use-angle=metal"] : [] });
       const reports = [];
       let startPoint: { x: number; y: number } | undefined;
-      for (const mode of ["main", "worker"]) {
+      for (const mode of ["main", "cpu", "worker"]) {
         const page = await browser.newPage({ viewport: { width: 240, height: 340 }, deviceScaleFactor: 2 });
         if (process.env.POCKET_LIVE2D_WEB_DEBUG) page.on("console", message => console.log(mode, message.type(), message.text()));
         const pageErrors: string[] = []; page.on("pageerror", error => pageErrors.push(error.message));
@@ -73,9 +92,14 @@ try{if(debug)console.log("mount:start");await runtime.mount();window.ready=true;
         catch (error) { console.error(mode, startPoint, await page.evaluate(async () => ({ errors: (window as any).errors, frames: (window as any).frames, nodes: (await (window as any).runtime.inspect()).nodes.filter((n: any) => n.text) }))); throw error; }
         expect(await page.evaluate(() => (window as any).errors)).toEqual([]);
         await page.waitForFunction(() => new Set((window as any).frames.map((frame: any) => frame.sum.toFixed(3))).size > 1, { timeout: 15000 });
-        const report = await page.evaluate(async () => ({ frames: (window as any).frames, stats: await (window as any).runtime.stats(), errors: (window as any).errors }));
+        const report = await page.evaluate(async () => ({
+          frames: (window as any).frames, stats: await (window as any).runtime.stats(),
+          errors: (window as any).errors, meshFrames: (window as any).meshFrames,
+          meshAvailable: (window as any).runtime.host.webMesh?.available() ?? false,
+        }));
         expect(report.frames.every((frame: any) => frame.count >= 100)).toBe(true);
-        expect(report.stats.mode).toBe(mode);
+        expect(report.stats.mode).toBe(mode === "worker" ? "worker" : "main");
+        if (mode !== "main") expect(report.meshFrames).toBe(0);
         expect(pageErrors).toEqual([]);
         // Mesh deformation must also reach visible pixels. Crop the model's
         // upper body so dialogue typewriter/cursor changes cannot satisfy it.
@@ -91,6 +115,10 @@ try{if(debug)console.log("mount:start");await runtime.mount();window.ready=true;
         await page.evaluate(() => (window as any).runtime.dispose()); await page.close();
       }
       if (evidence) writeFileSync(join(evidence, "browser-acceptance.json"), JSON.stringify(reports, null, 2));
-    } finally { await browser?.close(); await server?.stop(true); rmSync(work, { recursive: true, force: true }); }
+    } finally {
+      await browser?.close();
+      server?.stop(true);
+      rmSync(work, { recursive: true, force: true });
+    }
   }, { timeout: 120000 },
 );

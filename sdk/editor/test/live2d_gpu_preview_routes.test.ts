@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { cubismWebCorePath } from "../live2d.ts";
 import { canBuildLive2dGpuPreview, createLive2dGpuPreview } from "../live2d-gpu-preview.ts";
@@ -80,6 +81,20 @@ test.skipIf(!realArtifacts)("GPU preview publishes only the current generation a
   }
   const readiness = await status(await handle("status"));
   expect(readiness).toEqual({ available: true });
+
+  const packagedEngine = mkdtempSync(join(tmpdir(), "pocket-gpu-tools-"));
+  try {
+    mkdirSync(join(packagedEngine, "engine"));
+    mkdirSync(join(packagedEngine, "web"));
+    copyFileSync(join(engineDirectory, "pocketjs.wasm"), join(packagedEngine, "engine/pocketjs.wasm"));
+    copyFileSync(join(engineDirectory, "pocket-web.js"), join(packagedEngine, "web/pocket-web.js"));
+    const packaged = createLive2dGpuPreview(packagedEngine);
+    const response = await packaged.handle(new Request(route + "status"), "status",
+      async () => project, true, false);
+    expect(await status(response)).toEqual({ available: true });
+  } finally {
+    rmSync(packagedEngine, { recursive: true, force: true });
+  }
 
   const redirect = await handle("");
   expect(redirect.status).toBe(302);

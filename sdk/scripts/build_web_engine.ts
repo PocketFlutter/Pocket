@@ -55,13 +55,14 @@ export function parseBuildWebEngineArgs(args: string[]): BuildWebEngineOptions {
     else if (arg.startsWith("--tick-hz=")) options.tickHz = Number(arg.slice("--tick-hz=".length));
     else if (arg.startsWith("--density=")) options.rasterDensity = Number(arg.slice("--density=".length));
     else if (arg === "--live2d-mesh") options.browserLive2dMesh = true;
+    else if (arg === "--no-live2d-mesh") options.browserLive2dMesh = false;
     else throw new Error(`build_web_engine: unknown option ${arg}`);
   }
   return {
     outDir: resolve(options.outDir || DEFAULT_OUT),
     tickHz: options.tickHz,
     rasterDensity: options.rasterDensity,
-    ...(options.browserLive2dMesh === true ? { browserLive2dMesh: true } : {}),
+    browserLive2dMesh: options.browserLive2dMesh ?? true,
   };
 }
 
@@ -92,6 +93,7 @@ export async function verifyWebEngine(bytes: Uint8Array): Promise<{ exports: str
 
 export async function buildWebEngine(options: BuildWebEngineOptions): Promise<{ outDir: string; wasmBytes: number; runtimeBytes: number; exports: string[] }> {
   const output = resolve(options.outDir);
+  const browserLive2dMesh = options.browserLive2dMesh ?? true;
   assertEmptyDirectory(output);
   const temporary = mkdtempSync(join(tmpdir(), "pocketjs-web-engine-source-"));
   const project = join(temporary, "project");
@@ -117,7 +119,7 @@ export async function buildWebEngine(options: BuildWebEngineOptions): Promise<{ 
         entry: "app.tsx",
         tickHz: options.tickHz,
         rasterDensity: options.rasterDensity,
-        browserLive2dMesh: options.browserLive2dMesh,
+        browserLive2dMesh,
       });
     } finally {
       if (previousSourceBuild === undefined) delete process.env.POCKET_SOURCE_BUILD;
@@ -126,7 +128,7 @@ export async function buildWebEngine(options: BuildWebEngineOptions): Promise<{ 
     const compressed = readFileSync(join(miniProgram, "engine", "pocketjs.wasm.br"));
     const wasm = brotliDecompressSync(compressed);
     const verification = await verifyWebEngine(wasm);
-    if (verification.exports.includes(LIVE2D_MESH_EXPORT) !== (options.browserLive2dMesh === true)) {
+    if (verification.exports.includes(LIVE2D_MESH_EXPORT) !== browserLive2dMesh) {
       throw new Error("build_web_engine: browser Live2D mesh ABI does not match the source build option");
     }
     mkdirSync(output, { recursive: true });

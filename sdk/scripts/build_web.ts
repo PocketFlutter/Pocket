@@ -142,7 +142,7 @@ function copyRuntimeBundle(source: string, output: string, renderWorker: boolean
 function readme(config: Record<string, unknown>): string {
   const appId = typeof config.appId === "string" ? config.appId : "pocket.guest";
   const live2d = config.live2d && typeof config.live2d === "object"
-    ? `\n## Live2D\n\nThis build bundles the validated \`.moc3\` files listed in \`pocket.config.json\`. It also requires a licensed local Cubism Web Core script: pass \`--live2d-core=/path/to/live2dcubismcore.min.js\` or set \`POCKET_CUBISM_WEB_CORE\`. The build copies it as \`${LIVE2D_CORE_FILENAME}\`; it does not fetch Core from a CDN.\n`
+    ? `\n## Live2D\n\nThis build bundles the validated \`.moc3\` files listed in \`pocket.config.json\`. It also requires a licensed local Cubism Web Core script: pass \`--live2d-core=/path/to/live2dcubismcore.min.js\` or set \`POCKET_CUBISM_WEB_CORE\`. The build copies it as \`${LIVE2D_CORE_FILENAME}\`; it does not fetch Core from a CDN.\n\nWith the bundled Web engine and WebGL2, eligible Live2D mesh frames use the GPU while the WASM renderer draws the rest of the UI. Render Workers and unsupported frames use software rendering. Set \`live2d.gpuMesh\` to \`false\` in the host config to use software rendering throughout.\n`
     : "";
   return `# PocketJS Web consumer\n\n` +
     `This directory is a standalone browser package for **${appId}**. It contains the real pinned PocketJS WebAssembly runtime with the app's admitted QuickJS bytecode and PAK embedded during the build. It does not require Flutter, Dart, Xcode, Android SDK, or a WeChat runtime.\n\n` +
@@ -213,7 +213,7 @@ export async function buildWeb(options: BuildWebOptions): Promise<{ outDir: stri
       renderWorker,
       ...(worker ? { worker } : {}),
       ...(worker && configuredWorkerOrigins.length ? { workerHttpOrigins: configuredWorkerOrigins } : {}),
-      ...(live2d ? { live2d } : {}),
+      ...(live2d ? { live2d: { ...live2d, gpuMesh: true } } : {}),
     };
     writeFileSync(join(output, "pocket.config.json"), `${JSON.stringify(config, null, 2)}\n`);
     const webInfo = { target: "web-host-qjbc", appId: config.appId, hostRuntime: "WebAssembly + Canvas2D", enginePath: "engine/pocketjs.wasm", qjbc: "app.qjbc", pak: "app.pak", ...(renderWorker ? { renderWorker: "pocket-render-worker.js" } : {}), ...(worker ? { worker } : {}), ...(worker && configuredWorkerOrigins.length ? { workerHttpOrigins: configuredWorkerOrigins } : {}), ...(live2d ? { live2d: { core: LIVE2D_CORE_FILENAME, assets: Object.keys(live2d.assets) } } : {}), bindingGeneration: config.bindingGeneration, tickHz: built.tickHz, wasmBytes };

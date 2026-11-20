@@ -9,6 +9,7 @@ import { encodeNovelMeshEffect, type NovelModelDefinition, type NovelModelMesh, 
 import { createBundledNovelLive2dFactory } from "@pocket/vn/live2d";
 import { NovelMeshView } from "@pocket/vn/mesh-view";
 import { pocketLive2dUpdateCapability } from "@pocket/live2d";
+import { containsCubismMeshPoint } from "@pocket/live2d/interaction";
 import assets from "./novel.assets.json";
 
 const host = createHostBridge();
@@ -51,7 +52,7 @@ function MaoStage(props: {
   let stopped = false;
   let cancelTick: (() => void) | undefined;
   let frameInFlight = false;
-  let contactId: number | undefined;
+  let pressed: { id: number; inHitArea: boolean } | undefined;
   let dragStarted = false;
   let motionSecondsLeft = 0;
   const fail = (cause: unknown) => {
@@ -127,7 +128,7 @@ function MaoStage(props: {
     return { x: (point.x - placement.x) / placement.scale, y: (point.y - placement.y) / placement.scale };
   };
   const clearGesture = () => {
-    contactId = undefined;
+    pressed = undefined;
     if (!dragStarted) return;
     dragStarted = false;
     lastFrame = virtualNow();
@@ -137,19 +138,25 @@ function MaoStage(props: {
     region: { node: () => stage },
     axis: "any",
     onDown(contact) {
-      if (contactId !== undefined) {
-        if (contact.id !== contactId) { clearGesture(); gesture.cancel(); }
+      if (pressed) {
+        if (contact.id !== pressed.id) { clearGesture(); gesture.cancel(); }
         return;
       }
-      if (instance?.hitTest?.(localPoint(contact))) contactId = contact.id;
+      const meshes = frame();
+      if (!meshes.length || !nodesReady()) return;
+      const point = localPoint(contact);
+      const inHitArea = instance?.hitTest?.(point) === true;
+      if (inHitArea || meshes.some(mesh => mesh.visible !== false && containsCubismMeshPoint(mesh.geometry, point))) {
+        pressed = { id: contact.id, inHitArea };
+      }
     },
     onTap(contact) {
-      if (contact.id !== contactId) return;
-      if (instance?.tap?.(localPoint(contact))) props.onStatus("你好呀，今天见到你真开心！");
+      if (contact.id !== pressed?.id) return;
+      if (pressed.inHitArea && instance?.tap?.(localPoint(contact))) props.onStatus("你好呀，今天见到你真开心！");
       clearGesture();
     },
     onPanMove(contact) {
-      if (contact.id !== contactId) return;
+      if (contact.id !== pressed?.id) return;
       if (dragStarted) {
         if (contact.fdx === 0 && contact.fdy === 0) return;
         props.move(contact.fdx, contact.fdy);
@@ -163,11 +170,11 @@ function MaoStage(props: {
       }
     },
     onPanEnd(contact) {
-      if (contact.id !== contactId) return;
+      if (contact.id !== pressed?.id) return;
       clearGesture();
       props.onStatus("这里也不错。");
     },
-    onCancel(contact) { if (contact.id === contactId) clearGesture(); },
+    onCancel(contact) { if (contact.id === pressed?.id) clearGesture(); },
   });
   onCleanup(stop);
 

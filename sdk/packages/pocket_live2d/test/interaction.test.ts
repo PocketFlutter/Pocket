@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createCubismInteractionController } from "../src/interaction.ts";
+import { containsCubismMeshPoint, createCubismInteractionController } from "../src/interaction.ts";
 import { parseCubismModel3 } from "../src/manifest.ts";
 import type { PocketLive2dDrawableFrame } from "../src/transport.ts";
 
@@ -73,6 +73,17 @@ test("HitArea ignores degenerate triangles instead of accepting every point", ()
     meshBytes: triangleMesh([2, 2, 2, 2, 2, 2]),
   }];
   expect(controller.hitAreaAt(drawables, { x: 200, y: -90 })).toBeUndefined();
+});
+
+test("mesh point testing accepts the triangle edge and rejects empty space within its bounds", () => {
+  const points = [10, 10, 40, 10, 10, 40];
+  const hat = triangleMesh(points);
+  expect(containsCubismMeshPoint(hat, { x: 15, y: 15 })).toBe(true);
+  expect(containsCubismMeshPoint(hat, { x: 25, y: 25 })).toBe(true);
+  expect(containsCubismMeshPoint(hat, { x: 39, y: 39 })).toBe(false);
+  expect(containsCubismMeshPoint(hat, { x: NaN, y: 15 })).toBe(false);
+  expect(containsCubismMeshPoint(triangleMesh(points, [0, 1, 3]), { x: 15, y: 15 })).toBe(false);
+  expect(containsCubismMeshPoint(hat.subarray(0, hat.length - 1), { x: 15, y: 15 })).toBe(false);
 });
 
 test("drag maps placement-adjusted pointer positions through Core-provided parameter limits", () => {

@@ -20,7 +20,13 @@ export function live2dGpuEngineDirectory(): string | undefined {
   const configured = process.env.POCKET_EDITOR_GPU_ENGINE_DIR?.trim();
   if (configured) return configured;
   const local = join(import.meta.dir, "../.pocket-build/live2d-gpu-engine");
-  return existsSync(join(local, "pocketjs.wasm")) ? local : undefined;
+  if (existsSync(join(local, "pocketjs.wasm"))) return local;
+  // The managed Studio service sets this to its validated platform package.
+  const tools = process.env.POCKET_TOOLS_PACKAGE?.trim();
+  if (tools && existsSync(join(tools, "engine/pocketjs.wasm")) && existsSync(join(tools, "web/pocket-web.js"))) {
+    return tools;
+  }
+  return undefined;
 }
 
 const headers = { "cache-control": "no-store", "x-content-type-options": "nosniff" };
@@ -124,9 +130,10 @@ async function projectFiles(project: PreviewProject | undefined) {
 
 async function engineFiles(directory: string) {
   const root = resolve(directory);
+  const sourceLayout = existsSync(join(root, "pocketjs.wasm"));
   const [wasm, runtime, core] = await Promise.all([
-    regularFile(join(root, "pocketjs.wasm")),
-    regularFile(join(root, "pocket-web.js")),
+    regularFile(join(root, sourceLayout ? "pocketjs.wasm" : "engine/pocketjs.wasm")),
+    regularFile(join(root, sourceLayout ? "pocket-web.js" : "web/pocket-web.js")),
     // An explicitly installed official core may be a symlink.
     realpath(cubismWebCorePath()).then(path => regularFile(path, { max: 4 * 1024 * 1024 })),
   ]);

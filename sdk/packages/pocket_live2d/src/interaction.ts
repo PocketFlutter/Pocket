@@ -43,7 +43,7 @@ export function createCubismInteractionController(options: CubismInteractionCont
         // drawable is visually hidden. Its geometry still defines the touch
         // region, just as Cubism's model-level hit-area contract does.
         const drawable = drawables.find(value => value.id === area.id);
-        if (drawable && meshContainsPoint(drawable.meshBytes, point)) return area;
+        if (drawable && containsCubismMeshPoint(drawable.meshBytes, point)) return area;
       }
       return undefined;
     },
@@ -78,9 +78,10 @@ export function createCubismInteractionController(options: CubismInteractionCont
   };
 }
 
-function meshContainsPoint(bytes: Uint8Array, point: CubismPoint): boolean {
-  if (bytes.byteLength === 0) return false;
-  if (bytes.byteLength < 16 || bytes.byteLength % 4 !== 0) return false;
+/** Test PMS1 triangle geometry in its own coordinate space. Ignores texture alpha and masks. */
+export function containsCubismMeshPoint(bytes: Uint8Array, point: CubismPoint): boolean {
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y) ||
+      bytes.byteLength < 16 || bytes.byteLength % 4 !== 0) return false;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const vertexCount = view.getUint32(4, true);
   const indexCount = view.getUint32(8, true);

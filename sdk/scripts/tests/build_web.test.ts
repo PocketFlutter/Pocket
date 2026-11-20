@@ -128,7 +128,9 @@ test("render Worker defaults off and supports explicit Worker rendering", () => 
 test("Web engine release command is an explicit source-build maintainer path", () => {
   expect(parseBuildWebEngineArgs([]).outDir).toContain(".pocket-build/web-engine");
   expect(parseBuildWebEngineArgs(["--outdir=/tmp/engine", "--tick-hz=60", "--density=2"]))
-    .toEqual({ outDir: "/tmp/engine", tickHz: 60, rasterDensity: 2 });
+    .toEqual({ outDir: "/tmp/engine", tickHz: 60, rasterDensity: 2, browserLive2dMesh: true });
+  expect(parseBuildWebEngineArgs(["--no-live2d-mesh"]).browserLive2dMesh).toBe(false);
+  expect(parseBuildWebEngineArgs(["--no-live2d-mesh", "--live2d-mesh"]).browserLive2dMesh).toBe(true);
   const builder = readFileSync(resolve(import.meta.dir, "../build_web_engine.ts"), "utf8");
   expect(builder).toContain("POCKET_SOURCE_BUILD");
   expect(builder).toContain("buildWechat");

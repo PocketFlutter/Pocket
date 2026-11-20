@@ -30,37 +30,40 @@ The build needs macOS `sips` to size the local model textures and the Noto Sans 
 
 ### Try the Web GPU preview
 
-From the repository root, build a matching experimental WebAssembly engine
+From the repository root, build the packaged WebAssembly engine
 and browser runtime into a new directory, then pass it to the launcher.
 
 ```sh
-bun sdk/scripts/build_web_engine.ts --live2d-mesh --outdir="$PWD/.pocket-build/mao-web-gpu-engine"
+bun sdk/scripts/build_web_engine.ts --outdir="$PWD/.pocket-build/mao-web-gpu-engine"
 POCKET_SOURCE_BUILD=1 LIVE2D_PREVIEW_GPU_DIR="$PWD/.pocket-build/mao-web-gpu-engine" \
   bun demo/js/apps/live2d-workbench/preview.ts
 ```
 
-The launcher enables the experimental renderer for this preview. You can
+The launcher enables Live2D mesh acceleration for this preview. You can
 also set `LIVE2D_PREVIEW_HOST` to reach it over Wi-Fi. The local Cubism Core
 and font requirements above still apply. Unsupported frames use the usual
 software presentation. [Renderer scope and fallback](WEB_LIVE2D.md#opt-in-direct-web-presentation)
 
 ### Use GPU preview inside Web Editor
 
-Start Studio on the same computer as the browser and pass the same source-built
-engine directory. For a managed local installation, the equivalent discovery
-path is `.pocket-build/live2d-gpu-engine` under the installed SDK directory.
-Studio uses its locally configured official Cubism Web Core.
+The default Flutter preview keeps browser-rendered Canvas2D text and
+uses WebGL2 for compatible Live2D mesh batches. To test the optional
+direct Web preview, start Studio on the same computer as the browser.
+A managed installation finds the engine in its platform tools package.
+Source checkouts can pass an engine directory explicitly. Both use the
+locally configured official Cubism Web Core.
 
 ```sh
 POCKET_EDITOR_GPU_ENGINE_DIR="$PWD/.pocket-build/mao-web-gpu-engine" \
   bun sdk/editor/server.ts --host=127.0.0.1 --port=8791
 ```
 
-Open the Workbench folder in Editor, build it once, then click **GPU 预览** in
-the preview toolbar. The editor builds glyphs into the PAK for eligible
-projects when the source-built GPU engine is configured. The button appears
-after a compatible build. The editor remembers the selection for the project
-in that browser. Click **GPU 预览** again to use the native probe.
+Open the Workbench folder in Editor, build it once, then click **直连 Web**
+in the preview toolbar. The editor bakes glyphs into the PAK for eligible
+projects when a Web GPU engine is configured. The direct mode displays
+these baked glyphs. The button appears after a compatible build and the
+editor remembers the selection for the project in that browser. Click
+**直连 Web** again to return to the Flutter preview.
 
 The browser uses the Editor build's actual QJBC, PAK, and allowlisted model
 assets. Dragging, outfit changes, ordinary viewport resizing and PNG capture

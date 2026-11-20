@@ -245,9 +245,9 @@ The package's browser regression uses actual WebGL2 and checks both forms of mas
 
 ### Opt-in direct Web presentation
 
-The source-built Workbench experiment connects the package compositor to the
-live pinned Web runtime. The retained parent's `web_wasm_preview/index.html`
-uses Canvas2D. The experiment reuses the pinned DrawList decoder and
+The Pocket Web SDK includes the package compositor in its pinned browser
+runtime and engine. The retained parent's `web_wasm_preview/index.html`
+uses Canvas2D. The Web SDK reuses the pinned DrawList decoder and
 software rasterizer, plus the package-owned WebGL2 compositor described
 above. Core Web, QJBC, PAK, the Guest's UI and gesture handling, and the
 normal runtime presentation entry remain the same.
@@ -281,13 +281,18 @@ frame, bounded by its configured simulation frequency. This avoids an
 extra fixed-delay timer while respecting the simulation rate on
 high-refresh displays.
 
-This experiment is off by default and runs on the main-thread direct Web
-preview. That runtime can run in a standalone page or in Studio's opt-in
-GPU preview. Native-probe Editor rendering, render Workers, and native
-hosts use their existing presentation paths. Use the matching source-built
-WASM and browser runtime for the experiment.
-[Build and launch the experiment](LIVE2D_WORKBENCH.md#try-the-web-gpu-preview) ·
-[Enable the Editor mode](LIVE2D_WORKBENCH.md#use-gpu-preview-inside-web-editor) ·
+The Web SDK enables mesh acceleration for bundled Live2D models on the main
+thread. Other standalone Web projects, render Workers and native hosts use
+their usual presentation paths. Web projects use baked fonts. A higher
+`--density` bakes more glyph detail for high-density displays at the cost
+of a larger PAK.
+
+Studio defaults to its native-probe preview, which uses the browser's
+Canvas2D text renderer and WebGL2 for compatible model mesh batches. Its
+optional direct Web mode uses baked glyphs from the PAK and presents the
+entire preview through the browser WebAssembly runtime.
+[Launch the Workbench](LIVE2D_WORKBENCH.md#try-the-web-gpu-preview) ·
+[Choose the Editor mode](LIVE2D_WORKBENCH.md#use-gpu-preview-inside-web-editor) ·
 [Same-guest browser measurements](LIVE2D_WORKBENCH.md#opt-in-web-gpu-measurement)
 
 The retained parent's `web_wasm_preview/index.html` demonstrates a browser

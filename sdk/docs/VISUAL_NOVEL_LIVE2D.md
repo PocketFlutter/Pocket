@@ -2,6 +2,25 @@
 
 The [Pocket Live2D 看板娘 mini-app](LIVE2D_WORKBENCH.md) demonstrates Mao’s outfit change, touch reactions, dragging, and authored animations in Pocket Editor and phone previews.
 
+## Model mesh hit testing
+
+`containsCubismMeshPoint(bytes: Uint8Array, point: CubismPoint): boolean` is
+available from both `@pocket/live2d/interaction` and `@pocket/live2d`.
+Use it on the current PMS1 geometry and express the point in the same
+model-local coordinates. It returns false for invalid geometry, nonfinite
+points and positions outside the drawable triangles. Callers choose visible
+drawables and handle masks and texture transparency separately.
+`createCubismInteractionController().hitAreaAt` continues to test the
+model's authored hit areas for actions such as taps.
+
+```ts
+import { containsCubismMeshPoint } from "@pocket/live2d/interaction";
+
+const canStartDrag = meshes.some(mesh =>
+  mesh.visible !== false && containsCubismMeshPoint(mesh.geometry, modelPoint)
+);
+```
+
 ## Current high-resolution checkpoint, 2026-11-07
 
 2026-11-08 update: the real Core Profile matrix at 390×844 / 1920×1080,

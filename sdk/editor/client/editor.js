@@ -60,7 +60,7 @@ let captureSequence = 0;
 const captureWaiters = new Map();
 const PREVIEW_HEIGHT_STORAGE_KEY = "pocket.editor.previewPaneHeight";
 const PREVIEW_BEZEL_STORAGE_KEY = "pocket.editor.previewShowBezel";
-const PREVIEW_GPU_STORAGE_PREFIX = "pocket.editor.previewGpu.";
+const PREVIEW_GPU_STORAGE_PREFIX = "pocket.editor.directWebPreview.";
 const NOBLE_BLUETOOTH_STORAGE_KEY = "pocket.editor.webBluetooth";
 let nobleBluetoothSupported = false;
 let localBluetoothAvailable = false;
@@ -4403,7 +4403,7 @@ function setPreviewRenderer(gpu) {
   previewGpuActive = gpu;
   setText("preview-renderer-label", gpu ? "Web" : "Flutter");
   setText("preview-surface-renderer", gpu ? "Web" : "Flutter");
-  setText("preview-surface-engine", gpu ? "GPU 预览 · 无设备安全区" : "原生画布");
+  setText("preview-surface-engine", gpu ? "直连预览 · 位图文字" : "原生画布");
   setText("copy-preview-link", gpu ? "复制 Web 链接" : "复制 Flutter 链接");
 }
 
@@ -4444,6 +4444,10 @@ async function refreshPreview({ automatic = false, forceNative = false } = {}) {
   layoutPreviewFrame();
   const url = previewBrowserUrl();
   url.searchParams.set("t", String(Date.now()));
+  // The old iframe can present while the GPU availability request is pending.
+  previewReady = false;
+  previewHasFrame = false;
+  setPreviewState("加载中", "loading");
   previewFrame.src = url.href;
   updateActionStates();
 }

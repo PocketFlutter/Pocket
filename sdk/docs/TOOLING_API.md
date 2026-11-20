@@ -197,6 +197,8 @@ npm run build:web -- --project-root=/path/to/project --outdir=/path/to/web
 
 Required: `--project-root` and `--outdir`. Optional: `--entry`, `--tick-hz`, `--density`, `--engine`, `--runtime`, `--live2d-core`, repeatable `--worker-http-origin=https://origin.example`, and `--render-worker`/`--no-render-worker`. Rendering defaults to the main thread. Render Worker requires a packaged Worker asset and browser `OffscreenCanvas` and CSP support. Live2D projects require a licensed local Cubism Core file via `--live2d-core` or `POCKET_CUBISM_WEB_CORE`. Outputs include `engine/pocketjs.wasm`, browser runtime, QJBC, PAK, config, types, and build metadata. See [Web SDK export](WEB_SDK_EXPORT.md).
 
+Main-thread builds with bundled Live2D models enable the WebGL2 mesh renderer on compatible engines and browsers. When a frame or a browser cannot use the mesh renderer, the existing software presenter takes over. The source engine builder includes the browser mesh ABI by default and accepts `--no-live2d-mesh` for comparison builds. [Web Live2D](WEB_LIVE2D.md#opt-in-direct-web-presentation)
+
 ### Other build and release scripts
 
 | Command | Behavior |
@@ -264,7 +266,7 @@ Studio routes are defined in [editor/server.ts](../editor/server.ts#L4285) and P
 | `GET\|PUT /api/projects/:id/cloudflare`, `POST .../cloudflare/check`, `POST .../cloudflare/publish` | Redacted multi-account Cloudflare credential vault, platform route matrix persistence, R2 connectivity check, and two-phase signed OTA publish. |
 | `POST /api/projects/:id/build` or `/compile` | Compiles the project. Read status, logs, and files through `/status`, `/logs`, and `/artifacts/*`. |
 | `GET /api/projects/:id/preview/status`, `snapshot`, `stream`. `POST /api/projects/:id/preview/input` | Preview state, snapshot, SSE frames, and input. `GET /media` and `GET /resource` read restricted resources. |
-| `GET /api/projects/:id/preview/gpu/status` and `GET .../preview/gpu/` | Local Editor mode availability and entry for a compatible Live2D build. The entry redirects to a build generation. Same-origin artifact requests for stale generations receive HTTP 409. `POCKET_EDITOR_GPU_ENGINE_DIR` selects the optional source-built engine and browser runtime. See [Workbench GPU preview](LIVE2D_WORKBENCH.md#use-gpu-preview-inside-web-editor). |
+| `GET /api/projects/:id/preview/gpu/status` and `GET .../preview/gpu/` | Local Editor direct Web mode availability and entry for a compatible Live2D build. The entry redirects to a build generation. Same-origin artifact requests for stale generations receive HTTP 409. The managed Editor uses the platform package's engine and browser runtime. `POCKET_EDITOR_GPU_ENGINE_DIR` overrides them with a source-built pair. [Workbench GPU preview](LIVE2D_WORKBENCH.md#use-gpu-preview-inside-web-editor) |
 | `GET\|HEAD /updates/*`, `/pocket/*`, `/test/pocket/*`, `/stable/pocket/*`. `GET /releases/*` | Studio published and update artifacts. Other remote hosting requires a suitable server. |
 
 An opted-in project can load a machine-local Preview adapter from the Studio workspace. Its `GET /api/projects/<id>/preview/status` response includes `hostConfig` with the values `disabled`, `ready`, and `invalid`. Preview routes and project mutations for configured projects require loopback access. See [Project-local Preview host adapter](EDITOR_PROJECT_CONFIGURATION.md#project-local-preview-host-adapter) for the opt-in, private profile schema, and startup precedence.
