@@ -33,22 +33,22 @@ By default the existing service manager starts Studio on `http://127.0.0.1:8791`
 installation. Pass CLI options on the same pipeline as needed.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/PocketFlutter/Pocket/main/sdk/scripts/install_studio.mjs | node --input-type=module - --version=0.1.28 --dir="$HOME/.pocket/studio" --no-start
+curl -fsSL https://raw.githubusercontent.com/PocketFlutter/Pocket/main/sdk/scripts/install_studio.mjs | node --input-type=module - --version=0.1.29 --dir="$HOME/.pocket/studio" --no-start
 ```
 
 ```powershell
-curl.exe -fsSL https://raw.githubusercontent.com/PocketFlutter/Pocket/main/sdk/scripts/install_studio.mjs | node --input-type=module - --version=0.1.28 --dir="$env:USERPROFILE\.pocket\studio" --no-start
+curl.exe -fsSL https://raw.githubusercontent.com/PocketFlutter/Pocket/main/sdk/scripts/install_studio.mjs | node --input-type=module - --version=0.1.29 --dir="$env:USERPROFILE\.pocket\studio" --no-start
 ```
 
 Use `--no-start` for CI, remote installation, or later manual startup. Installation and
 checks still run. Run `npm run start` in the installation directory afterward. Options also
-accept space-separated values, for example `--version 0.1.28`.
+accept space-separated values, for example `--version 0.1.29`.
 
 ## CLI options
 
 | Option | Default | Behavior |
 | --- | --- | --- |
-| `--version=MAJOR.MINOR.PATCH` | Latest available stable version | Installs the specified official `sdk-v<version>` release. Accepts stable semantic versions such as `0.1.28`. |
+| `--version=MAJOR.MINOR.PATCH` | Latest available stable version | Installs the specified official `sdk-v<version>` release. Accepts stable semantic versions such as `0.1.29`. |
 | `--dir=PATH` | `~/.pocket/studio` (on Windows, `.pocket\studio` in the user directory) | SDK installation directory. Relative paths resolve from the current working directory. |
 | `--project-root=PATH` | Unset | Existing regular directory to pass to the Studio service manager as the project root. |
 | `--no-start` | Off | Installs and runs `setup` and `doctor`, then skips Studio startup. |
