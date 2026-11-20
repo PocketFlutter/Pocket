@@ -39,6 +39,7 @@ import {
 } from "../scripts/package_update.ts";
 import { pickProjectDirectory } from "./directory_picker.ts";
 import { buildGuest } from "../scripts/build_guest.ts";
+import { canBuildLive2dGpuPreview, live2dGpuEngineDirectory } from "./live2d-gpu-preview.ts";
 import {
   ECOSYSTEM_MODULES,
   enabledProfileIdsForModules,
@@ -1933,10 +1934,13 @@ async function runProcess(command: string[], cwd: string, log: (line: string) =>
 
 async function realBuild(input: Parameters<BuildRunner>[0]): Promise<BuildOutput> {
   await mkdir(input.outDir, { recursive: true });
+  const bakeGpuFonts = live2dGpuEngineDirectory() &&
+    canBuildLive2dGpuPreview(await readJsonFile<Record<string, unknown>>(join(input.projectDir, "manifest.json"), {}));
   const built = await buildGuest({
     projectRoot: input.projectDir,
     outDir: input.outDir,
     tickHz: input.config.tickHz,
+    ...(bakeGpuFonts ? { bakeFonts: true } : {}),
     log: input.log,
     ...(input.signal ? { signal: input.signal } : {}),
   });
@@ -5211,6 +5215,7 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
         }
       }
       return {
+        appId: rootAppId,
         bytecodePath: safeArtifactFile(workspace.builds, `${folder}/app.qjbc`),
         sourcePath: safeArtifactFile(workspace.builds, `${folder}/app.js`),
         pakPath: safeArtifactFile(workspace.builds, `${folder}/app.pak`),
@@ -5781,7 +5786,11 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
             // Existing SSE clients retain their loaded runtime during a build.
             // New subscriptions/input must not load a partly copied snapshot.
             if (state.busy && !["status", "snapshot"].includes(parts[4] ?? "")) return failure("Build in progress; retry preview when the build completes", 409);
+            const gpuBuild = parts[4] === "gpu" ? state.artifacts : undefined;
             const response = await preview.handle(request, id, undefined, loopback);
+            if (gpuBuild && (state.busy || state.artifacts !== gpuBuild)) {
+              return failure("GPU preview build changed; refresh the preview", 409);
+            }
             // A demand-driven guest can stay silent indefinitely. Keep only
             // successful SSE responses outside the ordinary HTTP idle limit;
             // no polling, synthetic frames or heartbeat timer is necessary.

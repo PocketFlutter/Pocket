@@ -26,6 +26,7 @@ import { servePreviewMedia } from "./preview_media_assets.ts";
 import type { LocalBluetoothProvider } from "./local_bluetooth.ts";
 import { hotCommandSource, hotIdentity, type HotIdentity } from "./hot_reload.ts";
 import { createPreviewLive2d } from "./live2d.ts";
+import { createLive2dGpuPreview, live2dGpuEngineDirectory } from "./live2d-gpu-preview.ts";
 import { createPreviewMeshWireEncoder, EXTENDED_MAX_MESH_WIRE_SLOTS, previewMeshWireDecoderSource } from "./preview_mesh_wire.ts";
 import { enqueuePreviewPacket, previewStreamByteLengthStrategy } from "./preview_stream_queue.ts";
 import { encodeMessage } from "../targets/wechat/template/binary-bridge.js";
@@ -5645,6 +5646,7 @@ class PreviewManagerImpl implements PreviewManager {
   private readonly sessions = new Map<string, PreviewSession>();
   private probePathPromise?: Promise<string>;
   private hostRefresh?: ReturnType<typeof setInterval>;
+  private readonly gpuPreview = createLive2dGpuPreview(live2dGpuEngineDirectory());
 
   constructor(options: PreviewManagerOptions) {
     this.options = options;
@@ -5758,6 +5760,11 @@ class PreviewManagerImpl implements PreviewManager {
     let session: PreviewSession | undefined;
     try {
       const host = this.refreshProjectHost(projectId);
+      const gpuRoute = /^\/api\/projects\/[^/]+\/preview\/gpu(?:\/(.*))?$/.exec(new URL(request.url).pathname);
+      if (gpuRoute) {
+        return await this.gpuPreview.handle(request, gpuRoute[1] ?? "", () => this.resolveArtifacts(projectId),
+          loopback, host.status !== "disabled");
+      }
       if (!loopback && host.status !== "disabled") return failure("configured project preview is available only on the Studio computer", 403);
       session = this.session(projectId, host);
       if (route === "resource" && (request.method === "GET" || request.method === "HEAD")) return session.serveResource(request);

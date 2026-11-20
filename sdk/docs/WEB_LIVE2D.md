@@ -281,9 +281,23 @@ frame, bounded by its configured simulation frequency. This avoids an
 extra fixed-delay timer while respecting the simulation rate on
 high-refresh displays.
 
-This experiment is off by default and runs only on the main-thread direct
-Web preview. Published SDK builds, Editor rendering, render Workers and
-native hosts use their existing presentation paths. Use the matching
-source-built WASM and browser runtime through the Workbench launcher.
+This experiment is off by default and runs on the main-thread direct Web
+preview. That runtime can run in a standalone page or in Studio's opt-in
+GPU preview. Native-probe Editor rendering, render Workers, and native
+hosts use their existing presentation paths. Use the matching source-built
+WASM and browser runtime for the experiment.
 [Build and launch the experiment](LIVE2D_WORKBENCH.md#try-the-web-gpu-preview) ·
+[Enable the Editor mode](LIVE2D_WORKBENCH.md#use-gpu-preview-inside-web-editor) ·
 [Same-guest browser measurements](LIVE2D_WORKBENCH.md#opt-in-web-gpu-measurement)
+
+The retained parent's `web_wasm_preview/index.html` demonstrates a browser
+canvas and DPR-aware input. Studio reuses the actual pinned Pocket Web
+runtime for the iframe, using its existing QJBC build and generation-specific
+asset routes. This avoids both the native probe's full-frame serialization and
+the browser's per-frame SSE decode. A local Studio test with an Editor-built
+Mao guest on Chromium Metal at DPR 3 showed both outfits with baked Chinese
+glyphs and exported a PNG through the Editor toolbar. A trusted drag moved
+the figure by 64 logical pixels. The GPU submission interval after release
+was 16.3 ms at P50 and 27.1 ms at P95 over 102 frames. These timings measure
+browser submissions; screen scanout and physical phone behavior are outside
+this test.

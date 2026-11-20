@@ -5240,7 +5240,7 @@
         },
         {
           "file": "editor/server.ts",
-          "sourceSha256": "eed72c3b1009a6134f9bfbe65e2ee63f4aadbd1dcb2403adeddebb6c15ff4702"
+          "sourceSha256": "f6a6e33b61777ab03a84426ecd660f4be6805af6a9d9a102ceb66ccfbcf4c68e"
         },
         {
           "file": "editor/test/editor_live_probe.ts",

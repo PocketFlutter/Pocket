@@ -52,10 +52,15 @@ let previewStarted = false;
 let previewRevision = null;
 let previewGeneration = null;
 let previewRegionsEnabled = false;
+let previewGpuAvailable = false;
+let previewGpuActive = false;
+let previewGpuRequested = false;
+let previewLoadSequence = 0;
 let captureSequence = 0;
 const captureWaiters = new Map();
 const PREVIEW_HEIGHT_STORAGE_KEY = "pocket.editor.previewPaneHeight";
 const PREVIEW_BEZEL_STORAGE_KEY = "pocket.editor.previewShowBezel";
+const PREVIEW_GPU_STORAGE_PREFIX = "pocket.editor.previewGpu.";
 const NOBLE_BLUETOOTH_STORAGE_KEY = "pocket.editor.webBluetooth";
 let nobleBluetoothSupported = false;
 let localBluetoothAvailable = false;
@@ -799,8 +804,15 @@ function updateActionStates() {
   if ($("source-toggle")) $("source-toggle").disabled = !hasProject;
   if ($("source-split-toggle")) $("source-split-toggle").disabled = !hasProject;
   $("capture-preview").disabled = !previewReady;
+  const gpuToggle = $("preview-gpu-toggle");
+  if (gpuToggle) {
+    gpuToggle.hidden = !previewGpuAvailable;
+    gpuToggle.disabled = !built || busy || dirty || !gpuPreviewSupportsViewport();
+    gpuToggle.setAttribute("aria-pressed", String(previewGpuActive));
+  }
   if ($("toggle-regions")) {
-    $("toggle-regions").disabled = !previewReady;
+    $("toggle-regions").disabled = !previewReady || previewGpuActive;
+    $("toggle-regions").title = previewGpuActive ? "区域 ID 需要 Flutter 预览" : "显示 Flutter 预览中的区域 ID";
     $("toggle-regions").setAttribute("aria-pressed", String(previewRegionsEnabled));
   }
   $("device-picker").disabled = !hasProject || !devices.length || Boolean(activeDeploy);
@@ -4360,6 +4372,10 @@ function setPreviewState(label, kind = "") {
 }
 
 function resetPreviewSurface() {
+  previewLoadSequence++;
+  previewGpuAvailable = false;
+  previewGpuRequested = currentId ? savedGpuPreviewPreference() : false;
+  setPreviewRenderer(false);
   previewFrame.hidden = true;
   previewFrame.src = "about:blank";
   previewRegionsEnabled = false;
@@ -4374,7 +4390,24 @@ function maybeRefreshPreview(status) {
   void refreshPreview({ automatic: true });
 }
 
-async function refreshPreview({ automatic = false } = {}) {
+function gpuPreviewSupportsViewport(viewportKey = $("viewport-picker").value) {
+  if (activeSurfaceProfile(viewportKey)) return false;
+  return viewportKey === "mobile" || Object.values(safeAreaForViewport(viewportKey)).every(inset => inset === 0);
+}
+
+function savedGpuPreviewPreference() {
+  try { return localStorage.getItem(PREVIEW_GPU_STORAGE_PREFIX + currentId) === "1"; } catch { return false; }
+}
+
+function setPreviewRenderer(gpu) {
+  previewGpuActive = gpu;
+  setText("preview-renderer-label", gpu ? "Web" : "Flutter");
+  setText("preview-surface-renderer", gpu ? "Web" : "Flutter");
+  setText("preview-surface-engine", gpu ? "GPU 预览 · 无设备安全区" : "原生画布");
+  setText("copy-preview-link", gpu ? "复制 Web 链接" : "复制 Flutter 链接");
+}
+
+async function refreshPreview({ automatic = false, forceNative = false } = {}) {
   if (!currentId) return;
   if (dirty) {
     if (!automatic) showNotice("刷新预览前请先保存源文件修改。", "info");
@@ -4385,39 +4418,63 @@ async function refreshPreview({ automatic = false } = {}) {
     return;
   }
   clearNotice();
+  const request = ++previewLoadSequence;
+  const projectId = currentId;
+  const path = previewPath;
+  const status = currentStatus;
   previewReady = false;
   previewHasFrame = false;
   setPreviewState("加载中", "loading");
   $("preview-empty").hidden = true;
+  previewStarted = true;
+  previewRevision = status.builtRevision;
+  previewGeneration = status.artifacts?.generation ?? status.finishedAt ?? null;
+  updateActionStates();
+  const availability = await api(path + "/gpu/status", { cache: "no-store" }).catch(() => null);
+  if (request !== previewLoadSequence || currentId !== projectId) return;
+  if (dirty || currentStatus?.builtRevision !== previewRevision ||
+      (currentStatus?.artifacts?.generation ?? currentStatus?.finishedAt ?? null) !== previewGeneration) {
+    previewStarted = false;
+    return;
+  }
+  previewGpuAvailable = availability?.available === true;
+  setPreviewRenderer(!forceNative && previewGpuAvailable && previewGpuRequested &&
+    !pendingInitialOpenUri && gpuPreviewSupportsViewport());
   previewFrame.hidden = false;
   layoutPreviewFrame();
   const url = previewBrowserUrl();
   url.searchParams.set("t", String(Date.now()));
   previewFrame.src = url.href;
-  previewStarted = true;
-  previewRevision = currentStatus.builtRevision;
-  previewGeneration = currentStatus.artifacts?.generation ?? currentStatus.finishedAt ?? null;
   updateActionStates();
 }
 
 function previewBrowserUrl() {
   const url = new URL(previewPath, window.location.origin);
+  if (previewGpuActive) {
+    url.pathname += "/gpu/";
+    return url;
+  }
   if (previewRegionsEnabled) url.searchParams.set("regions", "1");
   if (webBluetoothEnabled) { url.searchParams.set("webBluetooth", "1"); url.searchParams.set("bluetoothProvider", "local"); }
   return url;
 }
 
 function sendPreviewPlugins() {
+  if (previewGpuActive) return;
   previewFrame.contentWindow?.postMessage({ source: "pocket-editor", type: "preview.plugins", webBluetooth: webBluetoothEnabled, bluetoothProvider }, window.location.origin);
 }
 
 function captureFromMessage(message) {
   const requestId = message.requestId || message.id;
   const dataUrl = message.dataUrl || message.imageDataUrl || message.screenshot || (typeof message.data === "string" && message.data.startsWith("data:image/") ? message.data : "");
-  if (!requestId || !dataUrl) return false;
+  if (!requestId || (!dataUrl && typeof message.error !== "string")) return false;
   const waiter = captureWaiters.get(requestId);
   if (!waiter) return false;
   captureWaiters.delete(requestId);
+  if (!dataUrl) {
+    waiter.reject(new Error(message.error));
+    return true;
+  }
   waiter.resolve({
     dataUrl,
     width: Number.isFinite(Number(message.width)) ? Number(message.width) : undefined,
@@ -4520,6 +4577,17 @@ function setViewport(value, options = {}) {
   syncSurfaceToolbarControls(value);
   updatePreviewPhoneShell(value);
   layoutPreviewFrame();
+  if (previewGpuActive && (options.openUri || !gpuPreviewSupportsViewport(value))) {
+    if (options.openUri) pendingInitialOpenUri = options.openUri;
+    void refreshPreview({ automatic: true, forceNative: true });
+    return;
+  }
+  if (!previewGpuActive && previewGpuAvailable && previewGpuRequested && !options.openUri &&
+      gpuPreviewSupportsViewport(value)) {
+    void refreshPreview({ automatic: true });
+    return;
+  }
+  updateActionStates();
   resizePreviewRuntime(options);
   sendPreviewRegions();
 }
@@ -4711,6 +4779,13 @@ function resizePreviewRuntime(options = {}) {
   const viewportKey = $("viewport-picker").value;
   const viewport = viewportEntryFor(viewportKey);
   if (!viewport || !Number.isFinite(viewport.width) || viewport.width <= 0 || !Number.isFinite(viewport.height) || viewport.height <= 0) return;
+  if (previewGpuActive) {
+    previewFrame.contentWindow?.postMessage({
+      source: "pocket-editor", type: "preview.resize",
+      width: viewport.width, height: viewport.height,
+    }, window.location.origin);
+    return;
+  }
   if (viewport.profile) {
     previewFrame.contentWindow?.postMessage({
       source: "pocket-editor",
@@ -4738,6 +4813,7 @@ function resizePreviewRuntime(options = {}) {
 }
 
 function sendPreviewRegions() {
+  if (previewGpuActive) return;
   previewFrame.contentWindow?.postMessage({ source: "pocket-editor", type: "preview.regions", enabled: previewRegionsEnabled }, window.location.origin);
 }
 
@@ -4945,6 +5021,8 @@ window.addEventListener("message", (event) => {
   if (event.origin !== window.location.origin || event.source !== previewFrame.contentWindow) return;
   const data = event.data;
   if (!data || typeof data !== "object") return;
+  if (previewGpuActive !== (data.renderer === "gpu")) return;
+  if (previewGpuActive && (data.source !== "pocket-editor-preview" || data.version !== 1)) return;
   if (data.type === "preview.ready") {
     previewReady = false;
     previewHasFrame = false;
@@ -4963,7 +5041,7 @@ window.addEventListener("message", (event) => {
     setPreviewState("就绪", "ready");
     updateActionStates();
   }
-  if (data.type === "preview.widget-snapshot" && data.snapshot && typeof data.snapshot === "object") {
+  if (!previewGpuActive && data.type === "preview.widget-snapshot" && data.snapshot && typeof data.snapshot === "object") {
     latestWidgetSnapshot = data.snapshot;
     syncSurfaceToolbarControls();
   }
@@ -4978,7 +5056,7 @@ window.addEventListener("message", (event) => {
     if (status === "error" || status === "stopped") {
       previewReady = false;
       setPreviewState(status === "error" ? "预览错误" : "已停止", "loading");
-      if (status === "error") showNotice(data.error || data.status?.error || "原生预览报告了错误。");
+      if (status === "error") showNotice(data.error || data.status?.error || (previewGpuActive ? "GPU 预览报告了错误。" : "原生预览报告了错误。"));
     } else if (status === "starting") {
       previewReady = false;
       setPreviewState("启动中", "loading");
@@ -4994,7 +5072,7 @@ window.addEventListener("message", (event) => {
   if (data.type === "preview.error") {
     previewReady = false;
     setPreviewState("预览错误", "loading");
-    showNotice(data.error || "原生预览报告了错误。");
+    showNotice(data.error || (previewGpuActive ? "GPU 预览报告了错误。" : "原生预览报告了错误。"));
     updateActionStates();
   }
   if (data.type === "preview.capture.result") captureFromMessage(data);
@@ -5003,6 +5081,7 @@ window.addEventListener("message", (event) => {
 previewFrame.addEventListener("load", () => {
   if (previewFrame.src === "about:blank") return;
   layoutPreviewFrame();
+  if (previewGpuActive) return;
   previewReady = false;
   previewHasFrame = false;
   sendPreviewRegions();
@@ -5651,6 +5730,14 @@ $("capture-preview").addEventListener("click", async () => {
     downloadPreviewCapture(capture);
     showNotice("预览截图已下载。", "success");
   } catch (error) { showNotice(error); }
+});
+$("preview-gpu-toggle")?.addEventListener("click", () => {
+  if (!previewGpuAvailable || !currentId) return;
+  previewGpuRequested = !previewGpuActive;
+  try {
+    localStorage.setItem(PREVIEW_GPU_STORAGE_PREFIX + currentId, previewGpuRequested ? "1" : "0");
+  } catch {}
+  void refreshPreview();
 });
 $("toggle-regions")?.addEventListener("click", (event) => {
   previewRegionsEnabled = !previewRegionsEnabled;

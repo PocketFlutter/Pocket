@@ -44,6 +44,30 @@ also set `LIVE2D_PREVIEW_HOST` to reach it over Wi-Fi. The local Cubism Core
 and font requirements above still apply. Unsupported frames use the usual
 software presentation. [Renderer scope and fallback](WEB_LIVE2D.md#opt-in-direct-web-presentation)
 
+### Use GPU preview inside Web Editor
+
+Start Studio on the same computer as the browser and pass the same source-built
+engine directory. For a managed local installation, the equivalent discovery
+path is `.pocket-build/live2d-gpu-engine` under the installed SDK directory.
+Studio uses its locally configured official Cubism Web Core.
+
+```sh
+POCKET_EDITOR_GPU_ENGINE_DIR="$PWD/.pocket-build/mao-web-gpu-engine" \
+  bun sdk/editor/server.ts --host=127.0.0.1 --port=8791
+```
+
+Open the Workbench folder in Editor, build it once, then click **GPU 预览** in
+the preview toolbar. The editor builds glyphs into the PAK for eligible
+projects when the source-built GPU engine is configured. The button appears
+after a compatible build. The editor remembers the selection for the project
+in that browser. Click **GPU 预览** again to use the native probe.
+
+The browser uses the Editor build's actual QJBC, PAK, and allowlisted model
+assets. Dragging, outfit changes, ordinary viewport resizing and PNG capture
+work in the GPU preview. Use the native probe for DrawOps inspection, region
+overlays, simulated device safe areas, SystemUI and native host plugin
+testing. Preview assets stay on Studio's loopback listener.
+
 ## Build the mini-app
 
 ```sh
