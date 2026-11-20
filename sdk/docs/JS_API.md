@@ -133,6 +133,8 @@ The `HostBridge` wire format uses `event/host.request { requestId, capability, p
 
 `installPocketSystem(manifest, options)` validates the JS app manifest, installs the app registry, stack, result router, and resident policy, and returns `PocketSystemKernel`. `InstallPocketSystemOptions` requires `bridge: HostBridge`. `policies`, `maxResidentApps`, and `presets` are optional. The resident limit defaults to 8 and accepts 1–256.
 
+The SystemUI kernel handles host Back automatically when its local page handler declines. When a SystemUI page uses `PocketAppShell` or `createPocketBackNavigation()`, give it the same bridge instance as the kernel. The active mini-app's host Back handler gets the first request, followed by the SystemUI dispatcher and its kernel fallback. `system.handleBack()` remains the explicit, awaited operation for a caller that owns a Back action. [Back navigation](BACK_NAVIGATION.md)
+
 Use `openMode` and `externalOpen` to integrate routes owned by the outer host container.
 
 ```ts

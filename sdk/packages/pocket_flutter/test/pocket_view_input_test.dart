@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pocket_flutter/pocket_flutter.dart';
+import 'package:pocket_flutter/src/pocket_host_fonts.dart';
 
 final class _RecordingRuntime implements PocketRuntime {
   final List<Map<String, dynamic>> messages = <Map<String, dynamic>>[];
@@ -795,14 +796,14 @@ void main() {
       expect(field.style?.fontFamilyFallback, <String>['InputTestSerif']);
       expect(field.style?.fontSize, 16);
       expect(field.style?.fontWeight, FontWeight.normal);
-      expect(field.style?.height, closeTo(20 / 16, 0.0001));
+      expect(field.style?.height, 1.0);
       expect(field.decoration?.hintText, '输入文本');
       expect(field.decoration?.hintStyle?.fontFamilyFallback, <String>[
         'InputTestSerif',
       ]);
       expect(field.decoration?.fillColor, const Color(0xfff7f9fc));
       expect(field.decoration?.hintStyle?.color, const Color(0xff607080));
-      expect(field.decoration?.hintStyle?.height, closeTo(20 / 16, 0.0001));
+      expect(field.decoration?.hintStyle?.height, 1.0);
       final inputBorder = field.decoration?.border as OutlineInputBorder;
       expect(inputBorder.borderRadius, BorderRadius.circular(10));
       expect(inputBorder.borderSide.color, const Color(0xff9aa5b2));
@@ -945,6 +946,7 @@ void main() {
       'fontSize': 14,
       'paddingHorizontal': 12,
       'paddingVertical': 8,
+      'textOffsetY': 1.5,
     });
     final runtime = _TextInputRuntime(
       initialEvent: _textInputEvent('textInput.open', open),
@@ -971,20 +973,66 @@ void main() {
     final hintFinder = find.text('Tap to type');
     expect(fieldFinder, findsOneWidget);
     expect(hintFinder, findsOneWidget);
-    final field = tester.widget<TextField>(fieldFinder);
     final fieldRect = tester.getRect(fieldFinder);
     final hintRect = tester.getRect(hintFinder);
 
-    // Native TEXT_RUN defaults to ceil(fontSize * 1.2), i.e. a 17px line box
-    // for the JS text-sm slot. The host must keep the Flutter glyph origin at
-    // the guest shell's padding edge instead of inheriting Material 3's
-    // 21px bodyLarge line box (which shifts it three pixels upward in a 33px
-    // input shell).
-    expect(field.style?.height, closeTo(17 / 14, 0.0001));
-    expect(field.decoration?.hintStyle?.height, closeTo(17 / 14, 0.0001));
     expect(hintRect.left, closeTo(fieldRect.left + 12, 0.001));
-    expect(hintRect.top, closeTo(fieldRect.top + 8, 0.001));
-    expect(hintRect.height, closeTo(17, 0.001));
+    expect(
+      tester.widget<TextField>(fieldFinder).decoration?.contentPadding,
+      const EdgeInsets.fromLTRB(12, 9.5, 12, 6.5),
+    );
+
+    // PocketCanvasPainter lays out the Guest line from the shell's padding
+    // edge using the host font's em box. Compare that baseline with
+    // the native hint's rendered paragraph at its actual layout constraints.
+    final guest = TextPainter(
+      text: TextSpan(
+        text: 'Tap to type',
+        style: pocketTextStyleForSlot(slot: 1, fontSize: 14, height: 1.0),
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: TextScaler.noScaling,
+    )..layout();
+    addTearDown(guest.dispose);
+    final guestBaseline =
+        fieldRect.top +
+        9.5 +
+        guest.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+    final hintBox = tester.renderObject<RenderBox>(hintFinder);
+    final hintBaseline = hintBox
+        .localToGlobal(
+          Offset(
+            0,
+            hintBox.getDryBaseline(
+              hintBox.constraints,
+              TextBaseline.alphabetic,
+            )!,
+          ),
+        )
+        .dy;
+    await tester.enterText(fieldFinder, 'Tap to type');
+    await tester.pump();
+    final editor = tester
+        .state<EditableTextState>(find.byType(EditableText))
+        .renderEditable;
+    final editorBaseline = editor
+        .localToGlobal(
+          Offset(
+            0,
+            editor.getDryBaseline(editor.constraints, TextBaseline.alphabetic)!,
+          ),
+        )
+        .dy;
+    expect(
+      editorBaseline,
+      closeTo(hintBaseline, 0.5),
+      reason: 'The first edit must share the placeholder baseline',
+    );
+    expect(
+      hintBaseline,
+      closeTo(guestBaseline, 0.5),
+      reason: 'The visible placeholder must keep its baseline on focus',
+    );
   });
 
   testWidgets(

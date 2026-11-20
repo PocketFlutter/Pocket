@@ -1970,7 +1970,7 @@ Members:
 - `bool? hitTest(Offset position)`
 - `bool shouldRepaint(PocketMeshSpanPainter oldDelegate)`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view_painter.dart](../packages/pocket_flutter/lib/src/pocket_view_painter.dart#L893)
+Source: [packages/pocket_flutter/lib/src/pocket_view_painter.dart](../packages/pocket_flutter/lib/src/pocket_view_painter.dart#L884)
 
 ### `PocketNativeStageTimings`
 
@@ -7819,7 +7819,7 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: lib/src/pocket_platform_endpoints.dart ec1a7131cc4bf3a2edec3ccddaf32c70cf1c143d60ae1b5f3d7304183bfdd4bd -->
 <!-- api-source: lib/src/pocket_recordings.dart f1752b58909af49504a9f4aa160a0f3f41dd0a9b8f10dc19dfa966ffd1e6e522 -->
 <!-- api-source: lib/src/pocket_session.dart bb79644ee14821a6507c47add141ad85999934731b0d2dca0aa26598d18a67ce -->
-<!-- api-source: lib/src/pocket_system_host.dart 497854e66cc1028257923ac82f66bec5ef26a45dee71d206490bec70a785beb8 -->
+<!-- api-source: lib/src/pocket_system_host.dart dfb215c5c358912ebc4ed53004d7ae05cdbb252141f533f8f07e90513d356054 -->
 <!-- api-source: lib/src/pocket_worker.dart 7b8fe3cbf435f21882a8ef7939e421297b938bc8c07131495d118ff621e93f0e -->
 <!-- api-source: packages/pocket_archive/lib/pocket_archive.dart 3ae77c255d6b4d4fb82a990e129552a9c23260efe9cefcc7ced6463b977b9299 -->
 <!-- api-source: packages/pocket_archive/pubspec.yaml 1e215ad281ef0637572e9a82d2c82b8f7da23872aeb81f7d4a7b85bb57c38fd7 -->
@@ -7869,7 +7869,7 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_runtime.dart 98eaf76141089185c85d1b4260ce11abec3192e580b28314372f5837d5076e08 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_startup_progress.dart 9bad727136e9aa06cb4b093b874df4a156df9476821df36867a6a330ec68e906 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_text_cache.dart dd2d6c89527fe86a19153873a5eed89e653c8d689a883b46e6d0ba453905d6d6 -->
-<!-- api-source: packages/pocket_flutter/lib/src/pocket_view.dart 77fe12451a99ec2fd4fd1cb95faf41bb04180a00c72e70739d97409f23cd2019 -->
+<!-- api-source: packages/pocket_flutter/lib/src/pocket_view.dart e101ccd7a7003a6208f792983a032c2030bfec0bf0b31ade7768cec028c08250 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_worker_runtime.dart f2d67e2cab0c35fd3b6f52bb2a3227beac7c9077a7933378206e20f120780ae7 -->
 <!-- api-source: packages/pocket_flutter/pubspec.yaml 1a7401a5855c2e85a553120eab790e5dc32c140441b2fcb566820b16bb9c46d6 -->
 <!-- api-source: packages/pocket_hardware/lib/pocket_hardware.dart 67b30d7afa3ec5397822d64f62229370e2229b68ae9e632d25f2f975e776e8f4 -->

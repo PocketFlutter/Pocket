@@ -102,12 +102,15 @@ function check(name: string, fn: () => void): void {
   console.log(`ok ${name}`);
 }
 
-check('single-line default payload is unchanged', () => {
-  // Default: exactly the historical single-line metadata.
+check('single-line default keeps keyboard metadata and centers text', () => {
   const single = openWith({});
   assert.equal(single.keyboardType, "text");
   assert.equal(single.action, "done");
   assert.equal(single.maxLines, 1);
+  assert.equal(single.textOffsetY, 1.5);
+  assert.equal(openWith({ appearance: { fontSize: 16 } }).textOffsetY, 2);
+  assert.equal(openWith({ appearance: { paddingVertical: 0 } }).textOffsetY, 0);
+  assert.equal(openWith({ appearance: { paddingVertical: 1 } }).textOffsetY, 1);
   assert.equal(Object.hasOwn(single, "minLines"), false);
   const keys = Object.keys(single);
   assert.ok(keys.indexOf("keyboardType") < keys.indexOf("action") && keys.indexOf("action") < keys.indexOf("maxLines"));
@@ -120,6 +123,7 @@ check('unbounded multiline uses explicit null maxLines', () => {
   assert.equal(unbounded.action, "newline");
   assert.equal(unbounded.maxLines, null);
   assert.equal(Object.hasOwn(unbounded, "maxLines"), true);
+  assert.equal(Object.hasOwn(unbounded, "textOffsetY"), false);
   assert.equal(Object.hasOwn(unbounded, "minLines"), false);});
 
 check('bounded multiline clamps minLines', () => {

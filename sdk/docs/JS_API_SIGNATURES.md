@@ -6,7 +6,7 @@ Each import path lists every directly exported name and alias, linking to one sh
 
 Source-first reuse note: outside the retained parent `pocket_host/`, this work checked `README.md`, `docs/02_ARCHITECTURE_AND_MEMORY_DESIGN.md`, `docs/03_DUAL_HOST_UI_COMPONENTS_SPEC.md`, `docs/04_DEVELOPER_GUIDE_AND_VERIFICATION.md`, and `docs/04_BIDIRECTIONAL_FFI_WASM_AND_YOOASSET_HOTUPDATE.md` in `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo`. These preserve the earlier Flutter/WeChat host split, component-to-host projection notes, and run/regression scenarios. Their historical 38-component and QuickJS/WeChat-specific claims are not treated as this SDK API; the necessary adaptation is to enumerate current package exports, with UI policy and composition owned by JS. Validation uses TypeScript parser/checker exports, default-value examples, and source SHA markers.
 
-Coverage: 3838 importable export names, 2038 shared signature definitions, and 4089 listed members across 127 direct import paths. Source digests cover 187 inventoried files.
+Coverage: 3838 importable export names, 2038 shared signature definitions, and 4089 listed members across 127 direct import paths. Source digests cover 188 inventoried files.
 
 ## Packages and imports
 
@@ -8753,7 +8753,7 @@ Exports:
 - `bytesToBase64` — [signature](#api-sig-0662f9c0cdcfe0d8)
 - `bytesToUtf8` — [signature](#api-sig-e28a9f5de56ea7cc)
 - `Calendar` — [signature](#api-sig-83ce61ee741b76c2)
-- `Card` — [signature](#api-sig-c467bb6935527815)
+- `Card` — [signature](#api-sig-416fa7c634ea7ea4)
 - `CardContent` — [signature](#api-sig-f6fab3fe739ba97e)
 - `CardDescription` — [signature](#api-sig-6fea197aa16d05fa)
 - `CardFooter` — [signature](#api-sig-1af8f2b5e92881f1)
@@ -8807,7 +8807,7 @@ Exports:
 - `DesignDensity` — [signature](#api-sig-fed0a784eecc949a)
 - `DesignDensityProvider` — [signature](#api-sig-d5235426c80317d7)
 - `DesktopScrollPage` — [signature](#api-sig-5d01d1160f5ff66c)
-- `DetailModal` — [signature](#api-sig-1564869b780f9b15)
+- `DetailModal` — [signature](#api-sig-ba40de145809e717)
 - `Dialog` — [signature](#api-sig-1f0a788980a94aae)
 - `diffUpdateManifests` — [signature](#api-sig-4518ec0183d0219e)
 - `dismissActiveTextInputOnBackdropPress` — [signature](#api-sig-c32e6282e95d7255)
@@ -8897,8 +8897,8 @@ Exports:
 - `leftOcclusionFrames` — [signature](#api-sig-37e517e4cf0e1399)
 - `LinearProgressIndicator` — [signature](#api-sig-a127fd0e5ccfd77d)
 - `LiquidGlassRecipe` — [signature](#api-sig-75c0efe640cff5ea)
-- `List` — [signature](#api-sig-68c62b93c30430d4)
-- `ListItem` — [signature](#api-sig-5ea09cff137bdf62)
+- `List` — [signature](#api-sig-923ddcab7230e4a5)
+- `ListItem` — [signature](#api-sig-c9d19119e5381dd0)
 - `ListTile` — [signature](#api-sig-0a529d144bdc00f1)
 - `listUiSkins` — [signature](#api-sig-8d368cfe02ac22c5)
 - `MatchedRoute` — [signature](#api-sig-29fb643bd668a055)
@@ -8916,7 +8916,7 @@ Exports:
 - `MiniAppDeepLinkPayload` — [signature](#api-sig-cb2482f4d8ddc38d)
 - `MiniAppPresentationStyle` — [signature](#api-sig-542ad9bdbb35d9aa)
 - `MiniAppPresentationStyleInput` — [signature](#api-sig-fb5bb558be2ed006)
-- `MiniBarChart` — [signature](#api-sig-b474c0bc979bb888)
+- `MiniBarChart` — [signature](#api-sig-c07f80b52f09390c)
 - `MOBILE_MOTION` — [signature](#api-sig-3c7c8def5a48b599)
 - `MOBILE_THEME_DARK` — [signature](#api-sig-a71d909f4d3ace36)
 - `MOBILE_THEME_LIGHT` — [signature](#api-sig-255df0b2b362ca2c)
@@ -9057,7 +9057,7 @@ Exports:
 - `routeParam` — [signature](#api-sig-4058d672ee7b0078)
 - `RouteView` — [signature](#api-sig-248b69323b26b784)
 - `RouteViewProps` — [signature](#api-sig-02b1d06ffb660009)
-- `Row` — [signature](#api-sig-403211e46954fd38)
+- `Row` — [signature](#api-sig-1771b0e2a92803c2)
 - `SafeAreaEdge` — [signature](#api-sig-697335f12e2a1a12)
 - `SafeAreaEdges` — [signature](#api-sig-0aa35d40d4acc748)
 - `SafeAreaReservedActions` — [signature](#api-sig-6afc5323d4179d6e)
@@ -9067,7 +9067,7 @@ Exports:
 - `SafeAreaScaffoldProps` — [signature](#api-sig-eb7699ea1f76b652)
 - `SafeAreaSlot` — [signature](#api-sig-1fe0767d1fea5cd0)
 - `Scaffold` — [signature](#api-sig-4cc4a88381d9c2d3)
-- `ScrollablePage` — [signature](#api-sig-a49e588afd2cb808)
+- `ScrollablePage` — [signature](#api-sig-75f412893639633d)
 - `ScrollablePageContext` — [signature](#api-sig-3053d5924c084e4d)
 - `ScrollablePageContextValue` — [signature](#api-sig-52e011786a0ef32f)
 - `ScrollArea` — [signature](#api-sig-c3ffefc34f3ba6df)
@@ -9224,7 +9224,7 @@ Exports:
 - `TextInputParams` — [signature](#api-sig-be529bf85cbcda5a)
 - `TextInputTransformContext` — [signature](#api-sig-0f9a1351c46b08ba)
 - `TextInputVisualTransform` — [signature](#api-sig-1349a7cf86ba67c0)
-- `TileGrid` — [signature](#api-sig-47567d5fc7c16083)
+- `TileGrid` — [signature](#api-sig-ce76c3dc5d04dece)
 - `Toast` — [signature](#api-sig-cd35678dfe018d89)
 - `ToastHost` — [signature](#api-sig-94443518ffd09a0b)
 - `ToastItem` — [signature](#api-sig-ccf386f13475da3b)
@@ -9270,7 +9270,7 @@ Exports:
 - `useMobileTheme` — [signature](#api-sig-2e7713e8c6dadb39)
 - `useOptionalPocketRouter` — [signature](#api-sig-bdf05f25725ba9b4)
 - `usePocketAppLifecycle` — [signature](#api-sig-98699c17a43491b7)
-- `usePocketBackHandler` — [signature](#api-sig-076f46e267ac274f)
+- `usePocketBackHandler` — [signature](#api-sig-aa8b2531332c5207)
 - `usePocketRouteLifecycle` — [signature](#api-sig-8cc884503ac3744d)
 - `usePocketRouter` — [signature](#api-sig-983a67428d4d78be)
 - `usePresenceTransition` — [signature](#api-sig-e8f89f4990fbd6d4)
@@ -9294,7 +9294,7 @@ Exports:
 - `VideoProps` — [signature](#api-sig-08b82ac3b9e37986)
 - `VideoRequestMethod` — [signature](#api-sig-17fdb2dce5a5ca76)
 - `VideoSnapshot` — [signature](#api-sig-1c21a37fcb725141)
-- `ViewText` — [signature](#api-sig-f3ffa0e89a37f537)
+- `ViewText` — [signature](#api-sig-f06cdbd5407648fa)
 - `VirtualListHandle` → `unknown` — [signature](#api-sig-711be6f7bc3a021d)
 - `VirtualListProps` → `unknown` — [signature](#api-sig-51f970877568e276)
 - `visibleRows` — [signature](#api-sig-b065bda78c17c05f)
@@ -9797,12 +9797,12 @@ Source: [packages/pocket_ui/src/bytes.ts](../packages/pocket_ui/src/bytes.ts#L60
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5986)
 
-<a id="api-sig-c467bb6935527815"></a>
+<a id="api-sig-416fa7c634ea7ea4"></a>
 ### `Card`
 
 **Function** `Card(props: { children?: JSX.Element; class?: string }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2684)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2694)
 
 <a id="api-sig-f6fab3fe739ba97e"></a>
 ### `CardContent`
@@ -10202,12 +10202,12 @@ Members:
 
 Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1399)
 
-<a id="api-sig-1564869b780f9b15"></a>
+<a id="api-sig-ba40de145809e717"></a>
 ### `DetailModal`
 
 **Function** `DetailModal(props: { open: boolean | (() => boolean); title: string; body: string; onClose: () => void; }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2697)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2707)
 
 <a id="api-sig-1f0a788980a94aae"></a>
 ### `Dialog`
@@ -10882,7 +10882,7 @@ Source: [packages/pocket_ui/src/inline-text.tsx](../packages/pocket_ui/src/inlin
 <a id="api-sig-706ad682b11aec5f"></a>
 ### `InputField`
 
-**Function** ``InputField(props: { value: Accessor<string>; onInput?: (value: string) => void; onSubmit?: (value: string) => void; placeholder?: string; appearance?: InputFieldAppearance; /** * Multi-line editing. Enter inserts a newline (keyboardType "multiline", * action "newline") and `onSubmit` is not raised by the keyboard. Omitted or * false keeps the single-line `maxLines: 1` payload byte-for-byte. */ multiline?: boolean; /** Multi-line only: visible line cap. `null`/omitted means unbounded growth. */ maxLines?: number | null; /** Multi-line only: minimum visible lines (>= 1, clamped to maxLines). */ minLines?: number; /** Open the editing session shortly after mount (a dialog whose first action is typing). Off by default. */ autoFocus?: boolean; }): JSX.Element``
+**Function** ``InputField(props: { value: Accessor<string>; onInput?: (value: string) => void; onSubmit?: (value: string) => void; placeholder?: string; appearance?: InputFieldAppearance; /** * Multi-line editing. Enter inserts a newline (keyboardType "multiline", * action "newline") and `onSubmit` is not raised by the keyboard. Omitted or * false uses single-line editing (`maxLines: 1`). */ multiline?: boolean; /** Multi-line only: visible line cap. `null`/omitted means unbounded growth. */ maxLines?: number | null; /** Multi-line only: minimum visible lines (>= 1, clamped to maxLines). */ minLines?: number; /** Open the editing session shortly after mount (a dialog whose first action is typing). Off by default. */ autoFocus?: boolean; }): JSX.Element``
 
 Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1635)
 
@@ -11015,14 +11015,14 @@ Members:
 
 Source: [packages/pocket_ui/src/legacy.ts](../packages/pocket_ui/src/legacy.ts#L70)
 
-<a id="api-sig-68c62b93c30430d4"></a>
+<a id="api-sig-923ddcab7230e4a5"></a>
 ### `List`
 
 **Function** `List(props: { items: readonly ListItem[]; tone?: "light" | "dark" }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2663)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2673)
 
-<a id="api-sig-5ea09cff137bdf62"></a>
+<a id="api-sig-c9d19119e5381dd0"></a>
 ### `ListItem`
 
 **Interface** `ListItem`
@@ -11032,7 +11032,7 @@ Members:
 - `id: string`
 - `title: string`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2657)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2667)
 
 <a id="api-sig-0a529d144bdc00f1"></a>
 ### `ListTile`
@@ -11219,12 +11219,12 @@ Source: [packages/pocket_ui/src/host.ts](../packages/pocket_ui/src/host.ts#L62)
 
 Source: [packages/pocket_ui/src/host.ts](../packages/pocket_ui/src/host.ts#L64)
 
-<a id="api-sig-b474c0bc979bb888"></a>
+<a id="api-sig-c07f80b52f09390c"></a>
 ### `MiniBarChart`
 
 **Function** `MiniBarChart(props: { values: readonly number[] }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2647)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2657)
 
 <a id="api-sig-3c7c8def5a48b599"></a>
 ### `MOBILE_MOTION`
@@ -12653,12 +12653,12 @@ Members:
 
 Source: [packages/pocket_ui/src/route.tsx](../packages/pocket_ui/src/route.tsx#L31)
 
-<a id="api-sig-403211e46954fd38"></a>
+<a id="api-sig-1771b0e2a92803c2"></a>
 ### `Row`
 
 **Function** `Row(props: { children?: JSX.Element; class?: string }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2688)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2698)
 
 <a id="api-sig-697335f12e2a1a12"></a>
 ### `SafeAreaEdge`
@@ -12743,12 +12743,12 @@ Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L83)
 
 Source: [packages/pocket_ui/src/mobile.tsx](../packages/pocket_ui/src/mobile.tsx#L5945)
 
-<a id="api-sig-a49e588afd2cb808"></a>
+<a id="api-sig-75f412893639633d"></a>
 ### `ScrollablePage`
 
 **Function** `ScrollablePage(props: { children?: JSX.Element; class?: string; style?: ViewProps["style"]; }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2148)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2158)
 
 <a id="api-sig-3053d5924c084e4d"></a>
 ### `ScrollablePageContext`
@@ -14133,12 +14133,12 @@ Members:
 
 Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L1360)
 
-<a id="api-sig-47567d5fc7c16083"></a>
+<a id="api-sig-ce76c3dc5d04dece"></a>
 ### `TileGrid`
 
 **Function** `TileGrid(props: { children?: JSX.Element }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2692)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2702)
 
 <a id="api-sig-cd35678dfe018d89"></a>
 ### `Toast`
@@ -14584,12 +14584,12 @@ Source: [packages/pocket_ui/src/router.tsx](../packages/pocket_ui/src/router.tsx
 
 Source: [packages/pocket_ui/src/lifecycle.tsx](../packages/pocket_ui/src/lifecycle.tsx#L236)
 
-<a id="api-sig-076f46e267ac274f"></a>
+<a id="api-sig-aa8b2531332c5207"></a>
 ### `usePocketBackHandler`
 
 **Function** `usePocketBackHandler(handler: PocketBackInterceptorHandler, enabled: boolean | Accessor<boolean> = true): void`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L253)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L240)
 
 <a id="api-sig-8cc884503ac3744d"></a>
 ### `usePocketRouteLifecycle`
@@ -14793,12 +14793,12 @@ Members:
 
 Source: [packages/pocket_ui/src/media.ts](../packages/pocket_ui/src/media.ts#L16)
 
-<a id="api-sig-f3ffa0e89a37f537"></a>
+<a id="api-sig-f06cdbd5407648fa"></a>
 ### `ViewText`
 
 **Function** `ViewText(props: { title: string; body: string }): JSX.Element`
 
-Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2680)
+Source: [packages/pocket_ui/src/ui.tsx](../packages/pocket_ui/src/ui.tsx#L2690)
 
 <a id="api-sig-711be6f7bc3a021d"></a>
 ### `VirtualListHandle` (re-export alias of `unknown`)
@@ -14850,7 +14850,7 @@ Exports:
 - `PocketAppShellProps` — [signature](#api-sig-f29f9992c8396558)
 - `PocketRouteTransitionController` — [signature](#api-sig-3325d5f20eab082a)
 - `PocketRouteTransitionState` — [signature](#api-sig-df563f410cfb4e58)
-- `usePocketBackHandler` — [signature](#api-sig-076f46e267ac274f)
+- `usePocketBackHandler` — [signature](#api-sig-aa8b2531332c5207)
 
 Signatures:
 
@@ -14875,76 +14875,76 @@ Signatures:
 Entry: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts)
 
 Exports:
-- `createPocketBackInterceptorRegistry` — [signature](#api-sig-6b7f373a7d89a4d1)
-- `createPocketBackNavigation` — [signature](#api-sig-6a0d4cc543417403)
-- `POCKET_BACK_GESTURE_EVENT` — [signature](#api-sig-95da7038168b8736)
-- `POCKET_BACK_GESTURE_READY_EVENT` — [signature](#api-sig-58378778ebab5212)
-- `POCKET_BACK_GESTURE_RESPONSE_EVENT` — [signature](#api-sig-5e1842d9328eb3e6)
-- `POCKET_BACK_REQUEST_EVENT` — [signature](#api-sig-3184723f65bb921e)
-- `POCKET_BACK_RESPONSE_EVENT` — [signature](#api-sig-7e248f52624cb98c)
-- `PocketBackGestureEvent` — [signature](#api-sig-06cdff66b96a370c)
-- `PocketBackGestureHandler` — [signature](#api-sig-3fdc2a98de8291f9)
-- `PocketBackGesturePhase` — [signature](#api-sig-8c95a52c2e078586)
-- `PocketBackInterceptorEntry` — [signature](#api-sig-6e75287f146970ae)
-- `PocketBackInterceptorHandler` — [signature](#api-sig-7e7d31571817218a)
-- `PocketBackInterceptorProvider` — [signature](#api-sig-375373092c96284a)
-- `PocketBackInterceptorRegistry` — [signature](#api-sig-dd3ab37a0962884f)
-- `PocketBackRequestHandler` — [signature](#api-sig-888e74cb96ed3787)
-- `PocketBackRouteActiveProvider` — [signature](#api-sig-60bbba4ef0224136)
-- `shouldCommitPocketBackGesture` — [signature](#api-sig-11a81adc9849f631)
-- `usePocketBackHandler` — [signature](#api-sig-076f46e267ac274f)
+- `createPocketBackInterceptorRegistry` — [signature](#api-sig-59f495cfafc39f8a)
+- `createPocketBackNavigation` — [signature](#api-sig-0470dfeb9d73d532)
+- `POCKET_BACK_GESTURE_EVENT` — [signature](#api-sig-1076c7540e370b7b)
+- `POCKET_BACK_GESTURE_READY_EVENT` — [signature](#api-sig-4eda50a8ffb76542)
+- `POCKET_BACK_GESTURE_RESPONSE_EVENT` — [signature](#api-sig-e66940d4ef931096)
+- `POCKET_BACK_REQUEST_EVENT` — [signature](#api-sig-3352f05668acc222)
+- `POCKET_BACK_RESPONSE_EVENT` — [signature](#api-sig-8093b3669bec0e75)
+- `PocketBackGestureEvent` — [signature](#api-sig-351348b1ab58a31e)
+- `PocketBackGestureHandler` — [signature](#api-sig-52b992d57778db96)
+- `PocketBackGesturePhase` — [signature](#api-sig-434f5adf7a767727)
+- `PocketBackInterceptorEntry` — [signature](#api-sig-6d4d8f879a82cf61)
+- `PocketBackInterceptorHandler` — [signature](#api-sig-abb68898ee17718a)
+- `PocketBackInterceptorProvider` — [signature](#api-sig-d580a182e075bd40)
+- `PocketBackInterceptorRegistry` — [signature](#api-sig-4085ec019a88b457)
+- `PocketBackRequestHandler` — [signature](#api-sig-44e7b94fca0a440f)
+- `PocketBackRouteActiveProvider` — [signature](#api-sig-dd0cc429e3218a72)
+- `shouldCommitPocketBackGesture` — [signature](#api-sig-04a80c0a138a2b68)
+- `usePocketBackHandler` — [signature](#api-sig-aa8b2531332c5207)
 
 Signatures:
-<a id="api-sig-6b7f373a7d89a4d1"></a>
+<a id="api-sig-59f495cfafc39f8a"></a>
 ### `createPocketBackInterceptorRegistry`
 
 **Function** `createPocketBackInterceptorRegistry(): PocketBackInterceptorRegistry`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L181)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L168)
 
-<a id="api-sig-6a0d4cc543417403"></a>
+<a id="api-sig-0470dfeb9d73d532"></a>
 ### `createPocketBackNavigation`
 
 **Function** `createPocketBackNavigation(host: Pick<HostBridge, "onEvent" | "emit">): { setHandler(next: PocketBackRequestHandler | undefined): void; setGestureHandler(next: PocketBackGestureHandler | undefined): void; dispose(): void; }`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L36)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L38)
 
-<a id="api-sig-95da7038168b8736"></a>
+<a id="api-sig-1076c7540e370b7b"></a>
 ### `POCKET_BACK_GESTURE_EVENT`
 
 **Value** `POCKET_BACK_GESTURE_EVENT: "platform.back.gesture"`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L6)
+Source: [packages/pocket_ui/src/back-requests.ts](../packages/pocket_ui/src/back-requests.ts#L5)
 
-<a id="api-sig-58378778ebab5212"></a>
+<a id="api-sig-4eda50a8ffb76542"></a>
 ### `POCKET_BACK_GESTURE_READY_EVENT`
 
 **Value** `POCKET_BACK_GESTURE_READY_EVENT: "platform.back.gesture.ready"`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L8)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L10)
 
-<a id="api-sig-5e1842d9328eb3e6"></a>
+<a id="api-sig-e66940d4ef931096"></a>
 ### `POCKET_BACK_GESTURE_RESPONSE_EVENT`
 
 **Value** `POCKET_BACK_GESTURE_RESPONSE_EVENT: "platform.back.gesture.response"`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L7)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L9)
 
-<a id="api-sig-3184723f65bb921e"></a>
+<a id="api-sig-3352f05668acc222"></a>
 ### `POCKET_BACK_REQUEST_EVENT`
 
 **Value** `POCKET_BACK_REQUEST_EVENT: "platform.back.request"`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L4)
+Source: [packages/pocket_ui/src/back-requests.ts](../packages/pocket_ui/src/back-requests.ts#L3)
 
-<a id="api-sig-7e248f52624cb98c"></a>
+<a id="api-sig-8093b3669bec0e75"></a>
 ### `POCKET_BACK_RESPONSE_EVENT`
 
 **Value** `POCKET_BACK_RESPONSE_EVENT: "platform.back.response"`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L5)
+Source: [packages/pocket_ui/src/back-requests.ts](../packages/pocket_ui/src/back-requests.ts#L4)
 
-<a id="api-sig-06cdff66b96a370c"></a>
+<a id="api-sig-351348b1ab58a31e"></a>
 ### `PocketBackGestureEvent`
 
 **Interface** `PocketBackGestureEvent`
@@ -14957,23 +14957,23 @@ Members:
 - `velocity: number`
 - `width: number`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L14)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L16)
 
-<a id="api-sig-3fdc2a98de8291f9"></a>
+<a id="api-sig-52b992d57778db96"></a>
 ### `PocketBackGestureHandler`
 
 **Type** `PocketBackGestureHandler = (event: PocketBackGestureEvent) => boolean | void`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L24)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L26)
 
-<a id="api-sig-8c95a52c2e078586"></a>
+<a id="api-sig-434f5adf7a767727"></a>
 ### `PocketBackGesturePhase`
 
 **Type** `PocketBackGesturePhase = "start" | "update" | "end" | "cancel"`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L12)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L14)
 
-<a id="api-sig-6e75287f146970ae"></a>
+<a id="api-sig-6d4d8f879a82cf61"></a>
 ### `PocketBackInterceptorEntry`
 
 **Interface** `PocketBackInterceptorEntry`
@@ -14983,23 +14983,23 @@ Members:
 - `readonly id: number`
 - `readonly isEnabled: () => boolean`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L169)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L156)
 
-<a id="api-sig-7e7d31571817218a"></a>
+<a id="api-sig-abb68898ee17718a"></a>
 ### `PocketBackInterceptorHandler`
 
 **Type** `PocketBackInterceptorHandler = () => boolean | void`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L167)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L154)
 
-<a id="api-sig-375373092c96284a"></a>
+<a id="api-sig-d580a182e075bd40"></a>
 ### `PocketBackInterceptorProvider`
 
 **Function** `PocketBackInterceptorProvider(props: { readonly value: PocketBackInterceptorRegistry; readonly children: JSX.Element; }): JSX.Element`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L239)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L226)
 
-<a id="api-sig-dd3ab37a0962884f"></a>
+<a id="api-sig-4085ec019a88b457"></a>
 ### `PocketBackInterceptorRegistry`
 
 **Interface** `PocketBackInterceptorRegistry`
@@ -15009,28 +15009,28 @@ Members:
 - `readonly count: Accessor<number>`
 - `register(handler: PocketBackInterceptorHandler, isEnabled?: () => boolean): () => void`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L175)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L162)
 
-<a id="api-sig-888e74cb96ed3787"></a>
+<a id="api-sig-44e7b94fca0a440f"></a>
 ### `PocketBackRequestHandler`
 
 **Type** `PocketBackRequestHandler = (requestId: string) => boolean | Promise<boolean>`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L10)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L12)
 
-<a id="api-sig-60bbba4ef0224136"></a>
+<a id="api-sig-dd0cc429e3218a72"></a>
 ### `PocketBackRouteActiveProvider`
 
 **Function** `PocketBackRouteActiveProvider(props: { readonly active: Accessor<boolean>; readonly children: JSX.Element; }): JSX.Element`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L225)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L212)
 
-<a id="api-sig-11a81adc9849f631"></a>
+<a id="api-sig-04a80c0a138a2b68"></a>
 ### `shouldCommitPocketBackGesture`
 
 **Function** `shouldCommitPocketBackGesture(event: PocketBackGestureEvent): boolean`
 
-Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L27)
+Source: [packages/pocket_ui/src/back-navigation.ts](../packages/pocket_ui/src/back-navigation.ts#L29)
 
 
 ### Import `@pocket/ui/bytes`
@@ -19691,48 +19691,48 @@ Entry: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts)
 
 Exports:
 - `DEFAULT_SYSTEM_PRESETS` — [signature](#api-sig-a4b355eec3ab7ba4)
-- `installPocketSystem` — [signature](#api-sig-e9ce7ba50ef7230a)
-- `InstallPocketSystemOptions` — [signature](#api-sig-0b14c13bfab9e270)
+- `installPocketSystem` — [signature](#api-sig-4ebfc56e66a2cbb7)
+- `InstallPocketSystemOptions` — [signature](#api-sig-b7e5b17a2a998028)
 - `MiniAppPresentationStyle` — [signature](#api-sig-542ad9bdbb35d9aa)
 - `MiniAppPresentationStyleInput` — [signature](#api-sig-fb5bb558be2ed006)
 - `normalizePresentationStyle` — [signature](#api-sig-5589006b7765b38f)
 - `parseSystemPresets` — [signature](#api-sig-5ac71db871962aff)
 - `POCKET_MEMORY_POLICIES` — [signature](#api-sig-bf6c6bdc1a3b3f87)
 - `POCKET_MEMORY_POLICY_BUDGETS` — [signature](#api-sig-183f30e97a5c81bd)
-- `PocketAppPolicy` — [signature](#api-sig-4d374964e3c6f1cf)
+- `PocketAppPolicy` — [signature](#api-sig-4cc18ee6a97efd12)
 - `PocketMemoryBudget` — [signature](#api-sig-f99c78018862e443)
 - `PocketMemoryPolicy` — [signature](#api-sig-eac179afb4e03dc9)
-- `PocketSystemBeforeDismissHandler` — [signature](#api-sig-d58e442e66e352f1)
-- `PocketSystemCatalogEntry` — [signature](#api-sig-e635e966f842afbd)
+- `PocketSystemBeforeDismissHandler` — [signature](#api-sig-70dc80f3b81110b2)
+- `PocketSystemCatalogEntry` — [signature](#api-sig-87e8fd4c19bc287f)
 - `PocketSystemDensity` — [signature](#api-sig-0426f692bca280a0)
-- `PocketSystemDirectLaunchError` — [signature](#api-sig-31760064584926f3)
-- `PocketSystemExternalOpenHandler` — [signature](#api-sig-8c0178e60d44dc4d)
-- `PocketSystemExternalOpenRequest` — [signature](#api-sig-ceebdaa9bd86b488)
-- `PocketSystemKernel` — [signature](#api-sig-d531e1f87b6570af)
-- `PocketSystemOpeningApp` — [signature](#api-sig-a344b9c128c864c2)
-- `PocketSystemOpenMode` — [signature](#api-sig-a579248f5d47815b)
-- `PocketSystemPendingCallSnapshot` — [signature](#api-sig-4a95eb1b8cc8a53e)
-- `PocketSystemPolicies` — [signature](#api-sig-8c9c826d69c93302)
+- `PocketSystemDirectLaunchError` — [signature](#api-sig-fa347fce6d27feed)
+- `PocketSystemExternalOpenHandler` — [signature](#api-sig-a11908abca58dfb0)
+- `PocketSystemExternalOpenRequest` — [signature](#api-sig-588327b4e4bf6a4d)
+- `PocketSystemKernel` — [signature](#api-sig-d379a4007be01b17)
+- `PocketSystemOpeningApp` — [signature](#api-sig-a09f8ac5a52e4eaa)
+- `PocketSystemOpenMode` — [signature](#api-sig-f6cdd691717b3a55)
+- `PocketSystemPendingCallSnapshot` — [signature](#api-sig-e28b5e6b16c9f831)
+- `PocketSystemPolicies` — [signature](#api-sig-45a2e54620c1498c)
 - `PocketSystemPresets` — [signature](#api-sig-1f6e87f263ca423e)
-- `PocketSystemPresetUpdate` — [signature](#api-sig-7c61fe74ec33edfa)
-- `PocketSystemRuntimeSnapshot` — [signature](#api-sig-44d1214ba63d1dfc)
-- `PocketSystemRuntimeState` — [signature](#api-sig-bba87b2a861efb50)
-- `PocketSystemSnapshot` — [signature](#api-sig-1cb456f5c04c6bfa)
-- `PocketSystemStackSnapshot` — [signature](#api-sig-dd734b99bd471829)
-- `PocketSystemSurfaceBinding` — [signature](#api-sig-06b826197bedc083)
-- `PocketSystemV1` — [signature](#api-sig-106ea7bcce4c274c)
+- `PocketSystemPresetUpdate` — [signature](#api-sig-a94d7635c838d212)
+- `PocketSystemRuntimeSnapshot` — [signature](#api-sig-9b85ad4fee039d5b)
+- `PocketSystemRuntimeState` — [signature](#api-sig-ba876a940622a9f4)
+- `PocketSystemSnapshot` — [signature](#api-sig-1858abb5a9bc2805)
+- `PocketSystemStackSnapshot` — [signature](#api-sig-419a3124395b4414)
+- `PocketSystemSurfaceBinding` — [signature](#api-sig-abc5d384a8b6673e)
+- `PocketSystemV1` — [signature](#api-sig-5e4166bb8e742f3e)
 - `SYSTEM_PRESETS_EVENT` — [signature](#api-sig-77b9819c26e224d8)
 - `systemPresetsBridgeObject` — [signature](#api-sig-038bab214a60db8e)
 
 Signatures:
-<a id="api-sig-e9ce7ba50ef7230a"></a>
+<a id="api-sig-4ebfc56e66a2cbb7"></a>
 ### `installPocketSystem`
 
 **Function** `installPocketSystem(manifest: PocketSystemV1, options: InstallPocketSystemOptions): PocketSystemKernel`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L2967)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L3015)
 
-<a id="api-sig-0b14c13bfab9e270"></a>
+<a id="api-sig-b7e5b17a2a998028"></a>
 ### `InstallPocketSystemOptions`
 
 **Interface** `InstallPocketSystemOptions`
@@ -19745,7 +19745,7 @@ Members:
 - `policies?: Readonly<Record<string, PocketAppPolicy>>`
 - `presets?: PocketSystemPresetUpdate`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L131)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L138)
 
 <a id="api-sig-bf6c6bdc1a3b3f87"></a>
 ### `POCKET_MEMORY_POLICIES`
@@ -19761,7 +19761,7 @@ Source: [packages/pocket_ui/src/system-memory.ts](../packages/pocket_ui/src/syst
 
 Source: [packages/pocket_ui/src/system-memory.ts](../packages/pocket_ui/src/system-memory.ts#L19)
 
-<a id="api-sig-4d374964e3c6f1cf"></a>
+<a id="api-sig-4cc18ee6a97efd12"></a>
 ### `PocketAppPolicy`
 
 **Interface** `PocketAppPolicy`
@@ -19771,7 +19771,7 @@ Members:
 - `messageTargets: readonly string[]`
 - `sharedNamespaces: readonly string[]`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L88)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L95)
 
 <a id="api-sig-f99c78018862e443"></a>
 ### `PocketMemoryBudget`
@@ -19791,14 +19791,14 @@ Source: [packages/pocket_ui/src/system-memory.ts](../packages/pocket_ui/src/syst
 
 Source: [packages/pocket_ui/src/system-memory.ts](../packages/pocket_ui/src/system-memory.ts#L11)
 
-<a id="api-sig-d58e442e66e352f1"></a>
+<a id="api-sig-70dc80f3b81110b2"></a>
 ### `PocketSystemBeforeDismissHandler`
 
 **Type** `PocketSystemBeforeDismissHandler = (instanceIds: readonly string[]) => Promise<void>`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L100)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L107)
 
-<a id="api-sig-e635e966f842afbd"></a>
+<a id="api-sig-87e8fd4c19bc287f"></a>
 ### `PocketSystemCatalogEntry`
 
 **Interface** `PocketSystemCatalogEntry`
@@ -19811,9 +19811,9 @@ Members:
 - `presentation?: JsonObject`
 - `required: boolean`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L53)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L60)
 
-<a id="api-sig-31760064584926f3"></a>
+<a id="api-sig-fa347fce6d27feed"></a>
 ### `PocketSystemDirectLaunchError`
 
 **Interface** `PocketSystemDirectLaunchError`
@@ -19823,16 +19823,16 @@ Members:
 - `readonly code: string`
 - `readonly message: string`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L188)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L195)
 
-<a id="api-sig-8c0178e60d44dc4d"></a>
+<a id="api-sig-a11908abca58dfb0"></a>
 ### `PocketSystemExternalOpenHandler`
 
 **Type** `PocketSystemExternalOpenHandler = ( request: PocketSystemExternalOpenRequest, ) => Promise<AppLaunch> | AppLaunch`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L127)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L134)
 
-<a id="api-sig-ceebdaa9bd86b488"></a>
+<a id="api-sig-588327b4e4bf6a4d"></a>
 ### `PocketSystemExternalOpenRequest`
 
 **Interface** `PocketSystemExternalOpenRequest`
@@ -19843,9 +19843,9 @@ Members:
 - `readonly presentationStyle?: MiniAppPresentationStyle`
 - `readonly requestId: string`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L119)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L126)
 
-<a id="api-sig-d531e1f87b6570af"></a>
+<a id="api-sig-d379a4007be01b17"></a>
 ### `PocketSystemKernel`
 
 **Interface** `PocketSystemKernel`
@@ -19863,9 +19863,9 @@ Members:
 - `subscribe(listener: () => void): () => void`
 - `surfaceBindings(options?: { includeStack?: boolean }): readonly PocketSystemSurfaceBinding[]`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L243)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L250)
 
-<a id="api-sig-a344b9c128c864c2"></a>
+<a id="api-sig-a09f8ac5a52e4eaa"></a>
 ### `PocketSystemOpeningApp`
 
 **Interface** `PocketSystemOpeningApp`
@@ -19875,16 +19875,16 @@ Members:
 - `readonly stage: "preparing" | "firstFrame"`
 - `readonly title?: string`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L182)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L189)
 
-<a id="api-sig-a579248f5d47815b"></a>
+<a id="api-sig-f6cdd691717b3a55"></a>
 ### `PocketSystemOpenMode`
 
 **Type** `PocketSystemOpenMode = "embedded" | "fullscreen"`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L116)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L123)
 
-<a id="api-sig-4a95eb1b8cc8a53e"></a>
+<a id="api-sig-e28b5e6b16c9f831"></a>
 ### `PocketSystemPendingCallSnapshot`
 
 **Interface** `PocketSystemPendingCallSnapshot`
@@ -19899,16 +19899,16 @@ Members:
 - `targetAppId: string`
 - `targetInstanceId: string`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L170)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L177)
 
-<a id="api-sig-8c9c826d69c93302"></a>
+<a id="api-sig-45a2e54620c1498c"></a>
 ### `PocketSystemPolicies`
 
 **Type** `PocketSystemPolicies = Readonly<Record<string, PocketAppPolicy>>`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L94)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L101)
 
-<a id="api-sig-7c61fe74ec33edfa"></a>
+<a id="api-sig-a94d7635c838d212"></a>
 ### `PocketSystemPresetUpdate`
 
 **Interface** `PocketSystemPresetUpdate`
@@ -19925,9 +19925,9 @@ Members:
 - `skin?: string`
 - `uiSkin?: string`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L102)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L109)
 
-<a id="api-sig-44d1214ba63d1dfc"></a>
+<a id="api-sig-9b85ad4fee039d5b"></a>
 ### `PocketSystemRuntimeSnapshot`
 
 **Interface** `PocketSystemRuntimeSnapshot`
@@ -19942,16 +19942,16 @@ Members:
 - `prewarmed: boolean`
 - `state: PocketSystemRuntimeState`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L152)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L159)
 
-<a id="api-sig-bba87b2a861efb50"></a>
+<a id="api-sig-ba876a940622a9f4"></a>
 ### `PocketSystemRuntimeState`
 
 **Type** `PocketSystemRuntimeState = | "foreground" | "frozen" | "prewarmed" | "suspended" | "closing" | "failed"`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L144)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L151)
 
-<a id="api-sig-1cb456f5c04c6bfa"></a>
+<a id="api-sig-1858abb5a9bc2805"></a>
 ### `PocketSystemSnapshot`
 
 **Interface** `PocketSystemSnapshot`
@@ -19976,9 +19976,9 @@ Members:
 - `stack: readonly PocketSystemStackSnapshot[]`
 - `systemUI: string`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L213)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L220)
 
-<a id="api-sig-dd734b99bd471829"></a>
+<a id="api-sig-419a3124395b4414"></a>
 ### `PocketSystemStackSnapshot`
 
 **Interface** `PocketSystemStackSnapshot`
@@ -19989,9 +19989,9 @@ Members:
 - `instanceId: string`
 - `requestId: string`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L163)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L170)
 
-<a id="api-sig-06b826197bedc083"></a>
+<a id="api-sig-abc5d384a8b6673e"></a>
 ### `PocketSystemSurfaceBinding`
 
 **Interface** `PocketSystemSurfaceBinding`
@@ -20005,9 +20005,9 @@ Members:
 - `ready?: boolean`
 - `surfaceHandle: number`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L195)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L202)
 
-<a id="api-sig-106ea7bcce4c274c"></a>
+<a id="api-sig-5e4166bb8e742f3e"></a>
 ### `PocketSystemV1`
 
 **Interface** `PocketSystemV1`
@@ -20022,7 +20022,7 @@ Members:
 - `title?: string`
 - `version?: string`
 
-Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L65)
+Source: [packages/pocket_ui/src/system.ts](../packages/pocket_ui/src/system.ts#L72)
 
 
 ### Import `@pocket/ui/system-surfaces`
@@ -20118,7 +20118,7 @@ Exports:
 - `Button` — [signature](#api-sig-184f829978de54a0)
 - `ButtonGroup` — [signature](#api-sig-b7cc5d5ac6759591)
 - `Calendar` — [signature](#api-sig-83ce61ee741b76c2)
-- `Card` — [signature](#api-sig-c467bb6935527815)
+- `Card` — [signature](#api-sig-416fa7c634ea7ea4)
 - `CardContent` — [signature](#api-sig-f6fab3fe739ba97e)
 - `CardDescription` — [signature](#api-sig-6fea197aa16d05fa)
 - `CardFooter` — [signature](#api-sig-1af8f2b5e92881f1)
@@ -20139,7 +20139,7 @@ Exports:
 - `deliverTextInputEvent` — [signature](#api-sig-1009818b5c389f85)
 - `DesignDensityProvider` — [signature](#api-sig-d5235426c80317d7)
 - `DesktopScrollPage` — [signature](#api-sig-5d01d1160f5ff66c)
-- `DetailModal` — [signature](#api-sig-1564869b780f9b15)
+- `DetailModal` — [signature](#api-sig-ba40de145809e717)
 - `Dialog` — [signature](#api-sig-1f0a788980a94aae)
 - `dismissActiveTextInputOnBackdropPress` — [signature](#api-sig-c32e6282e95d7255)
 - `Drawer` — [signature](#api-sig-13d5cc86e59bba03)
@@ -20163,13 +20163,13 @@ Exports:
 - `Item` — [signature](#api-sig-f83c5a9cd33f8758)
 - `Kbd` — [signature](#api-sig-2c96f4df465c7247)
 - `Label` — [signature](#api-sig-a878de4de5c10e39)
-- `List` — [signature](#api-sig-68c62b93c30430d4)
-- `ListItem` — [signature](#api-sig-5ea09cff137bdf62)
+- `List` — [signature](#api-sig-923ddcab7230e4a5)
+- `ListItem` — [signature](#api-sig-c9d19119e5381dd0)
 - `ListTile` — [signature](#api-sig-0a529d144bdc00f1)
 - `Menubar` — [signature](#api-sig-10d3ec10248b5b49)
 - `MetricCard` — [signature](#api-sig-3cf8169731569f07)
 - `MINI_APP_HOST_ACTION_RESERVE` — [signature](#api-sig-7670e499d45dc700)
-- `MiniBarChart` — [signature](#api-sig-b474c0bc979bb888)
+- `MiniBarChart` — [signature](#api-sig-c07f80b52f09390c)
 - `MOBILE_MOTION` — [signature](#api-sig-3c7c8def5a48b599)
 - `MOBILE_THEME_DARK` — [signature](#api-sig-a71d909f4d3ace36)
 - `MOBILE_THEME_LIGHT` — [signature](#api-sig-255df0b2b362ca2c)
@@ -20230,7 +20230,7 @@ Exports:
 - `readCommittedNodeRect` — [signature](#api-sig-82c6c88de135775c)
 - `registerDesktopScrollPage` — [signature](#api-sig-8a0e8aca3c84d85f)
 - `Resizable` — [signature](#api-sig-f3013c5fb8e3d461)
-- `Row` — [signature](#api-sig-403211e46954fd38)
+- `Row` — [signature](#api-sig-1771b0e2a92803c2)
 - `SafeAreaEdge` — [signature](#api-sig-697335f12e2a1a12)
 - `SafeAreaEdges` — [signature](#api-sig-0aa35d40d4acc748)
 - `SafeAreaReservedActions` — [signature](#api-sig-6afc5323d4179d6e)
@@ -20240,7 +20240,7 @@ Exports:
 - `SafeAreaScaffoldProps` — [signature](#api-sig-eb7699ea1f76b652)
 - `SafeAreaSlot` — [signature](#api-sig-1fe0767d1fea5cd0)
 - `Scaffold` — [signature](#api-sig-4cc4a88381d9c2d3)
-- `ScrollablePage` — [signature](#api-sig-a49e588afd2cb808)
+- `ScrollablePage` — [signature](#api-sig-75f412893639633d)
 - `ScrollablePageContext` — [signature](#api-sig-3053d5924c084e4d)
 - `ScrollablePageContextValue` — [signature](#api-sig-52e011786a0ef32f)
 - `ScrollArea` — [signature](#api-sig-c3ffefc34f3ba6df)
@@ -20317,7 +20317,7 @@ Exports:
 - `TextInputParams` — [signature](#api-sig-be529bf85cbcda5a)
 - `TextInputTransformContext` — [signature](#api-sig-0f9a1351c46b08ba)
 - `TextInputVisualTransform` — [signature](#api-sig-1349a7cf86ba67c0)
-- `TileGrid` — [signature](#api-sig-47567d5fc7c16083)
+- `TileGrid` — [signature](#api-sig-ce76c3dc5d04dece)
 - `Toast` — [signature](#api-sig-cd35678dfe018d89)
 - `ToggleGroup` — [signature](#api-sig-ffdbbb95f2bff6a6)
 - `toMobileColor` — [signature](#api-sig-93bc6ae440326177)
@@ -20331,7 +20331,7 @@ Exports:
 - `useScrollContourReserve` — [signature](#api-sig-8a056dc480682a02)
 - `useStateTransition` — [signature](#api-sig-6c221be2c0a8c28d)
 - `useWindowSizeClass` — [signature](#api-sig-02dcf1e6d5354495)
-- `ViewText` — [signature](#api-sig-f3ffa0e89a37f537)
+- `ViewText` — [signature](#api-sig-f06cdbd5407648fa)
 - `wrapTextLines` — [signature](#api-sig-ca5be3ebbfb8cf08)
 
 Signatures:
@@ -24610,7 +24610,8 @@ The following markers cover all inventoried declaration sources and package mani
 <!-- api-source: packages/pocket_ui/src/accessibility.ts 0cdaa93d47dcfb00a66930baae210cf5ed852fe9653ed4892788d610abadcd12 -->
 <!-- api-source: packages/pocket_ui/src/app-shell.tsx 668bf331b5771cec0e350ac3cf79266343e73374c63223ae89a7c15e6a2ca690 -->
 <!-- api-source: packages/pocket_ui/src/apple.tsx 1f1b3215011ffe67a4cbe548c031052f0dd892df147a562d19bf6c76757f176f -->
-<!-- api-source: packages/pocket_ui/src/back-navigation.ts de02884f86a2bd0b7b18450faa69e0cb9a1ab7822a807912ee973abc5081ab65 -->
+<!-- api-source: packages/pocket_ui/src/back-navigation.ts b3a6e3488f3ef44baa5eb67d65a54044995de5a477994e8f75685bdfcca029b4 -->
+<!-- api-source: packages/pocket_ui/src/back-requests.ts 71f1bdda3c5bafafd86cfc78038005eae34ff5f353b6af294b0ded2efc68c0c5 -->
 <!-- api-source: packages/pocket_ui/src/bytes.ts aa5d8a438f7cf8a2d4c9013402854a82ee628e609f08c6d963540f0168786736 -->
 <!-- api-source: packages/pocket_ui/src/clipboard.ts 3499ce8e964352bc83673ca8de9af20aeb888e5e08c033ce6926789def1b5917 -->
 <!-- api-source: packages/pocket_ui/src/code/buffer.ts efed84c0834d8edcca7e3645189210c442e513b01e32bce8615580204f883fcf -->
@@ -24663,13 +24664,13 @@ The following markers cover all inventoried declaration sources and package mani
 <!-- api-source: packages/pocket_ui/src/surfaces.tsx 46dc966b0fbaffdbb83f29dd3592bc6555afea444ff1d4fb695ce959001ac202 -->
 <!-- api-source: packages/pocket_ui/src/system-memory.ts 6caaf6d3e4f4209d0dc9c7551dbd435cdbb1c4a17dc41d9e3e6d66940a1dbcfe -->
 <!-- api-source: packages/pocket_ui/src/system-surfaces.tsx fa0d6348dcf6cbc1743af3e3cd360a11b5754657797d53b4df2b9aaf259c5dc8 -->
-<!-- api-source: packages/pocket_ui/src/system.ts dfa137fc1703f534084d84821afb890327d03e670bb66681ed627a1414455de5 -->
+<!-- api-source: packages/pocket_ui/src/system.ts b8c149db1cf0e7cf86af617b53dbb41912e48d561a59fbcb5d85f4d879c2a13a -->
 <!-- api-source: packages/pocket_ui/src/tabs-model.ts 0a4edcafa2d0a813b93aa1159c6bdcef9f45ed30f42dad70117f65f5d4f51102 -->
 <!-- api-source: packages/pocket_ui/src/tabs.tsx 891d9d58c1333c00894e8d7d1989cbbda05951356be64f282fcdb8c8f1b7532e -->
 <!-- api-source: packages/pocket_ui/src/toast-host.tsx b0a60b99968ba50a295815720d1f7a1834e9cde2b7e80c704693df58b45078ee -->
 <!-- api-source: packages/pocket_ui/src/tree-model.ts b29e79f56d8b6e48bba4306595fc65b9b480712788098fcfadcae740e2fc0a63 -->
 <!-- api-source: packages/pocket_ui/src/tree.tsx b907cffc933b4187f99a10bcaa04ff2ab7704034ee8e0ccd42ec63e4e37445a3 -->
-<!-- api-source: packages/pocket_ui/src/ui.tsx 6e622ba7dbced19483a9a66ad4a396cae12bb59ee9e325255f417aeefb464064 -->
+<!-- api-source: packages/pocket_ui/src/ui.tsx 0fb6790681a772faccd61fe9775906be4c0f5990dadea6551a4f0d2c111e5c74 -->
 <!-- api-source: packages/pocket_ui/src/update_state.ts a2e92a7a238615752ce82b00cc882b50384fd0f04ccd9c88b5923bae103b4e7d -->
 <!-- api-source: packages/pocket_ui/src/updates.ts 2fa515161383ab5227f02a3022b2813ec3db84119e0234022256c16ebd2ef3a8 -->
 <!-- api-source: packages/pocket_ui/src/video.tsx 823d26a75a45e0ebaca063544a2d32e614c1ffe782d712b18d5d63c17e4fbdb9 -->

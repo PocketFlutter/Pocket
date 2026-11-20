@@ -19,7 +19,7 @@ test("probe process exits cleanly", () => {
 });
 
 for (const name of [
-  "single-line default payload is unchanged",
+  "single-line default keeps keyboard metadata and centers text",
   "unbounded multiline uses explicit null maxLines",
   "bounded multiline clamps minLines",
   "invalid line counts fall back",

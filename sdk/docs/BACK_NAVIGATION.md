@@ -4,7 +4,9 @@
 
 Flutter reports a back action through `PocketSystemHostController.requestBack()`; it does not mirror a guest route stack. The host sends the existing `platform.back.request` to the compositor-focused child guest, if one exists. That guest may pop one of its own JS pages and answer `platform.back.response` with `handled: true`. If it declines or has no listener, the host asks trusted SystemUI. A stale reply from a closed or replaced session is ignored, and concurrent native back callbacks share one request.
 
-SystemUI resolves its own state in JS. `PocketSystemKernel.handleBack()` first cancels one foreground child app call using the existing result/cancellation path. The Showcase then pops `demo/js/state.ts`'s `routeStack`; only when both stacks are at their roots does it call `system.closeContainer()`. If the guest protocol times out or no SystemUI listener is available, the Flutter boundary falls back to the configured `onClose`, the enclosing Navigator route, or the platform root exit.
+SystemUI resolves its own state in JS. `installPocketSystem()` joins the same Back dispatcher as `createPocketBackNavigation()` on the SystemUI bridge. The page handler, including a `PocketAppShell` interceptor or page stack, gets the first opportunity to handle the request. If it declines or is absent, the kernel cancels one foreground child app call through the existing dismissal, lifecycle, and result path. The dispatcher emits one response and acknowledges as soon as the kernel takes ownership of the dismissal. It checks the captured frame and its generation before accepting and uses the request's `deadlineAtMs` when supplied by the host. A root SystemUI with no in-app route or child call to dismiss leaves Back to the Flutter boundary, which uses the configured `onClose`, enclosing Navigator route, or platform exit.
+
+`PocketSystemKernel.handleBack()` remains available for explicit navigation actions such as a committed interactive gesture. The Showcase explicitly handles Back for its own route stack and container policy.
 
 `PocketSystemHost` owns the loaded-host `PopScope`, so direct embeddings receive native back as well as `PocketSystemHostApplication`. The application shell keeps its immediate exit while remote host configuration is pending; a loaded host delegates to the guest boundary and cannot both pop JS and exit the container for the same platform callback. The enclosing Flutter route is also guarded so its nested Navigator cannot claim the edge drag before the embedded guest.
 
@@ -38,6 +40,8 @@ back.setGestureHandler((event) => {
 back.dispose();
 ```
 
+Use the same `HostBridge` instance for the SystemUI kernel and its page handler. SystemUI can omit a page handler when there are no local routes or interceptors.
+
 `router` above is the consumer's existing JS router, not an SDK-provided stack. Only a synchronous `true` from the start callback accepts the gesture. The helper responds immediately with `platform.back.gesture.response { gestureId, handled }`; later phases are delivered only for that accepted ID. A newer start cancels the previous accepted gesture, and cancellation/disposal notify the handler once.
 
 For host-owned back inputs outside the Flutter route, call `await controller.requestBack()` and apply host exit only if it returns `false`. A native UINavigationController or another embedding container that removes Flutter directly must forward its back action through that entry point. The SDK cannot intercept an external container removing its rendering surface. Each discrete guest reply has a 600 ms budget; handlers should dispatch navigation promptly.
@@ -53,6 +57,8 @@ The retained parent `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo` wa
 | `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo/mini_apps/syslib/pocket_syslib_router.js` | The retained `computeTransitionDescriptor()` defines the reverse page motion, including a positive viewport-width `outTx`; the SDK's `legacy.ts` preserves this math. |
 
 The parent provides a discrete swipe-to-pop but does not expose live progress or a cancelled preview. This adaptation preserves its one-page pop behavior and retained page state while moving the preview and route decision to the JS guest. It does not copy the legacy Dart stack or add a second renderer.
+
+The shared SystemUI fallback retains the parent's pop, result completion, and resume behavior through the existing JS kernel. The Flutter host regression checks that a focused child can decline and SystemUI can consume the next request without exiting the container. The JS regression checks single responses, page-handler priority, expiry, delayed dismissal, and an obsolete request after the foreground frame has changed.
 
 ## Interactive route behavior
 

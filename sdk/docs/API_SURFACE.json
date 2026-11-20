@@ -607,7 +607,7 @@
                 "PocketViewCapture",
                 "PocketViewController"
               ],
-              "sourceSha256": "77fe12451a99ec2fd4fd1cb95faf41bb04180a00c72e70739d97409f23cd2019"
+              "sourceSha256": "e101ccd7a7003a6208f792983a032c2030bfec0bf0b31ade7768cec028c08250"
             },
             {
               "from": "packages/pocket_flutter/lib/pocket_flutter.dart",
@@ -1431,7 +1431,7 @@
                 "PocketSystemLaunchRequest",
                 "PocketSystemLaunchResult"
               ],
-              "sourceSha256": "497854e66cc1028257923ac82f66bec5ef26a45dee71d206490bec70a785beb8"
+              "sourceSha256": "dfb215c5c358912ebc4ed53004d7ae05cdbb252141f533f8f07e90513d356054"
             },
             {
               "from": "lib/pocket_sdk.dart",
@@ -2924,11 +2924,8 @@
         {
           "file": "packages/pocket_ui/src/back-navigation.ts",
           "declarations": [
-            "POCKET_BACK_GESTURE_EVENT",
             "POCKET_BACK_GESTURE_READY_EVENT",
             "POCKET_BACK_GESTURE_RESPONSE_EVENT",
-            "POCKET_BACK_REQUEST_EVENT",
-            "POCKET_BACK_RESPONSE_EVENT",
             "PocketBackGestureEvent",
             "PocketBackGestureHandler",
             "PocketBackGesturePhase",
@@ -2943,7 +2940,21 @@
             "shouldCommitPocketBackGesture",
             "usePocketBackHandler"
           ],
-          "sourceSha256": "de02884f86a2bd0b7b18450faa69e0cb9a1ab7822a807912ee973abc5081ab65",
+          "sourceSha256": "b3a6e3488f3ef44baa5eb67d65a54044995de5a477994e8f75685bdfcca029b4",
+          "reexports": [
+            "export { POCKET_BACK_REQUEST_EVENT, POCKET_BACK_RESPONSE_EVENT, POCKET_BACK_GESTURE_EVENT, } from \"./back-requests.ts\";"
+          ]
+        },
+        {
+          "file": "packages/pocket_ui/src/back-requests.ts",
+          "declarations": [
+            "POCKET_BACK_GESTURE_EVENT",
+            "POCKET_BACK_REQUEST_EVENT",
+            "POCKET_BACK_RESPONSE_EVENT",
+            "dispatchBackRequest",
+            "registerBackParticipant"
+          ],
+          "sourceSha256": "71f1bdda3c5bafafd86cfc78038005eae34ff5f353b6af294b0ded2efc68c0c5",
           "reexports": []
         },
         {
@@ -4231,7 +4242,7 @@
             "PocketSystemV1",
             "installPocketSystem"
           ],
-          "sourceSha256": "dfa137fc1703f534084d84821afb890327d03e670bb66681ed627a1414455de5",
+          "sourceSha256": "b8c149db1cf0e7cf86af617b53dbb41912e48d561a59fbcb5d85f4d879c2a13a",
           "reexports": [
             "export { DEFAULT_SYSTEM_PRESETS, normalizePresentationStyle, parseSystemPresets, SYSTEM_PRESETS_EVENT, systemPresetsBridgeObject, type MiniAppPresentationStyle, type MiniAppPresentationStyleInput, type PocketSystemDensity, type PocketSystemPresets, };",
             "export { POCKET_MEMORY_POLICIES, POCKET_MEMORY_POLICY_BUDGETS } from \"./system-memory.ts\";",
@@ -4354,7 +4365,7 @@
             "registerDesktopScrollPage",
             "useScrollContourReserve"
           ],
-          "sourceSha256": "6e622ba7dbced19483a9a66ad4a396cae12bb59ee9e325255f417aeefb464064",
+          "sourceSha256": "0fb6790681a772faccd61fe9775906be4c0f5990dadea6551a4f0d2c111e5c74",
           "reexports": [
             "export * from \"./mobile.tsx\";"
           ]

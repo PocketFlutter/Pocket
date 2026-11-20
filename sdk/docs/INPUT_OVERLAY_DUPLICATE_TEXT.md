@@ -82,3 +82,25 @@ The separate full main/tour candidate regression then exited 0 in 02:04 (`+3 All
 
 
 Ordinary Demo rollout: the normal `lib/main.dart` Profile app with SSAA2 is built and running at `sdk/.pocket-build/lantern-playable-v6-handoff-20261108/pocket_host.app`, PID3303. Strict deep signature verification and all six Lantern/RootUI bundle-resource hashes passed; authenticated VM inspection confirms the runnable `package:pocket_host/main.dart` isolate. Its 800×632 layer-0 window (ID18877) and foreground PID3303 were observed. The prior ordinary PID44704 was stopped only after the new app was verified; daemon39062 and user saves were preserved. No editor was started. `playable.json`, `vm-observation.json` and process log record these facts. Ordinary foreground pixels and physical IME remain unverified independently of integration captures.
+## Align the Flutter Guest and editor baselines
+
+The retained parent uses a native TextField for editing in
+`lib/render/pocket_ui_components.dart`. Pocket keeps that editor and its IME
+session while deriving the single-line hint and value style from the same
+host-font style as the canvas. The editor uses the field's top padding as
+its reference, with no Material line-height override for the single-line
+em box. Multiline retains its existing editor line height.
+
+The Web preview anchors each text line at the top of its em box. Flutter
+uses the same anchor, with the Pocket DrawOp height used for the advance
+between lines. The renderer regression compares painted glyph rows across
+the three horizontal alignments. The input regression measures the visible
+hint and first typed value against the Guest alphabetic baseline.
+
+Single-line `InputField` places half of the default line box's remaining
+space above the em box, bounded by its vertical padding. The Guest
+fallback and editor share that offset through the existing appearance
+message. Flutter and Studio add it to the top padding and subtract it
+from the bottom padding so the field keeps the same outer size. An
+editor that receives an older message uses a zero offset. Multiline
+fields preserve their existing positioning and composing behavior.

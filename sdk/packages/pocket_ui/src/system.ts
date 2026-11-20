@@ -1,5 +1,10 @@
 import * as pocketClock from "@pocketjs/framework/clock";
 import {
+  dispatchBackRequest,
+  POCKET_BACK_REQUEST_EVENT,
+  registerBackParticipant,
+} from "./back-requests.ts";
+import {
   DEFAULT_SYSTEM_PRESETS,
   forwardHostPacket,
   normalizePresentationStyle,
@@ -36,6 +41,8 @@ const MAX_PENDING_CALLS = 32;
 const MAX_MAILBOX_MESSAGES = 32;
 const MAX_COMPLETED_REQUESTS = 256;
 const SYSTEM_UI_INSTANCE_ID = "system-ui";
+// Legacy hosts omit the dispatch deadline. Match PocketSystemHost's response timeout.
+const NATIVE_BACK_TIMEOUT_MS = 600;
 const simulationHz = pocketClock.simulationHz;
 
 import {
@@ -828,6 +835,7 @@ class PocketSystemKernelImpl implements PocketSystemKernel {
   private readonly previousEvent: HostPacketHandler | undefined;
   private readonly receiveEvent: HostPacketHandler;
   private readonly removeHostEvent: (() => void) | undefined;
+  private readonly removeBackParticipant: () => void;
   private queue: Promise<void> = Promise.resolve();
   private disposed = false;
   private initialized = false;
@@ -956,7 +964,11 @@ class PocketSystemKernelImpl implements PocketSystemKernel {
       this.receiveEvent = (packet: Record<string, unknown>): void => {
         this.bridge.handle(packet);
         const event = eventOf(packet);
-        if (event) handleEvent(event.name, event.payload);
+        if (event?.name === POCKET_BACK_REQUEST_EVENT) {
+          dispatchBackRequest(this.bridge, event.payload);
+        } else if (event) {
+          handleEvent(event.name, event.payload);
+        }
         try {
           forwardHostPacket(this.previousEvent, packet);
         } catch {
@@ -967,6 +979,26 @@ class PocketSystemKernelImpl implements PocketSystemKernel {
       this.removeHostEvent = undefined;
       this.target.__pocketEvent = this.receiveEvent;
     }
+    this.removeBackParticipant = registerBackParticipant(this.bridge, "systems", {
+      captureRequest: (_requestId, deadlineAtMs) => {
+        const frame = this.stack[this.stack.length - 1];
+        if (!this.initialized || !frame?.requestId) return undefined;
+        const record = this.records.get(frame.instanceId);
+        if (!record) return undefined;
+        const generation = record.generation;
+        const expiresAt = deadlineAtMs ?? Date.now() + NATIVE_BACK_TIMEOUT_MS;
+        return () => new Promise<boolean>((resolve) => {
+          // Once the current dismissal is owned by the kernel, native Back can
+          // finish while the transition and result delivery continue in order.
+          void this.handleBackFor({
+            frame,
+            generation,
+            expiresAt,
+            accept: () => resolve(true),
+          }).then(resolve, () => resolve(false));
+        });
+      },
+    });
     this.ready = this.enqueue(() => this.initialize()).catch((error) => {
       this.dispose();
       throw error;
@@ -1230,6 +1262,15 @@ class PocketSystemKernelImpl implements PocketSystemKernel {
   }
 
   async handleBack(): Promise<boolean> {
+    return this.handleBackFor();
+  }
+
+  private async handleBackFor(nativeRequest?: {
+    frame: StackFrame;
+    generation: RuntimeRecord["generation"];
+    expiresAt: number;
+    accept: () => void;
+  }): Promise<boolean> {
     this.assertActive();
     // A back request arriving during system startup must not queue a delayed
     // stack mutation after the native host has already taken its fallback.
@@ -1241,6 +1282,12 @@ class PocketSystemKernelImpl implements PocketSystemKernel {
       const index = this.stack.length - 1;
       const top = this.stack[index];
       if (!top?.requestId || !this.calls.has(top.requestId)) return;
+      if (nativeRequest) {
+        const record = this.records.get(top.instanceId);
+        if (!record || top !== nativeRequest.frame ||
+          record.generation !== nativeRequest.generation || Date.now() >= nativeRequest.expiresAt) return;
+        nativeRequest.accept();
+      }
       await this.cancelStackFrom(index, "back");
       handled = true;
     });
@@ -1257,6 +1304,7 @@ class PocketSystemKernelImpl implements PocketSystemKernel {
       this.target.__pocketEvent = this.previousEvent;
     }
     this.removeHostEvent?.();
+    this.removeBackParticipant();
     this.stack.length = 0;
     this.presentedInstanceIds = [];
     this.focusedInstanceId = null;

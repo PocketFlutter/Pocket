@@ -3,12 +3,13 @@ import {
   createPocketBackNavigation,
   shouldCommitPocketBackGesture,
 } from "../src/back-navigation.ts";
-import type { BridgeObject, HostEvent } from "../src/host.ts";
+import { registerBackParticipant } from "../src/back-requests.ts";
+import type { BridgeObject, HostBridge, HostEvent } from "../src/host.ts";
 
 function harness() {
   let listener: ((event: HostEvent) => void) | undefined;
   const responses: { method: string; params?: BridgeObject }[] = [];
-  const navigation = createPocketBackNavigation({
+  const host: Pick<HostBridge, "emit" | "onEvent"> = {
     onEvent(next) {
       listener = next;
       return () => { listener = undefined; };
@@ -17,15 +18,16 @@ function harness() {
       responses.push({ method, params });
       return true;
     },
-  });
+  };
   return {
-    navigation,
+    host,
+    navigation: createPocketBackNavigation(host),
     responses,
     request(requestId: string) {
-      listener?.({ method: "platform.back.request", params: { requestId } });
+      listener?.({ id: requestId, method: "platform.back.request", params: { requestId }, raw: {} });
     },
     gesture(params: BridgeObject) {
-      listener?.({ method: "platform.back.gesture", params });
+      listener?.({ id: "", method: "platform.back.gesture", params, raw: {} });
     },
   };
 }
@@ -59,6 +61,38 @@ test("back requests report consumption, unhandled requests and failures on the e
     { method: "platform.back.response", params: { requestId: "failed", handled: false } },
   ]);
   h.navigation.dispose();
+});
+
+test("page handlers and SystemUI fallback share one reply per native Back", async () => {
+  const h = harness();
+  const fallbackCalls: string[] = [];
+  const fallback = registerBackParticipant(h.host, "systems", {
+    captureRequest: (requestId) => () => {
+      fallbackCalls.push(requestId);
+      return requestId !== "root";
+    },
+  });
+
+  h.navigation.setHandler(() => true);
+  h.request("page-handled");
+  await flush();
+  h.navigation.setHandler(() => false);
+  h.request("page-declined");
+  await flush();
+  h.navigation.dispose();
+  h.request("system-only");
+  await flush();
+  h.request("root");
+  await flush();
+  fallback();
+
+  expect(fallbackCalls).toEqual(["page-declined", "system-only", "root"]);
+  expect(h.responses).toEqual([
+    { method: "platform.back.response", params: { requestId: "page-handled", handled: true } },
+    { method: "platform.back.response", params: { requestId: "page-declined", handled: true } },
+    { method: "platform.back.response", params: { requestId: "system-only", handled: true } },
+    { method: "platform.back.response", params: { requestId: "root", handled: false } },
+  ]);
 });
 
 test("disposing a back handler suppresses a late response and removes its listener", async () => {

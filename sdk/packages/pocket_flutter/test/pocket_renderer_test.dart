@@ -82,6 +82,61 @@ void main() {
   });
 
   test(
+    'text box height advances lines without moving the first baseline',
+    () async {
+      Future<List<int>> inkRows(double boxHeight, int align) async {
+        const size = ui.Size(100, 100);
+        final recorder = ui.PictureRecorder();
+        PocketCanvasPainter(
+          width: size.width,
+          height: size.height,
+          ops: [
+            PocketTextOp(
+              x: 4,
+              y: 8,
+              width: 80,
+              height: boxHeight,
+              text: 'M\nM',
+              size: 10,
+              color: 0xffffffff,
+              align: align,
+            ),
+          ],
+          images: const {},
+        ).paint(ui.Canvas(recorder), size);
+        final picture = recorder.endRecording();
+        final image = picture.toImageSync(
+          size.width.toInt(),
+          size.height.toInt(),
+        );
+        picture.dispose();
+        final pixels = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        image.dispose();
+        final width = size.width.toInt();
+        return [
+          for (var y = 0; y < size.height.toInt(); y++)
+            if (Iterable<int>.generate(
+              width,
+            ).any((x) => pixels.getUint8((y * width + x) * 4 + 3) > 0))
+              y,
+        ];
+      }
+
+      for (final align in [0, 1, 2]) {
+        final compact = await inkRows(40, align);
+        final expanded = await inkRows(72, align);
+        final firstLine = compact.where((y) => y < 28).toList();
+        final secondLine = compact.where((y) => y >= 28).toList();
+        expect(firstLine, isNotEmpty);
+        expect(secondLine, firstLine.map((y) => y + 20));
+        expect(expanded, [...firstLine, ...firstLine.map((y) => y + 36)]);
+      }
+    },
+  );
+
+  test(
     'rounded gradient hit testing and repaint equality include all stops',
     () {
       PocketCanvasPainter painter({double viaPosition = 0.35}) =>

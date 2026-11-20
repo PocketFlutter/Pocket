@@ -1,9 +1,11 @@
 import { createContext, createEffect, createSignal, onCleanup, useContext, type Accessor, type JSX } from "solid-js";
-import type { HostBridge } from "./host.ts";
-
-export const POCKET_BACK_REQUEST_EVENT = "platform.back.request";
-export const POCKET_BACK_RESPONSE_EVENT = "platform.back.response";
-export const POCKET_BACK_GESTURE_EVENT = "platform.back.gesture";
+import type { BridgeObject, HostBridge } from "./host.ts";
+import { registerBackParticipant } from "./back-requests.ts";
+export {
+  POCKET_BACK_REQUEST_EVENT,
+  POCKET_BACK_RESPONSE_EVENT,
+  POCKET_BACK_GESTURE_EVENT,
+} from "./back-requests.ts";
 export const POCKET_BACK_GESTURE_RESPONSE_EVENT = "platform.back.gesture.response";
 export const POCKET_BACK_GESTURE_READY_EVENT = "platform.back.gesture.ready";
 
@@ -86,60 +88,45 @@ export function createPocketBackNavigation(
     return { gestureId, phase, dx, width, velocity, progress };
   };
 
-  const remove = host.onEvent?.((event) => {
+  const receiveGesture = (raw: BridgeObject): void => {
     if (disposed) return;
-    if (event.method === POCKET_BACK_GESTURE_EVENT) {
-      const raw = event.params as Record<string, unknown>;
-      if (raw.phase === "start") {
-        clearGesture(true);
-        const gestureId = typeof raw.gestureId === "string" ? raw.gestureId : "";
-        const gesture = parseGesture(raw);
-        let handled = false;
-        if (gesture && gestureHandler) {
-          try {
-            handled = gestureHandler(gesture) === true;
-          } catch {
-            handled = false;
-          }
-        }
-        if (handled && gesture) {
-          activeGestureId = gesture.gestureId;
-          lastGesture = gesture;
-        }
-        if (gestureId.length > 0) emitGestureResponse(gestureId, handled);
-        return;
-      }
-
+    if (raw.phase === "start") {
+      clearGesture(true);
+      const gestureId = typeof raw.gestureId === "string" ? raw.gestureId : "";
       const gesture = parseGesture(raw);
-      if (!gesture || gesture.gestureId !== activeGestureId) return;
-      lastGesture = gesture;
-      try {
-        gestureHandler?.(gesture);
-      } catch {
-        // A failed consumer callback cannot leave this gesture active.
+      let handled = false;
+      if (gesture && gestureHandler) {
+        try {
+          handled = gestureHandler(gesture) === true;
+        } catch {
+          handled = false;
+        }
       }
-      if (gesture.phase === "end" || gesture.phase === "cancel") clearGesture(false);
+      if (handled && gesture) {
+        activeGestureId = gesture.gestureId;
+        lastGesture = gesture;
+      }
+      if (gestureId.length > 0) emitGestureResponse(gestureId, handled);
       return;
     }
 
-    if (event.method !== POCKET_BACK_REQUEST_EVENT) return;
-    clearGesture(true);
-    const requestId = event.params.requestId;
-    if (typeof requestId !== "string" || requestId.length === 0) return;
-    void Promise.resolve().then(() => handler?.(requestId) ?? false).then(
-      (handled) => {
-        if (!disposed) host.emit?.(POCKET_BACK_RESPONSE_EVENT, {
-          requestId,
-          handled: handled === true,
-        });
-      },
-      () => {
-        if (!disposed) host.emit?.(POCKET_BACK_RESPONSE_EVENT, {
-          requestId,
-          handled: false,
-        });
-      },
-    );
+    const gesture = parseGesture(raw);
+    if (!gesture || gesture.gestureId !== activeGestureId) return;
+    lastGesture = gesture;
+    try {
+      gestureHandler?.(gesture);
+    } catch {
+      // A failed consumer callback cannot leave this gesture active.
+    }
+    if (gesture.phase === "end" || gesture.phase === "cancel") clearGesture(false);
+  };
+
+  const remove = registerBackParticipant(host, "pages", {
+    captureRequest(requestId) {
+      clearGesture(true);
+      return () => handler?.(requestId) ?? false;
+    },
+    receiveGesture,
   });
 
   return {
@@ -159,7 +146,7 @@ export function createPocketBackNavigation(
       disposed = true;
       handler = undefined;
       gestureHandler = undefined;
-      remove?.();
+      remove();
     },
   };
 }

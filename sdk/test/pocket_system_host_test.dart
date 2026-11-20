@@ -2009,6 +2009,7 @@ void main() {
 
       final tabIndex = ValueNotifier<int>(1);
       final hostActive = ValueNotifier<bool>(true);
+      var hostCloses = 0;
       late BuildContext rootContext;
       final systemUIConfig = PocketAppConfig(
         appId: rootId,
@@ -2065,6 +2066,7 @@ void main() {
                                     systemUI: systemUIConfig,
                                     applications: applicationsConfig,
                                     controller: controller,
+                                    onClose: () => hostCloses++,
                                   ),
                                 ),
                               ),
@@ -2208,6 +2210,52 @@ void main() {
           ),
         );
         await tester.pump();
+
+        List<Map<String, dynamic>> backRequests(_ProbeChildRuntime runtime) =>
+            runtime.sentMessages
+                .where((message) => message['name'] == 'platform.back.request')
+                .toList();
+        expect(backRequests(rootRuntime), isEmpty);
+
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        expect(backRequests(childRuntime), hasLength(2));
+        expect(backRequests(rootRuntime), isEmpty);
+        final declinedId =
+            (backRequests(childRuntime).last['payload'] as Map)['requestId'];
+        final beforeSystemRequestMs = DateTime.now().millisecondsSinceEpoch;
+        childSnapshot.session.onEvent(
+          PocketEvent(
+            id: 'child-back-declined',
+            method: 'platform.back.response',
+            params: {'requestId': declinedId, 'handled': false},
+          ),
+        );
+        await tester.pump();
+        expect(backRequests(rootRuntime), hasLength(1));
+        expect(hostCloses, 0);
+        final systemPayload =
+            backRequests(rootRuntime).single['payload'] as Map;
+        final systemId = systemPayload['requestId'];
+        expect(systemId, isNot(declinedId));
+        expect(
+          systemPayload['deadlineAtMs'],
+          greaterThanOrEqualTo(beforeSystemRequestMs + 600),
+        );
+        final rootSnapshot = controller.instances.singleWhere(
+          (entry) => entry.isSystemUI,
+        );
+        rootSnapshot.session.onEvent(
+          PocketEvent(
+            id: 'system-back-handled',
+            method: 'platform.back.response',
+            params: {'requestId': systemId, 'handled': true},
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 650));
+        expect(hostCloses, 0);
+        expect(backRequests(rootRuntime), hasLength(1));
+        expect(backRequests(childRuntime), hasLength(2));
 
         // Also verify explicit active: false while TickerMode is enabled.
         hostActive.value = false;

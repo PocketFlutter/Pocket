@@ -1120,6 +1120,7 @@ class _PocketViewState extends State<PocketView>
   FontWeight _textInputFontWeight = FontWeight.normal;
   double _textInputPaddingHorizontal = 12;
   double _textInputPaddingVertical = 8;
+  double _textInputOffsetY = 0;
   bool _applyingTextInputValue = false;
   bool _suppressTextInputFocusEvents = false;
   FocusNode? _scheduledTextInputBlurNode;
@@ -5668,12 +5669,7 @@ class _PocketViewState extends State<PocketView>
     return value.toDouble().clamp(minimum, maximum);
   }
 
-  // PocketJS's native text slots use ceil(fontSize * 1.2) as their default
-  // line box (see sdk/native/src/lib.rs:font_slot_line_height).  TextField's
-  // Material 3 default inherits bodyLarge.height instead; leaving `height`
-  // unset therefore makes a 14px input line 21px tall and moves its glyph
-  // three pixels above the JS text op inside the fixed 33px shell. Keep the
-  // platform editor's line box on the same protocol value as the guest.
+  // Preserve the existing line advance for multiline editors.
   double _textInputLineHeight() {
     final fontSize = _textInputFontSize;
     if (!fontSize.isFinite || fontSize <= 0) return 1.2;
@@ -5813,6 +5809,17 @@ class _PocketViewState extends State<PocketView>
       );
       if (next != _textInputPaddingVertical) {
         _textInputPaddingVertical = next;
+        changed = true;
+      }
+    }
+    if (params.containsKey('textOffsetY')) {
+      final next = _textInputDimension(
+        params['textOffsetY'],
+        0,
+        maximum: 128,
+      );
+      if (next != _textInputOffsetY) {
+        _textInputOffsetY = next;
         changed = true;
       }
     }
@@ -6338,6 +6345,7 @@ class _PocketViewState extends State<PocketView>
     _textInputFontWeight = FontWeight.normal;
     _textInputPaddingHorizontal = 12;
     _textInputPaddingVertical = 8;
+    _textInputOffsetY = 0;
     // `rebuild` used to suppress the parent setState while a caller was about
     // to apply another frame. The editor now has its own invalidation lane;
     // every mounted close must remove the overlay, including rebuild:false
@@ -7730,8 +7738,41 @@ class _PocketViewState extends State<PocketView>
         textInputFocusNode == null) {
       return const SizedBox.shrink();
     }
-    final textInputLineHeight = _textInputLineHeight();
     final appearanceScale = _projectsViewport ? math.min(scaleX, scaleY) : 1.0;
+    final singleLine =
+        _textInputMaxLines == 1 &&
+        _textInputKeyboardType != TextInputType.multiline;
+    final fontSize = _textInputFontSize * appearanceScale;
+    final paddingVertical = _textInputPaddingVertical * appearanceScale;
+    final textOffsetY = singleLine
+        ? math.min(_textInputPaddingVertical, _textInputOffsetY) *
+              appearanceScale
+        : 0.0;
+    // The guest anchors the first line's em box at its padding edge. Match
+    // that style without inheriting Material typography.
+    final textStyle = singleLine
+        ? pocketTextStyleForSlot(
+            slot: null,
+            fontSize: fontSize,
+            color: _textInputTextColor,
+            fontFamilyFallback: widget.fontFamilyFallback,
+            height: 1.0,
+          ).copyWith(
+            inherit: false,
+            textBaseline: TextBaseline.alphabetic,
+            fontWeight: _textInputFontWeight,
+            letterSpacing: 0.0,
+          )
+        : TextStyle(
+            color: _textInputTextColor,
+            fontFamilyFallback: widget.fontFamilyFallback.isEmpty
+                ? null
+                : widget.fontFamilyFallback,
+            fontSize: fontSize,
+            fontWeight: _textInputFontWeight,
+            height: _textInputLineHeight(),
+            letterSpacing: 0.0,
+          );
     final textInputField = Material(
       type: MaterialType.transparency,
       child: TextField(
@@ -7745,6 +7786,7 @@ class _PocketViewState extends State<PocketView>
         enableSuggestions: !_textInputObscure,
         maxLines: _textInputMaxLines,
         minLines: _textInputMinLines,
+        textAlignVertical: singleLine ? TextAlignVertical.top : null,
         scrollPadding: EdgeInsets.zero,
         onEditingComplete: () {},
         onSubmitted: (_) => _submitTextInput(),
@@ -7753,38 +7795,25 @@ class _PocketViewState extends State<PocketView>
         // Keep down as a no-op and dismiss after the complete tap.
         onTapOutside: _onTextInputTapOutside,
         onTapUpOutside: _onTextInputTapUpOutside,
-        style: TextStyle(
-          color: _textInputTextColor,
-          fontFamilyFallback: widget.fontFamilyFallback.isEmpty
-              ? null
-              : widget.fontFamilyFallback,
-          fontSize: _textInputFontSize * appearanceScale,
-          fontWeight: _textInputFontWeight,
-          height: textInputLineHeight,
-          letterSpacing: 0.0,
-        ),
+        style: textStyle,
         cursorColor: _textInputFocusedBorderColor.a == 0
             ? _textInputTextColor
             : _textInputFocusedBorderColor,
         cursorWidth: 2 * appearanceScale,
         decoration: InputDecoration(
           isDense: true,
+          // Use the supplied padding directly with the guest's explicit
+          // offset. Outline alignment can cap the top inset at its midpoint.
+          isCollapsed: textOffsetY > 0,
           filled: true,
           fillColor: _textInputFillColor,
           hintText: _textInputHintText,
-          hintStyle: TextStyle(
-            color: _textInputHintColor,
-            fontFamilyFallback: widget.fontFamilyFallback.isEmpty
-                ? null
-                : widget.fontFamilyFallback,
-            fontSize: _textInputFontSize * appearanceScale,
-            fontWeight: _textInputFontWeight,
-            height: textInputLineHeight,
-            letterSpacing: 0.0,
-          ),
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: _textInputPaddingHorizontal * appearanceScale,
-            vertical: _textInputPaddingVertical * appearanceScale,
+          hintStyle: textStyle.copyWith(color: _textInputHintColor),
+          contentPadding: EdgeInsets.fromLTRB(
+            _textInputPaddingHorizontal * appearanceScale,
+            paddingVertical + textOffsetY,
+            _textInputPaddingHorizontal * appearanceScale,
+            paddingVertical - textOffsetY,
           ),
           border: OutlineInputBorder(
             // Material 3 adds OutlineInputBorder.gapPadding to the

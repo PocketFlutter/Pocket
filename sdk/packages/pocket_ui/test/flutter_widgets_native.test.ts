@@ -333,6 +333,7 @@ const inputFontSize = openEvent.payload?.fontSize;
 const inputPaddingVertical = openEvent.payload?.paddingVertical;
 assert.equal(typeof inputFontSize, "number", "textInput.open must describe its font size");
 assert.equal(typeof inputPaddingVertical, "number", "textInput.open must describe vertical padding");
+assert.equal(openEvent.payload?.textOffsetY, 1.5, "textInput.open must carry the fallback text's half-leading");
 const requiredInputHeight = Math.ceil((inputFontSize as number) * 1.2) + 2 * (inputPaddingVertical as number);
 assert.ok(
   openHeight >= requiredInputHeight,
@@ -341,6 +342,10 @@ assert.ok(
 const openFrame = inputFrames.find((frame) => frameEvents(frame, "textInput.open").length > 0);
 assert.ok(openFrame, "textInput.open frame is missing");
 assert.ok(hasText(openFrame!, "Tap to type"), "guest fallback should remain until the host confirms overlay attachment");
+assert.equal(
+  textOp(openFrame!, "Tap to type").y,
+  ((openRect as JsonObject).y as number) + (inputPaddingVertical as number) + 1.5,
+);
 const preAckEditFrame = inputFrames[3];
 assert.ok(preAckEditFrame && hasText(preAckEditFrame, "林岚🙂"), "pre-ACK native edit should remain visible through the Guest fallback");
 const openedFrame = inputFrames[4];

@@ -1641,7 +1641,7 @@ export function InputField(props: {
   /**
    * Multi-line editing. Enter inserts a newline (keyboardType "multiline",
    * action "newline") and `onSubmit` is not raised by the keyboard. Omitted or
-   * false keeps the single-line `maxLines: 1` payload byte-for-byte.
+   * false uses single-line editing (`maxLines: 1`).
    */
   multiline?: boolean;
   /** Multi-line only: visible line cap. `null`/omitted means unbounded growth. */
@@ -1712,8 +1712,13 @@ export function InputField(props: {
       focusedBorderColor: nativeTextVisible ? current.focusedBorderColor : "transparent",
     };
   };
-  // Keyboard/line metadata. The single-line shape is unchanged for existing
-  // callers; multi-line sends an explicit null for unbounded `maxLines`.
+  // The guest line box includes leading below the first em box.
+  const textOffsetY = (current: Required<InputFieldAppearance>): number => {
+    if (props.multiline) return 0;
+    const halfLeading = (Math.ceil(current.fontSize * 1.2) - current.fontSize) / 2;
+    return Math.min(Math.max(0, current.paddingVertical), halfLeading);
+  };
+  // Multi-line sends an explicit null for unbounded `maxLines`.
   const lineParams = (): TextInputParams => {
     if (!props.multiline) return { keyboardType: "text", action: "done", maxLines: 1 };
     const rawMax = props.maxLines;
@@ -1737,6 +1742,7 @@ export function InputField(props: {
       ...current,
       ...appearanceColorParams(nativeTextVisible),
       placeholder: props.placeholder ?? "Tap to type",
+      ...(props.multiline ? {} : { textOffsetY: textOffsetY(current) }),
     };
   };
   const shellStyle = () => {
@@ -2107,13 +2113,17 @@ export function InputField(props: {
     if (!unmounted && !opened && routeActive()) open();
   }, { active: focusPending });
 
-  const shellTextStyle = () => ({
-    textColor: overlayReady()
-      ? "#00000000"
-      : props.value()
-        ? appearance().textColor
-        : appearance().placeholderColor,
-  });
+  const shellTextStyle = () => {
+    const current = appearance();
+    return {
+      textColor: overlayReady()
+        ? "#00000000"
+        : props.value()
+          ? current.textColor
+          : current.placeholderColor,
+      translateY: textOffsetY(current),
+    };
+  };
 
   return (
     <Focusable

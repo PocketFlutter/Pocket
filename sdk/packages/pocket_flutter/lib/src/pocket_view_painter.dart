@@ -597,18 +597,18 @@ final class PocketCanvasPainter extends CustomPainter {
             vertices.dispose();
           }
         case PocketTextOp():
-          final hasNewline = op.text.contains('\n');
-          final lines = hasNewline ? op.text.split('\n') : null;
-          final textLines = lines == null ? 1 : lines.length;
-          final lineHeight = op.size > 0 && op.height > 0
-              ? op.height / textLines / op.size
-              : null;
+          final lines = op.text.split('\n');
+          // Canvas textBaseline "top" anchors to the em box. The guest box
+          // height controls only line advance.
+          final lineAdvance = op.height > 0
+              ? op.height / lines.length
+              : (op.size * 1.2).ceilToDouble();
           final textStyle = pocketTextStyleForSlot(
             slot: op.fontSlot,
             fontSize: op.size,
             color: Color(op.color),
             fontFamilyFallback: fontFamilyFallback,
-            height: lineHeight,
+            height: 1.0,
             letterSpacing: op.tracking,
           );
           TextPainter layoutLine(String value) =>
@@ -635,28 +635,19 @@ final class PocketCanvasPainter extends CustomPainter {
             canvas.transform(_textTransformScratch);
           }
           try {
-            if (op.align == 1 || op.align == 2) {
-              final alignFactor = op.align == 1 ? 0.5 : 1.0;
-              if (lines == null) {
-                final text = layoutLine(op.text);
-                final offset = (op.width - text.width) * alignFactor;
-                text.paint(canvas, Offset(originX + offset, originY));
-                if (textLayoutCache == null) text.dispose();
-              } else {
-                final advance = op.height / lines.length;
-                for (var lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-                  final text = layoutLine(lines[lineIdx]);
-                  final offset = (op.width - text.width) * alignFactor;
-                  text.paint(
-                    canvas,
-                    Offset(originX + offset, originY + lineIdx * advance),
-                  );
-                  if (textLayoutCache == null) text.dispose();
-                }
-              }
-            } else {
-              final text = layoutLine(op.text);
-              text.paint(canvas, Offset(originX, originY));
+            for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+              final value = lines[lineIndex];
+              if (value.isEmpty) continue;
+              final text = layoutLine(value);
+              final offset = switch (op.align) {
+                1 => (op.width - text.width) / 2,
+                2 => op.width - text.width,
+                _ => 0.0,
+              };
+              text.paint(
+                canvas,
+                Offset(originX + offset, originY + lineIndex * lineAdvance),
+              );
               if (textLayoutCache == null) text.dispose();
             }
           } finally {

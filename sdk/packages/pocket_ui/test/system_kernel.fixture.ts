@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 
-import type { HostBridge, JsonObject, JsonValue } from "../src/host.ts";
+import type { BridgeObject, HostBridge, JsonObject, JsonValue } from "../src/host.ts";
 import { mock } from "bun:test";
 import type { PocketSystemV1 } from "../src/system.ts";
 mock.module("@pocketjs/framework/clock", () => ({ simulationHz: () => 60 }));
@@ -81,6 +81,13 @@ class FakeHost implements HostBridge {
     this.calls.push(call);
     this.wakeWaiters(call, this.calls.length - 1);
     return Promise.resolve(this.respond(capability, params) as T);
+  }
+
+  emit(method: string, params: BridgeObject = {}): boolean {
+    const call = { capability: method, params: params as JsonObject };
+    this.calls.push(call);
+    this.wakeWaiters(call, this.calls.length - 1);
+    return true;
   }
 
   handle(packet: Record<string, unknown>): boolean {
@@ -717,6 +724,56 @@ assert.equal(errorCode(await invoke(request(SYSTEM_UI, "system-ui", "platform.ap
   arguments: { data: "x".repeat(66 * 1024) },
 }))), "payload_too_large");
 assert.equal(errorCode(await invoke(request(SYSTEM_UI, "system-ui", "platform.apps.list", {}, "wrong-root-generation"))), "stale_runtime");
+
+// The kernel can consume a native Back packet on its own, using the same
+// result and lifecycle path as a programmatic app cancellation.
+async function back(requestId: string, deadlineAtMs?: number): Promise<HostCall> {
+  const response = host.waitForCall((call) =>
+    call.capability === "platform.back.response" && call.params.requestId === requestId,
+    host.calls.length,
+  );
+  sendEvent("platform.back.request", deadlineAtMs === undefined ? { requestId } : { requestId, deadlineAtMs });
+  return await response;
+}
+
+assert.equal((await back("at-system-root")).params.handled, false);
+const backOpen = valueOf(await invoke(request(SYSTEM_UI, "system-ui", "platform.apps.open", { appId: PROFILE })));
+const backInstance = instanceOf(PROFILE);
+assert.equal((await back("expired", Date.now() - 1)).params.handled, false);
+assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE]);
+
+let finishDismiss!: () => void;
+const beforeDismiss = new Promise<void>((resolve) => { finishDismiss = resolve; });
+const removeBeforeDismiss = kernel.onBeforeDismiss(() => beforeDismiss);
+const destroyedByBack = host.waitForCall((call) => call.capability === "system.runtime.destroy" &&
+  call.params.instanceId === backInstance, host.calls.length);
+assert.equal((await back("dismiss-profile", Date.now() + 600)).params.handled, true);
+assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE]);
+assert.equal(host.destroyed.includes(backInstance), false, "acknowledgement must precede dismissal completion");
+finishDismiss();
+removeBeforeDismiss();
+await destroyedByBack;
+assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI]);
+assert.ok(host.destroyed.includes(backInstance));
+assert.equal(host.posted.filter((post) =>
+  post.event === "platform.result" && post.params.requestId === launchId(backOpen) &&
+  post.params.cancelled === true && post.params.reason === "back"
+).length, 1);
+assert.equal(host.calls.filter((call) => call.capability === "platform.back.response" &&
+  call.params.requestId === "dismiss-profile").length, 1);
+
+await invoke(request(SYSTEM_UI, "system-ui", "platform.apps.open", { appId: PROFILE }));
+await invoke(request(PROFILE, instanceOf(PROFILE), "platform.apps.open", { appId: LOBBY }));
+let resumeBackQueue!: () => void;
+const pauseDismiss = new Promise<void>((resolve) => { resumeBackQueue = resolve; });
+const removePauseDismiss = kernel.onBeforeDismiss(() => pauseDismiss);
+assert.equal((await back("dismiss-lobby")).params.handled, true);
+const staleBack = back("still-targets-lobby");
+resumeBackQueue();
+removePauseDismiss();
+assert.equal((await staleBack).params.handled, false);
+assert.deepEqual(kernel.snapshot().stack.map((frame) => frame.appId), [SYSTEM_UI, PROFILE]);
+assert.equal(await kernel.handleBack(), true);
 
 // Unsupported hidden execution is rejected before any host capability call.
 const priorCallCount = host.calls.length;

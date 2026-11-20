@@ -1559,7 +1559,12 @@ final class _PocketSystemHostState extends State<PocketSystemHost>
     try {
       final accepted = session.controller.send(
         method: _nativeBackRequestEvent,
-        params: <String, dynamic>{'requestId': requestId},
+        params: <String, dynamic>{
+          'requestId': requestId,
+          'deadlineAtMs':
+              DateTime.now().millisecondsSinceEpoch +
+              _nativeBackRequestTimeout.inMilliseconds,
+        },
       );
       if (!accepted) {
         debugPrint(
