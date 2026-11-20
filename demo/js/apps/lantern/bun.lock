@@ -25,7 +25,7 @@
 
     "@pocket/ui": ["@pocket/ui@file:../../../../sdk/packages/pocket_ui", {}],
 
-    "@pocket/vn": ["@pocket/vn@file:../../../../sdk/packages/pocket_vn", { "dependencies": { "@pocket/live2d": "0.1.0", "@pocket/spine": "0.1.0" } }],
+    "@pocket/vn": ["@pocket/vn@file:../../../../sdk/packages/pocket_vn", { "dependencies": { "@pocket/live2d": "0.1.1", "@pocket/spine": "0.1.0" } }],
 
     "@pocket/vn/@pocket/live2d": ["@pocket/live2d@file:../../../../sdk/packages/pocket_live2d", {}],
 

@@ -1,6 +1,6 @@
 {
   "name": "@pocket/live2d",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "sideEffects": false,

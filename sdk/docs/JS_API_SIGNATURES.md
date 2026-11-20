@@ -24579,7 +24579,7 @@ The following markers cover all inventoried declaration sources and package mani
 <!-- api-source: packages/pocket_liquid_glass/src/overlays.tsx b04d9e0e735a3db31401539aa387c187765588877aea54be7d8143783177f533 -->
 <!-- api-source: packages/pocket_liquid_glass/src/surfaces.tsx d94afb8728ab51a89ed1b5aa64cc9973903e19a6c46955b6fe7fc3cbb4bb79b7 -->
 <!-- api-source: packages/pocket_liquid_glass/src/tokens.ts f5c9d9391a56e14712c09a0d7ccc795c3819c1ab5d3aa42d17fc719ed0caead2 -->
-<!-- api-source: packages/pocket_live2d/package.json 755007bc2731066aea86d8e381581949d872d4bbf7858fdb50e5b4e18f2d16bb -->
+<!-- api-source: packages/pocket_live2d/package.json 6480756334d222de144ec7a7223353ac15d2697fc25b9d255d88f528910ce143 -->
 <!-- api-source: packages/pocket_live2d/src/index.ts fa89eff37dd17348431d7f89f238707938f0d90e85b026f183754bf6eb0fe3c6 -->
 <!-- api-source: packages/pocket_live2d/src/interaction.ts eef86fe2592c91c40e49642900b119dcd5e85a65a923ee03b3581a8961a7f156 -->
 <!-- api-source: packages/pocket_live2d/src/manifest.ts b01a6a42b8f734eb602d13385439e8b7e6a5d6726f14125c350cca855a790747 -->
@@ -24673,7 +24673,7 @@ The following markers cover all inventoried declaration sources and package mani
 <!-- api-source: packages/pocket_ui/src/update_state.ts a2e92a7a238615752ce82b00cc882b50384fd0f04ccd9c88b5923bae103b4e7d -->
 <!-- api-source: packages/pocket_ui/src/updates.ts 2fa515161383ab5227f02a3022b2813ec3db84119e0234022256c16ebd2ef3a8 -->
 <!-- api-source: packages/pocket_ui/src/video.tsx 823d26a75a45e0ebaca063544a2d32e614c1ffe782d712b18d5d63c17e4fbdb9 -->
-<!-- api-source: packages/pocket_vn/package.json 6758e70fbbcef2f824c7e7a6766501d0acaae43466c83cf082c20d8f530a8934 -->
+<!-- api-source: packages/pocket_vn/package.json e8d0115f631bec886216bc14f5bfec75367d9b98db41671e2881cacb0666291e -->
 <!-- api-source: packages/pocket_vn/src/asset-references.ts 122781008be20288d8c5004e8964ac461715e75099b9d7c4f7b47397faa0eed1 -->
 <!-- api-source: packages/pocket_vn/src/atmosphere-view.tsx 83b3779eb6dc73f38cc97bc1a60d4da875054c01ca3b1dca618e355fb1624da8 -->
 <!-- api-source: packages/pocket_vn/src/atmosphere.ts f573796fba9eaf257068a3f427ac4ec741914d7ca47fdbc2a517b0d9b7e16992 -->

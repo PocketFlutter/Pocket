@@ -49,7 +49,7 @@
     },
     "packages/pocket_live2d": {
       "name": "@pocket/live2d",
-      "version": "0.1.0",
+      "version": "0.1.1",
     },
     "packages/pocket_looseleaf": {
       "name": "@pocket/looseleaf",
@@ -77,7 +77,7 @@
       "name": "@pocket/vn",
       "version": "0.1.1",
       "dependencies": {
-        "@pocket/live2d": "0.1.0",
+        "@pocket/live2d": "0.1.1",
         "@pocket/spine": "0.1.0",
       },
     },
