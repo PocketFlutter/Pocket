@@ -565,12 +565,12 @@ function WidgetPreviewCard(props: {
 export function PreviewHardwareStage(props: { studio: Studio }) {
   const s = props.studio;
   const preview = fromStore(s.preview.store);
+  const wb = fromStore(s.workbench.store);
   const targets = () => preview().activeTargets;
-  const [focusedTarget, setFocusedTarget] = createSignal<PreviewTargetId>("flutter");
   const [zoomed, setZoomed] = createSignal(false);
 
   const effectiveFocus = (): PreviewTargetId => {
-    const f = focusedTarget();
+    const f = wb().focusedPreviewTarget;
     return targets().includes(f) ? f : (targets()[0] ?? "flutter");
   };
 
@@ -595,7 +595,7 @@ export function PreviewHardwareStage(props: { studio: Studio }) {
             <For each={visibleTargets()}>
               {(targetId) => {
                 const isFocused = () => effectiveFocus() === targetId;
-                const focusMe = () => setFocusedTarget(targetId);
+                const focusMe = () => s.workbench.setFocusedPreviewTarget(targetId);
                 return (
                   <>
                     <Show when={targetId === "flutter"}>

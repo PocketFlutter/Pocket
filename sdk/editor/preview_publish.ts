@@ -115,6 +115,16 @@ async function readJson<T>(path: string, fallback?: T): Promise<T> {
   }
 }
 
+/** Fault-tolerant JSON reader for non-authoritative metadata/cache files (`payload.json`, `preview-slots.json`). */
+async function readJsonSafe<T>(path: string, fallback: T): Promise<T> {
+  try {
+    const parsed = JSON.parse(await readFile(path, "utf8"));
+    return parsed && typeof parsed === "object" ? (parsed as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 /** Dedicated Ed25519 preview signing key, generated like the editor dev key. */
 export async function previewTrust(workspace: PreviewWorkspace): Promise<{ keyPath: string; key: PublicKeyConfig }> {
   const keyPath = join(workspace.keys, KEY_FILE);
@@ -243,7 +253,14 @@ export async function publishPreviews(input: PreviewPublishBatchInput): Promise<
     // Allocate monotonic per-slot build numbers and persist counters atomically under the workspace lock.
     const countersPath = join(input.workspace.states, COUNTER_FILE);
     const allocated = await withWorkspaceCounterLock(input.workspace.states, async () => {
-      const counters = await readJson<PreviewCounters>(countersPath, { schemaVersion: 1, slots: {} });
+      const rawCounters = await readJsonSafe<Partial<PreviewCounters>>(countersPath, { schemaVersion: 1, slots: {} });
+      const counters: PreviewCounters = {
+        schemaVersion: 1,
+        slots:
+          rawCounters.slots && typeof rawCounters.slots === "object" && !Array.isArray(rawCounters.slots)
+            ? { ...rawCounters.slots }
+            : {},
+      };
       const plans: Array<{ packageId: string; slotKey: string; slotDirectory: string; build: number; version: string }> = [];
       for (let i = 0; i < uniqueIds.length; i += 1) {
         const packageId = uniqueIds[i]!;
@@ -363,7 +380,7 @@ export async function publishPreviews(input: PreviewPublishBatchInput): Promise<
         }, null, 2) + "\n");
 
         // Swap in: immutable content-addressed blobs first, pointer files last.
-        const previousPayload = await readJson<{ files?: Array<{ url: string }> }>(join(plan.slotDirectory, "payload.json"), {});
+        const previousPayload = await readJsonSafe<{ files?: Array<{ url: string }> }>(join(plan.slotDirectory, "payload.json"), {});
         await mkdir(join(plan.slotDirectory, "blobs"), { recursive: true });
         for (const blobName of blobNames) {
           const targetBlob = join(plan.slotDirectory, "blobs", blobName);

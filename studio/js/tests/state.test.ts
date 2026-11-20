@@ -719,6 +719,147 @@ describe("preview", () => {
     expect(preview.state().webPreviewUrl).toBe("https://preview.pocket.local/web");
     expect(preview.state().wechatService.state).toBe("running");
   });
+
+  test("mountSurface reference-counts overlapping mounts and finishSlotFrame never masks an errored hidden slot", async () => {
+    const { preview, runtime } = previewFixture();
+    await flush();
+    const unmountA = preview.mountSurface("flutter");
+    const unmountB = preview.mountSurface("flutter");
+    expect(preview.state().slots.flutter.surfaceVisible).toBe(true);
+    // Simulate responsive layout swap where new surface mounted before old onCleanup ran:
+    unmountA();
+    expect(preview.state().slots.flutter.surfaceVisible).toBe(true);
+    unmountB();
+    expect(preview.state().slots.flutter.surfaceVisible).toBe(false);
+
+    // Enable flutter + web; make web fail first-frame while flutter awaits its frame, then unmount web (as in zoom mode).
+    const keepFlutter = preview.mountSurface("flutter");
+    const keepWeb = preview.mountSurface("web");
+    await preview.setTargets(["flutter", "web"]);
+    await flush();
+
+    let resolveFlutterFrame!: () => void;
+    runtime.awaitFirstFrame = async (id) => {
+      if (id === preview.state().slots.web.instanceId) {
+        throw Object.assign(new Error("web shader compile error"), { code: "web_frame_failed" });
+      }
+      await new Promise<void>((r) => { resolveFlutterFrame = r; });
+    };
+    const runPromise = preview.run({ build: true });
+    await flush(30);
+    await new Promise((r) => setTimeout(r, 15));
+    expect(preview.state().slots.web.phase).toBe("error");
+    expect(preview.state().phase).toBe("error");
+    // Unmount errored web slot (e.g. user zooms into flutter card) and finish flutter's frame:
+    keepWeb();
+    resolveFlutterFrame();
+    expect(await runPromise).toBe(false);
+    expect(preview.state().slots.flutter.phase).toBe("running");
+    expect(preview.state().slots.web.phase).toBe("error");
+    expect(preview.state().phase).toBe("error");
+    keepFlutter();
+  });
+
+  test("multi-target execute creates slots in parallel, cleans up siblings on partial failure, and preserves primary version on incremental spin-up", async () => {
+    const { fake, preview, runtime, log } = previewFixture();
+    await flush();
+    preview.setSurfaceVisible(true, "flutter");
+    preview.setSurfaceVisible(true, "web");
+    preview.setSurfaceVisible(true, "widget");
+
+    // 1. Primary run establishes build version 0.1.0-preview.2, bumped to preview.4 across 3 builds:
+    await preview.run({ build: true });
+    fake.state.revision += 1;
+    await preview.run({ build: true });
+    const primaryVersion = preview.state().version;
+    expect(primaryVersion).toBe("0.1.0-preview.3");
+
+    // 2. Incremental spin-up of widget (returning lower slot build 0.1.0-preview.2) preserves primary version:
+    let nextPublishOverride: string | undefined = "0.1.0-preview.2";
+    const origPublish = fake.client.preview.publish.bind(fake.client.preview);
+    fake.client.preview.publish = async (proj: string, slotIds?: readonly string[]) => {
+      const res = await origPublish(proj, slotIds);
+      if (nextPublishOverride) {
+        const v = nextPublishOverride;
+        nextPublishOverride = undefined;
+        return { ...res, version: v, build: 2 };
+      }
+      return res;
+    };
+    await preview.toggleTarget("widget");
+    expect(preview.state().version).toBe(primaryVersion);
+
+    // 3. Parallel create + sibling cleanup when one slot fails create:
+    let activeCreates = 0;
+    let peakConcurrentCreates = 0;
+    const origCreate = runtime.create.bind(runtime);
+    runtime.create = async (appId, initEvents) => {
+      activeCreates += 1;
+      peakConcurrentCreates = Math.max(peakConcurrentCreates, activeCreates);
+      await new Promise((r) => setTimeout(r, 10));
+      activeCreates -= 1;
+      if (appId.endsWith(".widget")) {
+        throw Object.assign(new Error("widget quota exceeded"), { code: "spawn_failed" });
+      }
+      return origCreate(appId, initEvents);
+    };
+    await preview.toggleTarget("web");
+    log.length = 0;
+    fake.state.revision += 1;
+    expect(await preview.run({ build: true })).toBe(false);
+    expect(peakConcurrentCreates).toBeGreaterThanOrEqual(2);
+    expect(preview.state().slots.flutter.instanceId).toBeUndefined();
+    expect(preview.state().slots.web.instanceId).toBeUndefined();
+    expect(preview.state().slots.widget.phase).toBe("error");
+    expect(log.filter((l) => l.startsWith("destroy:")).length).toBeGreaterThanOrEqual(2);
+  });
+
+  test("syncFlutterViewport pushes live platform.surface updates to a running flutter slot", async () => {
+    const fake = createFakeClient();
+    const timers = createManualTimers();
+    const toasts = createToasts(timers);
+    const build = createBuild({ client: fake.client, timers, toasts });
+    build.attach("p");
+    fake.state.startBuildHook = () => { setTimeout(() => fake.finishBuild(true), 0); };
+    let preset: "mobile" | "tablet" | "desktop" = "mobile";
+    const posted: Array<{ id: string; event: string; profileId: unknown }> = [];
+    const runtime: PreviewRuntime = {
+      async ensure() {},
+      async create() { return { instanceId: "fl-1", generation: 1 }; },
+      async post(id, event, params) {
+        posted.push({ id, event, profileId: params.profileId });
+        return true;
+      },
+      async destroy() {},
+      async awaitFirstFrame() {},
+    };
+    const preview = createPreview({
+      client: fake.client,
+      runtime,
+      build,
+      timers,
+      toasts,
+      project: () => "p",
+      viewportPreset: () => preset,
+      setViewportPreset: (next) => {
+        preset = next;
+        preview.syncFlutterViewport();
+      },
+    });
+    await flush();
+    preview.setSurfaceVisible(true, "flutter");
+    await preview.run({ build: true });
+    preset = "tablet";
+    preview.syncFlutterViewport();
+    await flush();
+    preset = "mobile";
+    preview.syncFlutterViewport();
+    await flush();
+    expect(posted).toEqual([
+      { id: "fl-1", event: "platform.surface", profileId: "ipad-pro" },
+      { id: "fl-1", event: "platform.surface", profileId: "iphone-16-pro" },
+    ]);
+  });
 });
 
 describe("settings", () => {

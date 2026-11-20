@@ -8,6 +8,7 @@ export type VersionsSubTab = "publish" | "versions";
 export type SettingsSection = "studio" | "project" | "service";
 export type ResourcesSubTab = "files" | "placement";
 export type ViewportPreset = "mobile" | "tablet" | "desktop";
+export type WorkbenchPreviewTargetId = "flutter" | "web" | "wechat" | "widget" | "widgetAlt";
 
 export interface WorkbenchState {
   /** Zone C: Docked Left Source Split (`#source-dock`). */
@@ -38,6 +39,8 @@ export interface WorkbenchState {
   viewportPreset: ViewportPreset;
   /** Zone D: Show device bezel shell (`9:41` status bar, Dynamic Island, home indicator). */
   bezelEnabled: boolean;
+  /** Zone D: Currently focused preview target card on the multi-surface stage. */
+  focusedPreviewTarget: WorkbenchPreviewTargetId;
 }
 
 export const SOURCE_DOCK_LIMITS = { min: 340, max: 580 } as const;
@@ -61,6 +64,7 @@ export function createWorkbench() {
     projectMenuOpen: false,
     viewportPreset: "mobile",
     bezelEnabled: true,
+    focusedPreviewTarget: "flutter",
   });
 
   const state = () => store.get();
@@ -89,6 +93,8 @@ export function createWorkbench() {
     },
     setViewportPreset: (viewportPreset: ViewportPreset) => store.update({ viewportPreset }),
     toggleBezel: () => store.update({ bezelEnabled: !state().bezelEnabled }),
+    setFocusedPreviewTarget: (focusedPreviewTarget: WorkbenchPreviewTargetId) =>
+      store.update({ focusedPreviewTarget }),
   };
 }
 

@@ -68,6 +68,14 @@ export function createStudio(deps: StudioDeps) {
     viewportPreset: () => workbench.state().viewportPreset,
     setViewportPreset: (preset) => workbench.setViewportPreset(preset),
   });
+  let lastViewportPreset = workbench.state().viewportPreset;
+  workbench.store.subscribe(() => {
+    const next = workbench.state().viewportPreset;
+    if (next !== lastViewportPreset) {
+      lastViewportPreset = next;
+      preview.syncFlutterViewport();
+    }
+  });
   const deploy = createDeploy({ client, timers, toasts, build, project: () => projects.current() });
   // M5: publish / inspect. Keys stay in the service; these stores only hold public facts.
   const copy = createCopier({ clipboard: deps.clipboard, toasts });

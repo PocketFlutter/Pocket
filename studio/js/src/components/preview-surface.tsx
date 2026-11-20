@@ -46,8 +46,8 @@ export function PreviewSurface(props: {
   const targetId = (): PreviewTargetId => props.target ?? "flutter";
   const spec = () => PREVIEW_TARGET_BY_ID[targetId()];
   const mountedTarget = targetId();
-  s.preview.setSurfaceVisible(true, mountedTarget);
-  onCleanup(() => s.preview.setSurfaceVisible(false, mountedTarget));
+  const unmountSurface = s.preview.mountSurface(mountedTarget);
+  onCleanup(unmountSurface);
 
   const preview = fromStore(s.preview.store);
   const slot = () => preview().slots[targetId()];

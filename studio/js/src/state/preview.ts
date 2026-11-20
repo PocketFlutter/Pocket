@@ -249,6 +249,13 @@ export function createPreview(deps: {
   let running = false;
   let queued: { build: boolean; since: number; onlyTargets?: readonly PreviewTargetId[] } | undefined;
   let inflightEndpoints: Promise<void> | undefined;
+  const surfaceMounts: Record<PreviewTargetId, number> = {
+    flutter: 0,
+    web: 0,
+    wechat: 0,
+    widget: 0,
+    widgetAlt: 0,
+  };
   const pendingFrames = new Map<PreviewTargetId, { instanceId: string; generation: number | string; since: number; mine: number }>();
   let wechatPollCancel: (() => void) | undefined;
   let epoch = 0;
@@ -360,10 +367,12 @@ export function createPreview(deps: {
       };
     }
     store.update({ slots: resetSlots, instanceId: undefined });
-    for (const item of ids) {
-      if (!item.instanceId) continue;
-      try { await runtime.destroy(item.instanceId); } catch { /* already gone */ }
-    }
+    await Promise.all(
+      ids.map(async (item) => {
+        if (!item.instanceId) return;
+        try { await runtime.destroy(item.instanceId); } catch { /* already gone */ }
+      }),
+    );
   }
 
   /** Waits for one child's first visible frame and marks that slot running. */
@@ -387,9 +396,11 @@ export function createPreview(deps: {
     if (mine !== epoch) return false;
     patchSlot(targetId, { phase: "running", message: undefined, code: undefined });
     const cur = state();
-    const allReady = cur.activeTargets
-      .filter(isTargetSupported)
-      .every((t) => cur.slots[t].phase === "running" || !cur.slots[t].surfaceVisible);
+    const activeSupported = cur.activeTargets.filter(isTargetSupported);
+    const hasErrorSlot = activeSupported.some((t) => cur.slots[t].phase === "error");
+    const allReady = !hasErrorSlot && activeSupported.every(
+      (t) => cur.slots[t].phase === "running" || !cur.slots[t].surfaceVisible,
+    );
     if (allReady && cur.phase !== "running") {
       store.update({
         phase: "running",
@@ -466,39 +477,82 @@ export function createPreview(deps: {
       void refreshEndpoints();
     }
 
+    const primaryActive = state().activeTargets[0] ?? "flutter";
+    const preservePrimaryVersion =
+      onlyTargets !== undefined &&
+      !targets.includes(primaryActive) &&
+      state().version !== undefined;
     store.update({
       phase: "loading",
       message: targets.length > 1 ? `正在并行加载 ${targets.length} 个预览沙箱…` : "正在加载预览子应用…",
-      version: String(published.version ?? ""),
-      previewBuild: Number(published.build) || undefined,
+      version: preservePrimaryVersion ? state().version : String(published.version ?? ""),
+      previewBuild: preservePrimaryVersion ? state().previewBuild : (Number(published.build) || undefined),
     });
 
-    for (const t of targets) {
-      await destroySlot(t);
-      patchSlot(t, { phase: "loading", message: "正在启动沙箱…" });
-    }
+    await Promise.all(
+      targets.map(async (t) => {
+        await destroySlot(t);
+        patchSlot(t, { phase: "loading", message: "正在启动沙箱…" });
+      }),
+    );
     if (mine !== epoch) return false;
 
-    const spawned: Array<{ targetId: PreviewTargetId; instanceId: string; generation: number | string }> = [];
-    for (const targetId of targets) {
-      const appId = PREVIEW_TARGET_BY_ID[targetId].appId;
-      const initEvents = initialEventsForTarget(targetId);
-      try {
+    const creations = await Promise.allSettled(
+      targets.map(async (targetId) => {
+        const appId = PREVIEW_TARGET_BY_ID[targetId].appId;
+        const initEvents = initialEventsForTarget(targetId);
         const created = initEvents.length > 0
           ? await runtime.create(appId, initEvents)
           : await runtime.create(appId);
-        if (mine !== epoch) {
-          try { await runtime.destroy(created.instanceId); } catch { /* ignore */ }
-          return false;
+        return { targetId, instanceId: created.instanceId, generation: created.generation };
+      }),
+    );
+    if (mine !== epoch) {
+      await Promise.all(
+        creations.map(async (res) => {
+          if (res.status === "fulfilled") {
+            try { await runtime.destroy(res.value.instanceId); } catch { /* ignore */ }
+          }
+        }),
+      );
+      return false;
+    }
+
+    const firstRejectedIndex = creations.findIndex((res) => res.status === "rejected");
+    if (firstRejectedIndex >= 0) {
+      await Promise.all(
+        creations.map(async (res) => {
+          if (res.status === "fulfilled") {
+            try { await runtime.destroy(res.value.instanceId); } catch { /* ignore */ }
+          }
+        }),
+      );
+      for (let i = 0; i < creations.length; i += 1) {
+        const t = targets[i]!;
+        const c = creations[i]!;
+        if (c.status === "rejected") {
+          const errCode = (c.reason as { code?: string })?.code ?? "reload_failed";
+          patchSlot(t, {
+            phase: "error",
+            code: errCode,
+            message: `预览加载失败 (${PREVIEW_TARGET_BY_ID[t].label})：${errorText(c.reason)}`,
+          });
+        } else {
+          patchSlot(t, { phase: "idle", instanceId: undefined, generation: undefined, message: undefined });
         }
-        patchSlot(targetId, { instanceId: created.instanceId, generation: created.generation });
-        spawned.push({ targetId, instanceId: created.instanceId, generation: created.generation });
-      } catch (error) {
-        const code = (error as { code?: string }).code ?? "reload_failed";
-        const msg = `预览加载失败 (${PREVIEW_TARGET_BY_ID[targetId].label})：${errorText(error)}`;
-        patchSlot(targetId, { phase: "error", code, message: msg });
-        return fail(code, msg);
       }
+      const failedTarget = targets[firstRejectedIndex]!;
+      const reason = (creations[firstRejectedIndex] as PromiseRejectedResult).reason;
+      const code = (reason as { code?: string })?.code ?? "reload_failed";
+      const msg = `预览加载失败 (${PREVIEW_TARGET_BY_ID[failedTarget].label})：${errorText(reason)}`;
+      return fail(code, msg);
+    }
+
+    const spawned = creations.map(
+      (res) => (res as PromiseFulfilledResult<{ targetId: PreviewTargetId; instanceId: string; generation: number | string }>).value,
+    );
+    for (const item of spawned) {
+      patchSlot(item.targetId, { instanceId: item.instanceId, generation: item.generation });
     }
 
     const visibleWaiters: Promise<boolean>[] = [];
@@ -516,7 +570,9 @@ export function createPreview(deps: {
       return true;
     }
     const results = await Promise.all(visibleWaiters);
-    if (mine === epoch && results.every(Boolean) && state().phase !== "running") {
+    const activeSupported = state().activeTargets.filter(isTargetSupported);
+    const hasErrorSlot = activeSupported.some((t) => state().slots[t].phase === "error");
+    if (mine === epoch && results.every(Boolean) && !hasErrorSlot && state().phase !== "running") {
       store.update({
         phase: "running",
         message: undefined,
@@ -564,7 +620,8 @@ export function createPreview(deps: {
     return ok;
   }
 
-  function setSurfaceVisible(visible: boolean, targetId: PreviewTargetId = "flutter"): void {
+  function syncSurfaceVisibility(targetId: PreviewTargetId): void {
+    const visible = surfaceMounts[targetId] > 0;
     const slot = state().slots[targetId];
     if (slot.surfaceVisible === visible) return;
     patchSlot(targetId, { surfaceVisible: visible });
@@ -573,6 +630,24 @@ export function createPreview(deps: {
       pendingFrames.delete(targetId);
       void finishSlotFrame(targetId, pending.instanceId, pending.generation, pending.since, pending.mine);
     }
+  }
+
+  /** Reference-counted mount hook for `PreviewSurface` so overlapping responsive layout swaps never clobber visibility. */
+  function mountSurface(targetId: PreviewTargetId = "flutter"): () => void {
+    surfaceMounts[targetId] += 1;
+    syncSurfaceVisibility(targetId);
+    let active = true;
+    return () => {
+      if (!active) return;
+      active = false;
+      surfaceMounts[targetId] = Math.max(0, surfaceMounts[targetId] - 1);
+      syncSurfaceVisibility(targetId);
+    };
+  }
+
+  function setSurfaceVisible(visible: boolean, targetId: PreviewTargetId = "flutter"): void {
+    surfaceMounts[targetId] = visible ? Math.max(1, surfaceMounts[targetId]) : 0;
+    syncSurfaceVisibility(targetId);
   }
 
   /** Toggle one preview target ON/OFF while keeping at least 1 target active. */
@@ -617,6 +692,23 @@ export function createPreview(deps: {
     } else if (next.includes("wechat") || next.includes("web")) {
       void refreshEndpoints();
     }
+  }
+
+  async function pushFlutterSurfaceUpdate(): Promise<void> {
+    const slot = state().slots.flutter;
+    if (!slot.instanceId || !runtime.post) return;
+    const preset = deps.viewportPreset?.() ?? "mobile";
+    const profileId = preset === "desktop" ? "macos-window" : preset === "tablet" ? "ipad-pro" : "iphone-16-pro";
+    const ev = surfaceEventForProfile(profileId, "fullColor");
+    try {
+      await runtime.post(slot.instanceId, ev.method, ev.params);
+    } catch {
+      // Best-effort live push; next reload also carries initialEvents.
+    }
+  }
+
+  function syncFlutterViewport(): void {
+    void pushFlutterSurfaceUpdate();
   }
 
   async function pushSurfaceUpdate(targetId: "widget" | "widgetAlt"): Promise<void> {
@@ -789,7 +881,9 @@ export function createPreview(deps: {
     state,
     run,
     reset,
+    mountSurface,
     setSurfaceVisible,
+    syncFlutterViewport,
     toggleTarget,
     setTargets,
     isTargetSupported,

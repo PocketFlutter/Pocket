@@ -140,15 +140,27 @@ export function StageColumn(props: { studio: Studio }) {
     if (tab === "signing" && project()) void s.publish.enter();
   };
 
+  const targetWidgetSlot = (): "widget" | "widgetAlt" => {
+    const f = wb().focusedPreviewTarget;
+    if (f === "widgetAlt" && activeTargets().includes("widgetAlt")) return "widgetAlt";
+    if (f === "widget" && activeTargets().includes("widget")) return "widget";
+    return activeTargets().includes("widget") ? "widget" : "widgetAlt";
+  };
+  const targetWidgetProfileId = () =>
+    targetWidgetSlot() === "widgetAlt" ? preview().widgetAltProfileId : preview().widgetProfileId;
+  const targetWidgetRenderMode = () =>
+    targetWidgetSlot() === "widgetAlt" ? preview().widgetAltRenderMode : preview().widgetRenderMode;
+
   const cycleWidgetProfile = () => {
     const list = WIDGET_SURFACE_PROFILES;
     if (list.length === 0) return;
-    const idx = list.findIndex((p) => p.id === preview().widgetProfileId);
+    const slot = targetWidgetSlot();
+    const idx = list.findIndex((p) => p.id === targetWidgetProfileId());
     const next = list[(idx + 1) % list.length]!;
-    s.preview.setWidgetProfile(next.id, "widget");
+    s.preview.setWidgetProfile(next.id, slot);
   };
 
-  const currentWidgetProfile = () => getSurfaceProfile(preview().widgetProfileId);
+  const currentWidgetProfile = () => getSurfaceProfile(targetWidgetProfileId());
 
   return (
     <View class="flex-col flex-1 h-full overflow-hidden" style={{ bgColor: C.bg, minW: 0, minH: 0 }}>
@@ -297,8 +309,8 @@ export function StageColumn(props: { studio: Studio }) {
                 {(preset) => (
                   <CapsuleToggle
                     label={preset.label}
-                    active={preview().widgetProfileId === preset.id}
-                    onPress={() => s.preview.setWidgetProfile(preset.id, "widget")}
+                    active={targetWidgetProfileId() === preset.id}
+                    onPress={() => s.preview.setWidgetProfile(preset.id, targetWidgetSlot())}
                   />
                 )}
               </For>
@@ -320,8 +332,8 @@ export function StageColumn(props: { studio: Studio }) {
                     <Show when={allowed()}>
                       <CapsuleToggle
                         label={mode.label}
-                        active={preview().widgetRenderMode === mode.id}
-                        onPress={() => s.preview.setWidgetRenderMode(mode.id, "widget")}
+                        active={targetWidgetRenderMode() === mode.id}
+                        onPress={() => s.preview.setWidgetRenderMode(mode.id, targetWidgetSlot())}
                       />
                     </Show>
                   );
