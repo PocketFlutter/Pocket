@@ -10,7 +10,7 @@
 
 ## Fixed
 
-- The Workbench starts a drag on visible model geometry, including Mao's hat and cape. Tap actions continue to use Cubism's authored hit areas (`a71cbe2`). [Model mesh hit testing](VISUAL_NOVEL_LIVE2D.md#model-mesh-hit-testing)
+- The Workbench starts a drag on visible model geometry, including Mao's hat and cape. Tap actions continue to use Cubism's authored hit areas. The mesh predicate is also available in `@pocketflutter/live2d@0.1.1` (`a71cbe2`, `5b58f55`). [Model mesh hit testing](VISUAL_NOVEL_LIVE2D.md#model-mesh-hit-testing)
 
 ## Performance
 
