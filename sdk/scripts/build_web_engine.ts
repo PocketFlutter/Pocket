@@ -32,7 +32,15 @@ export const REQUIRED_EXPORTS = [
 // module and must remain valid here.
 const SOURCE_GUEST_IMPORTS = /(?:guest_eval|guest_start|pocket_web\.)/i;
 
-export type BuildWebEngineOptions = { outDir: string; tickHz?: number; rasterDensity?: number };
+const LIVE2D_MESH_IMPORT = "pocket_web_mesh.frame";
+const LIVE2D_MESH_EXPORT = "web_live2d_mesh_try_present";
+
+export type BuildWebEngineOptions = {
+  outDir: string;
+  tickHz?: number;
+  rasterDensity?: number;
+  browserLive2dMesh?: boolean;
+};
 
 function run(command: string, args: string[], cwd = SDK_ROOT): void {
   const result = spawnSync(command, args, { cwd, encoding: "utf8", stdio: "inherit", env: { ...process.env, POCKET_SOURCE_BUILD: "1" } });
@@ -46,9 +54,15 @@ export function parseBuildWebEngineArgs(args: string[]): BuildWebEngineOptions {
     if (arg.startsWith("--outdir=")) options.outDir = arg.slice("--outdir=".length);
     else if (arg.startsWith("--tick-hz=")) options.tickHz = Number(arg.slice("--tick-hz=".length));
     else if (arg.startsWith("--density=")) options.rasterDensity = Number(arg.slice("--density=".length));
+    else if (arg === "--live2d-mesh") options.browserLive2dMesh = true;
     else throw new Error(`build_web_engine: unknown option ${arg}`);
   }
-  return { outDir: resolve(options.outDir || DEFAULT_OUT), tickHz: options.tickHz, rasterDensity: options.rasterDensity };
+  return {
+    outDir: resolve(options.outDir || DEFAULT_OUT),
+    tickHz: options.tickHz,
+    rasterDensity: options.rasterDensity,
+    ...(options.browserLive2dMesh === true ? { browserLive2dMesh: true } : {}),
+  };
 }
 
 function assertEmptyDirectory(path: string): void {
@@ -70,6 +84,9 @@ export async function verifyWebEngine(bytes: Uint8Array): Promise<{ exports: str
   for (const name of REQUIRED_EXPORTS) if (!exports.includes(name)) throw new Error(`build_web_engine: patched engine is missing ${name}`);
   const sourceImports = imports.filter((name) => SOURCE_GUEST_IMPORTS.test(name));
   if (sourceImports.length) throw new Error(`build_web_engine: source-guest imports are forbidden: ${sourceImports.join(", ")}`);
+  if (imports.includes(LIVE2D_MESH_IMPORT) !== exports.includes(LIVE2D_MESH_EXPORT)) {
+    throw new Error("build_web_engine: incomplete browser Live2D mesh ABI");
+  }
   return { exports, imports };
 }
 
@@ -94,7 +111,14 @@ export async function buildWebEngine(options: BuildWebEngineOptions): Promise<{ 
     const previousSourceBuild = process.env.POCKET_SOURCE_BUILD;
     process.env.POCKET_SOURCE_BUILD = "1";
     try {
-      await buildWechat({ projectRoot: project, outDir: miniProgram, entry: "app.tsx", tickHz: options.tickHz, rasterDensity: options.rasterDensity });
+      await buildWechat({
+        projectRoot: project,
+        outDir: miniProgram,
+        entry: "app.tsx",
+        tickHz: options.tickHz,
+        rasterDensity: options.rasterDensity,
+        browserLive2dMesh: options.browserLive2dMesh,
+      });
     } finally {
       if (previousSourceBuild === undefined) delete process.env.POCKET_SOURCE_BUILD;
       else process.env.POCKET_SOURCE_BUILD = previousSourceBuild;
@@ -102,6 +126,9 @@ export async function buildWebEngine(options: BuildWebEngineOptions): Promise<{ 
     const compressed = readFileSync(join(miniProgram, "engine", "pocketjs.wasm.br"));
     const wasm = brotliDecompressSync(compressed);
     const verification = await verifyWebEngine(wasm);
+    if (verification.exports.includes(LIVE2D_MESH_EXPORT) !== (options.browserLive2dMesh === true)) {
+      throw new Error("build_web_engine: browser Live2D mesh ABI does not match the source build option");
+    }
     mkdirSync(output, { recursive: true });
     writeFileSync(join(output, "pocketjs.wasm"), wasm);
     const bun = process.env.POCKET_BUN || "bun";

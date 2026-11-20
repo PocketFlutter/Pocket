@@ -128,3 +128,41 @@ test("deferred response frames are canceled by hide and dispose", async () => {
     if (cleanup === "hide") host.dispose();
   }
 });
+
+test("Web mesh updates share a display wake while respecting Guest Hz and hide", () => {
+  const host = scheduledHost();
+  const packet = new Uint8Array([1]);
+  const pending = new Map<number, (time: number) => void>();
+  let id = 0;
+  let frames = 0;
+  host.modelFrameClock = {
+    requestAnimationFrame(callback: (time: number) => void) { pending.set(++id, callback); return id; },
+    cancelAnimationFrame(token: number) { pending.delete(token); },
+  };
+  host.config.tickHz = 60;
+  host.advance = () => { frames++; };
+  function refresh(time: number) {
+    expect(pending.size).toBe(1);
+    const [token, callback] = [...pending][0]!;
+    pending.delete(token);
+    callback(time);
+  }
+
+  host.deliverResponse(packet, true);
+  host.deliverResponse(packet, true);
+  refresh(0);
+  expect(frames).toBe(1);
+  host.deliverResponse(packet, true);
+  refresh(1000 / 120);
+  expect(frames).toBe(1);
+  refresh(1000 / 60);
+  expect(frames).toBe(2);
+  host.deliverResponse(packet, true);
+  refresh(50);
+  expect(frames).toBe(3);
+  host.deliverResponse(packet, true);
+  host.hide();
+  expect(pending.size).toBe(0);
+  expect(host.running).toBe(false);
+  host.dispose();
+});

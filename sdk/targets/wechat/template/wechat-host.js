@@ -77,6 +77,11 @@ class PocketWechatHost {
     this.onWorkerChannel = options.onWorkerChannel;
     this.isActive = options.isActive;
     this.sampleInput = options.sampleInput;
+    this.createWebMesh = options.createWebMesh;
+    this.modelFrameClock = options.modelFrameClock;
+    this.modelFrame = null;
+    this.nextModelFrameTime = null;
+    this.webMesh = null;
     this.capabilityHandlers = options.capabilityHandlers || Object.create(null);
     this.instance = null;
     this.exports = null;
@@ -180,6 +185,9 @@ class PocketWechatHost {
       pocket_wechat: {
         host_emit: (pointer, length) => this.enqueueFromWasm(pointer, length),
       },
+      pocket_web_mesh: {
+        frame: (...args) => this.webMesh?.frame(this.exports.memory, ...args) ?? 0,
+      },
     };
     const loaded = await this.wx.WXWebAssembly.instantiate(this.config.enginePath, imports);
     if (this.disposed) return;
@@ -187,6 +195,9 @@ class PocketWechatHost {
     this.exports = this.instance.exports;
     this.host = this.exports.web_create(this.logicalWidth, this.logicalHeight, this.scale, 0, 0);
     if (!this.host) throw new Error("PocketJS WASM could not allocate its runtime host.");
+    if (!this.headless && !this.system && typeof this.exports.web_live2d_mesh_try_present === "function") {
+      this.webMesh = this.createWebMesh?.(this.context) ?? null;
+    }
     const external = this.config.externalGuest;
     if (external) {
       if (!(external.qjbc instanceof Uint8Array) || !(external.pak instanceof Uint8Array) ||
@@ -362,8 +373,10 @@ class PocketWechatHost {
     this.withBytes(facts, (pointer, length) => this.check(
       this.exports.web_advance(this.host, pointer, length, 1), "PocketJS guest frame failed.",
     ));
-    this.check(this.exports.web_present(this.host), "PocketJS renderer failed to present DrawOps.");
-    this.draw();
+    if (!this.webMesh?.available() || this.exports.web_live2d_mesh_try_present(this.host) !== 1) {
+      this.check(this.exports.web_present(this.host), "PocketJS renderer failed to present DrawOps.");
+      this.draw();
+    }
     this.drainOutbound();
     this.drainWorkerChannels();
   }
@@ -423,7 +436,28 @@ class PocketWechatHost {
     }, delay);
   }
 
-  wake(deferred = false) {
+  scheduleModelFrame() {
+    const interval = 1000 / Math.max(1, Number(this.config.tickHz) || 60);
+    this.running = true;
+    const onFrame = (time) => {
+      // A 120 Hz display must not run a 60 Hz Guest twice as fast. Retain
+      // the phase across missed refreshes and advance only one tick per turn.
+      const due = this.nextModelFrameTime ?? time;
+      if (time + 0.5 < due) {
+        this.modelFrame = this.modelFrameClock.requestAnimationFrame(onFrame);
+        return;
+      }
+      this.nextModelFrameTime = due + (1 + Math.floor((time + 0.5 - due) / interval)) * interval;
+      this.modelFrame = null;
+      this.running = false;
+      if (!this.visible || this.disposed) return;
+      this.advance();
+      this.schedule();
+    };
+    this.modelFrame = this.modelFrameClock.requestAnimationFrame(onFrame);
+  }
+
+  wake(deferred = false, modelUpdate = false) {
     if (!this.exports || this.disposed || !this.visible) return;
     if (deferred) {
       // A frame already queued by the active scheduler will deliver the guest
@@ -432,6 +466,10 @@ class PocketWechatHost {
       // promise-microtask turn.
       if (this.running && !this.scheduledIdle) return;
       this.stopScheduled();
+      if (modelUpdate && this.modelFrameClock) {
+        this.scheduleModelFrame();
+        return;
+      }
       this.running = true;
       this.timer = setTimeout(() => {
         this.running = false;
@@ -448,6 +486,10 @@ class PocketWechatHost {
   }
 
   stopScheduled() {
+    if (this.modelFrame !== null) {
+      this.modelFrameClock.cancelAnimationFrame(this.modelFrame);
+      this.modelFrame = null;
+    }
     if (this.scheduledIdle) {
       const info = this.scheduledIdle;
       this.scheduledIdle = null;
@@ -662,16 +704,16 @@ class PocketWechatHost {
         ...(ok ? { result: result === undefined ? null : result } : { error }),
       },
     }, request.capability.startsWith("media.live2d.model.") ? 4 * 1024 * 1024 : 64 * 1024);
-    this.deliverResponse(packet);
+    this.deliverResponse(packet, request.capability === "media.live2d.model.update" && ok);
   }
 
-  deliverResponse(packet) {
+  deliverResponse(packet, modelUpdate = false) {
     if (!this.exports || this.disposed) return;
     this.withBytes(packet, (pointer, length) => this.check(
       this.exports.web_wechat_deliver(this.host, pointer, length), "PocketJS rejected a host response.",
     ));
     this.drainOutbound();
-    this.wake(true);
+    this.wake(true, modelUpdate);
   }
 
   deliverGuestEvent(method, params, wake = true) {
@@ -864,7 +906,10 @@ class PocketWechatHost {
       this.outbound.length = 0;
       this.instance = null;
       this.exports = null;
-      if (exports && host) exports.web_destroy(host);
+      const webMesh = this.webMesh;
+      this.webMesh = null;
+      try { webMesh?.dispose(); }
+      finally { if (exports && host) exports.web_destroy(host); }
     }
   }
 }

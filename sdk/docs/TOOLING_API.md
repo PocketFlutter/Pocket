@@ -210,6 +210,12 @@ Required: `--project-root` and `--outdir`. Optional: `--entry`, `--tick-hz`, `--
 | `package:tools` | Packages verified native and compiler tools and generates checksums. |
 | `official-demos` | Compiles and benchmarks pinned samples. See [official_demos.ts](../scripts/official_demos.ts#L142) for flags. |
 
+The maintainer-only Web engine source build accepts `--live2d-mesh` alongside
+`--outdir=DIR`, `--tick-hz=N`, and `--density=N`. This opt-in emits matching
+WASM and browser runtime artifacts for the direct Web Workbench experiment.
+The default build omits the private mesh import and export.
+[Build and launch the experiment](LIVE2D_WORKBENCH.md#try-the-web-gpu-preview)
+
 ## Publisher update package CLI
 
 Run `scripts/package_update.ts` with SDK-managed Bun. It has no same-name npm script. See [package_update.ts usage](../scripts/package_update.ts#L2771).

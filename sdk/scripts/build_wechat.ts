@@ -42,6 +42,8 @@ export type BuildWechatOptions = {
   tickHz?: number;
   /** Resource sampling ceiling, independent of the runtime screen scale. */
   rasterDensity?: number;
+  /** Maintainer-only generic browser engine feature. */
+  browserLive2dMesh?: boolean;
   log?: (line: string) => void;
 };
 
@@ -445,6 +447,7 @@ function patchPinnedWorkspace(
   systemSurfaces: Array<{ appId: string; handle: number }>,
   sysOverlay: string,
   bytecodeModule: string,
+  browserLive2dMesh: boolean,
 ): void {
   workspaceMembers(workspace);
   const rootCargo = join(workspace, "Cargo.toml");
@@ -455,6 +458,12 @@ function patchPinnedWorkspace(
   const wasmCargo = join(workspace, "programs/web/wasm/Cargo.toml");
   let wasmManifest = readFileSync(wasmCargo, "utf8");
   wasmManifest += `\npocket-guest-rquickjs = { workspace = true, default-features = true }\nrquickjs = "0.12.2"\nserde = { version = "1", features = ["derive"] }\n\n[build-dependencies]\ncc = "1"\n`;
+  if (browserLive2dMesh) {
+    const driverDependency = "pocket-drivers = { workspace = true, default-features = true }";
+    wasmManifest = replaceOnce(wasmManifest, driverDependency,
+      `${driverDependency}\npocket-draw-ops = { workspace = true, default-features = true }`,
+      "browser Live2D DrawList dependency");
+  }
   writeFileSync(wasmCargo, wasmManifest);
 
   const workerBridge = join(workspace, "programs/web/wasm/worker-bridge");
@@ -570,6 +579,19 @@ pub extern "C" fn web_compositor_frames(h: &WasmHost) -> i32 {
   lib = replaceOnce(lib, "            h.provider_ops.borrow_mut().clear();", "            h.provider_ops.borrow_mut().clear();\n            *h.worker_channels.borrow_mut() = None;", "reset Worker UI channels");
   lib = replaceOnce(lib, "        quickjs: Rc::new(RefCell::new(None)),", "        quickjs: Rc::new(RefCell::new(None)),\n        app_index: Cell::new(0),", "WeChat Guest app index initialization");
   lib = replaceOnce(lib, "RefCell::new((\"web\".into(), BINDING_GENERATION))", "RefCell::new((\"wechat\".into(), BINDING_GENERATION))", "WeChat host identity");
+  if (browserLive2dMesh) {
+    cpSync(join(SDK_ROOT, "packages/pocket_live2d/web/live2d_mesh_preview.rs"), join(src, "live2d_mesh_preview.rs"));
+    lib = replaceOnce(lib, "mod wechat_assets;", "mod wechat_assets;\nmod live2d_mesh_preview;", "browser Live2D module");
+    lib = replaceOnce(lib, "    capture: RefCell<Capture>,",
+      "    capture: RefCell<Capture>,\n    live2d_mesh_preview: RefCell<live2d_mesh_preview::Cache>,",
+      "browser Live2D cache storage");
+    lib = replaceOnce(lib, "        capture: RefCell::new(Capture::default()),",
+      "        capture: RefCell::new(Capture::default()),\n        live2d_mesh_preview: RefCell::new(live2d_mesh_preview::Cache::default()),",
+      "browser Live2D cache initialization");
+    const resetCore = "            *h.ops.borrow_mut() = core_context(h.logical.get(), density, h.auxiliary.get());";
+    lib = replaceOnce(lib, resetCore, `${resetCore}\n            h.live2d_mesh_preview.borrow_mut().invalidate();`,
+      "browser Live2D cache reset");
+  }
   writeFileSync(libPath, lib);
 
   const browserPath = join(src, "browser.rs");
@@ -878,7 +900,7 @@ export async function buildWechat(options: BuildWechatOptions): Promise<{ outDir
     patchRquickjsSys(registrySysRoot(), supportRoot, sysOverlay);
     const workspace = join(tempRoot, "pocketjs");
     copyWorkspace(upstream, workspace);
-    patchPinnedWorkspace(workspace, artifacts, systemSurfaces, sysOverlay, bytecodeModule);
+    patchPinnedWorkspace(workspace, artifacts, systemSurfaces, sysOverlay, bytecodeModule, options.browserLive2dMesh === true);
     const ar = findLlvmAr();
     const cargoEnv = {
       AR: ar,

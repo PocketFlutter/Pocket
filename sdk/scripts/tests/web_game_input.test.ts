@@ -77,3 +77,94 @@ test("unknown controller mappings are not advertised through fabricated standard
   expect(callbacks.size).toBe(0);
   input.dispose();
 });
+
+test("opt-in Web moves coalesce per frame and flush before release and cancel", async () => {
+  const { PocketWebRuntime } = await import("../../targets/web/browser_runtime.js");
+  const pending = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  const browser = {
+    document: { baseURI: "http://localhost/" },
+    requestAnimationFrame(callback: FrameRequestCallback) { pending.set(++nextFrame, callback); return nextFrame; },
+    cancelAnimationFrame(frame: number) { pending.delete(frame); },
+  };
+  const previous = Object.keys(browser).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const);
+  Object.assign(globalThis, browser);
+  const runtimes: InstanceType<typeof PocketWebRuntime>[] = [];
+  try {
+    function setupRuntime(gpuMesh?: boolean) {
+      const canvas = Object.assign(new Surface(), {
+        getContext: () => ({}),
+        getBoundingClientRect: () => ({ left: 10, top: 20, width: 100, height: 100 }),
+        clientWidth: 200,
+        clientHeight: 300,
+      });
+      const runtime = new PocketWebRuntime({
+        canvas, engineUrl: "/engine.wasm",
+        config: gpuMesh ? { live2d: { gpuMesh, coreUrl: "/core.js", assets: {} } } : {},
+      });
+      runtimes.push(runtime);
+      const frames: unknown[][] = [];
+      runtime.host.inputFrame = (contacts) => { frames.push(contacts); };
+      runtime.show();
+      function pointer(type: string, x: number, y: number) {
+        const event = Object.assign(new Event(type, { cancelable: true }), {
+          pointerId: 7, clientX: x, clientY: y,
+        });
+        runtime.pointer(event);
+        expect(event.defaultPrevented).toBe(true);
+      }
+      return { runtime, frames, pointer };
+    }
+    const contact = (x: number, y: number, cancelled = false) =>
+      [{ surface: 0, id: 7, x, y, cancelled }];
+
+    const optedIn = setupRuntime(true);
+    optedIn.pointer("pointerdown", 11, 21);
+    optedIn.pointer("pointermove", 12, 22);
+    optedIn.pointer("pointermove", 13, 23);
+    expect(optedIn.frames).toEqual([contact(2, 3)]);
+    expect(pending.size).toBe(1);
+    const callbacks = [...pending.values()];
+    pending.clear();
+    for (const callback of callbacks) callback(16);
+    expect(optedIn.frames).toEqual([contact(2, 3), contact(6, 9)]);
+
+    optedIn.pointer("pointermove", 14, 24);
+    optedIn.pointer("pointerup", 15, 25);
+    expect(optedIn.frames.slice(-2)).toEqual([contact(8, 12), []]);
+
+    optedIn.pointer("pointerdown", 11, 21);
+    optedIn.pointer("pointermove", 16, 26);
+    optedIn.pointer("pointercancel", 17, 27);
+    expect(optedIn.frames.slice(-2)).toEqual([contact(12, 18), contact(14, 21, true)]);
+    expect(pending.size).toBe(0);
+
+    optedIn.pointer("pointerdown", 11, 21);
+    optedIn.pointer("pointermove", 18, 28);
+    optedIn.runtime.hide();
+    expect(pending.size).toBe(0);
+    expect(optedIn.frames.at(-1)).toEqual(contact(2, 3));
+    optedIn.runtime.show();
+    optedIn.pointer("pointermove", 19, 29);
+    expect(pending.size).toBe(1);
+    await optedIn.runtime.dispose();
+    expect(pending.size).toBe(0);
+    expect(optedIn.frames.at(-1)).toEqual(contact(2, 3));
+
+    const standard = setupRuntime();
+    standard.pointer("pointerdown", 11, 21);
+    standard.pointer("pointermove", 12, 22);
+    standard.pointer("pointermove", 13, 23);
+    expect(standard.frames).toEqual([contact(2, 3), contact(4, 6), contact(6, 9)]);
+    expect(pending.size).toBe(0);
+  } finally {
+    try {
+      await Promise.all(runtimes.map(runtime => runtime.dispose()));
+    } finally {
+      for (const [key, descriptor] of previous) {
+        if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+        else Reflect.deleteProperty(globalThis, key);
+      }
+    }
+  }
+});

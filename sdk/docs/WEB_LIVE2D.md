@@ -243,4 +243,47 @@ Measure CPU draw-list creation, GPU submission and completion, painted-frame cad
 
 The package's browser regression uses actual WebGL2 and checks both forms of masking, all four blend modes on translucent backgrounds, texture repeat, tint, clipping, paint order, and resource ownership. A separate Apple M4 Chromium/ANGLE Metal replay used real Mao mesh draws captured from the Pocket Probe for both outfits at 1170 × 2532. Both produced the expected silhouette and outfit without GL errors. Submission plus waiting for the GPU fence took 14.3 ms at the median for 27 masked groups with the robe and 12.1 ms for 25 masked groups without it. These are repeated mesh-only replays against a solid backdrop. Normal UI rendering, frame extraction, and pointer latency are outside this measurement. GPU sampler and fixed-function blend rounding can differ from the software implementation and still need full-scene pixel comparison.
 
-The shipped Web runtime still uses the pinned software rasterizer. It has no live binding to this prototype yet. The next integration boundary is a browser draw-list adapter and framebuffer target with correct resource lifetimes and full-frame fallback. The prepared replay still uploads triangle vertices at submission. Retained indexed GPU geometry and transform-only movement remain separate follow-up work.
+### Opt-in direct Web presentation
+
+The source-built Workbench experiment connects the package compositor to the
+live pinned Web runtime. The retained parent's `web_wasm_preview/index.html`
+uses Canvas2D. The experiment reuses the pinned DrawList decoder and
+software rasterizer, plus the package-owned WebGL2 compositor described
+above. Core Web, QJBC, PAK, the Guest's UI and gesture handling, and the
+normal runtime presentation entry remain the same.
+
+The private WASM adapter requires one contiguous mesh run that uses a single
+RGBA8888 atlas. It submits the original float triangle, repeat, and mesh
+layer/mask records. The pinned software renderer keeps the preceding UI in
+an opaque RGBA buffer and the following UI in a premultiplied RGBA buffer.
+Each buffer rerenders on an exact draw-word, raster-resource revision, or
+surface geometry change. The browser reads those buffers, the atlas and
+mesh words through synchronous WASM views. Texture uploads track revisions.
+The WebGL2 surface composites background, meshes, and foreground in paint
+order, then the existing display canvas presents it with `drawImage`.
+
+A frame uses the ordinary software renderer when the mesh run fails
+validation, the background is translucent, the mesh crosses a clipping
+scope smaller than the viewport, it needs multiple atlases, or it shares
+the frame with compositor surfaces or an auxiliary surface. The WebGL2
+context must pass the browser's performance check. When renderer identity
+is available, the adapter also declines known software renderers. If
+WebGL2 loses its context or rejects a frame, software presentation
+continues. After context restoration the next eligible frame can rebuild
+the GPU resources. The renderer keeps the existing expanded triangle
+submission, including during drags.
+
+The direct preview delivers the latest pointer movement once per browser
+animation frame. Down, up, and cancel stay ordered, with any queued move
+delivered before the boundary.
+Successful local Live2D update replies also wake the Guest on a browser
+frame, bounded by its configured simulation frequency. This avoids an
+extra fixed-delay timer while respecting the simulation rate on
+high-refresh displays.
+
+This experiment is off by default and runs only on the main-thread direct
+Web preview. Published SDK builds, Editor rendering, render Workers and
+native hosts use their existing presentation paths. Use the matching
+source-built WASM and browser runtime through the Workbench launcher.
+[Build and launch the experiment](LIVE2D_WORKBENCH.md#try-the-web-gpu-preview) ·
+[Same-guest browser measurements](LIVE2D_WORKBENCH.md#opt-in-web-gpu-measurement)

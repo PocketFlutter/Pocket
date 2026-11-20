@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { buildWeb } from "../../../../sdk/scripts/build_web.ts";
 import { resolvePrebuiltTools } from "../../../../sdk/scripts/prebuilt_tools.mjs";
@@ -9,6 +9,7 @@ const sdk = resolve(import.meta.dir, "../../../../sdk");
 const packageRoot = join(sdk, "packages/pocket_live2d");
 const builds = resolve(sdk, "../.pocket-build");
 const hostname = process.env.LIVE2D_PREVIEW_HOST || "127.0.0.1";
+const gpuBuild = process.env.LIVE2D_PREVIEW_GPU_DIR;
 
 if (process.env.POCKET_SOURCE_BUILD !== "1" && !process.env.POCKET_TOOLS_PACKAGE) {
   process.env.POCKET_TOOLS_PACKAGE = resolvePrebuiltTools(sdk).root;
@@ -22,10 +23,20 @@ await buildWeb({
   projectRoot,
   outDir: output,
   rasterDensity: 2,
+  ...(gpuBuild ? {
+    enginePath: join(resolve(gpuBuild), "pocketjs.wasm"),
+    runtimePath: join(resolve(gpuBuild), "pocket-web.js"),
+  } : {}),
   live2dCorePath: process.env.POCKET_CUBISM_WEB_CORE || join(packageRoot, ".cache/cubism-web-core/live2dcubismcore.min.js"),
 });
 
-const { live2d } = JSON.parse(readFileSync(join(output, "pocket.config.json"), "utf8"));
+const configPath = join(output, "pocket.config.json");
+const config = JSON.parse(readFileSync(configPath, "utf8"));
+const { live2d } = config;
+if (gpuBuild) {
+  live2d.gpuMesh = true;
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+}
 const compressedPak = Bun.gzipSync(readFileSync(join(output, "app.pak")));
 const assets = new Set([
   "pocket.config.json", "pocket-web.js", "engine/pocketjs.wasm", "app.qjbc", "app.pak",

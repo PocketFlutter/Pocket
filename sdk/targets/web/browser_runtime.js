@@ -13,6 +13,7 @@ const { createPocketWorkerTransport } = require("./worker_transport.js");
 const { PocketRenderWorkerHost } = require("./render_worker_transport.js");
 const { observeRenderHost } = require("./render_observations.js");
 const { createBrowserLive2d, live2dCapabilities } = require("./live2d_browser.js");
+import { createWebLive2dMeshBinding } from "../../packages/pocket_live2d/src/web_live2d_mesh_binding.js";
 
 function numberOr(value, fallback) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -95,6 +96,7 @@ class PocketWebRuntime {
     this.mounted = false;
     this.mountPromise = null;
     this.pointers = new Map();
+    this.pointerFrame = null;
     this.renderWorker = options.renderWorker ?? this.config.renderWorker ?? false;
     if (typeof this.renderWorker !== "boolean") throw new TypeError("renderWorker must be a boolean host option");
     this.context = this.renderWorker ? null : this.canvas.getContext("2d", { alpha: true });
@@ -134,7 +136,10 @@ class PocketWebRuntime {
         });
       } catch (error) { this.gameInput?.dispose(); throw error; }
     } else {
-      this.host = new PocketWechatHost(hostOptions);
+      this.host = new PocketWechatHost({ ...hostOptions,
+        createWebMesh: this.config.live2d?.gpuMesh === true ? createWebLive2dMeshBinding : undefined,
+        modelFrameClock: this.config.live2d?.gpuMesh === true ? globalThis : undefined,
+      });
       this.observations = observeRenderHost(this.host, "main");
     }
     this.handleResize = () => { if (!this.disposed) this.host.resize(this.width(), this.height()); };
@@ -202,6 +207,11 @@ class PocketWebRuntime {
 
   pointer(event) {
     if (this.disposed) return;
+    const moving = event.type === "pointermove";
+    if (!moving && this.pointerFrame !== null) {
+      this.cancelPointerFrame();
+      this.host.inputFrame([...this.pointers.values()]);
+    }
     const rect = this.canvas.getBoundingClientRect();
     const scaleX = this.width() / Math.max(1, rect.width), scaleY = this.height() / Math.max(1, rect.height);
     const contact = { surface: 0, id: Number(event.pointerId || 0) >>> 0,
@@ -211,17 +221,33 @@ class PocketWebRuntime {
       if ((!this.inputElement || this.inputElement.style.display === "none") && this.canvas.focus) this.canvas.focus({ preventScroll: true });
       this.pointers.set(event.pointerId, contact);
       this.canvas.setPointerCapture?.(event.pointerId);
-    } else if (event.type === "pointermove") {
+    } else if (moving) {
       if (!this.pointers.has(event.pointerId)) return;
       this.pointers.set(event.pointerId, contact);
     } else {
       if (!this.pointers.has(event.pointerId)) return;
       this.pointers.delete(event.pointerId);
     }
+    if (moving && !this.renderWorker && this.config.live2d?.gpuMesh === true) {
+      if (this.pointerFrame === null && this.active) {
+        this.pointerFrame = requestAnimationFrame(() => {
+          this.pointerFrame = null;
+          this.host.inputFrame([...this.pointers.values()]);
+        });
+      }
+      event.preventDefault();
+      return;
+    }
     const contacts = [...this.pointers.values()];
     if (event.type === "pointercancel") contacts.push(contact);
     this.host.inputFrame(contacts);
     event.preventDefault();
+  }
+
+  cancelPointerFrame() {
+    if (this.pointerFrame === null) return;
+    cancelAnimationFrame(this.pointerFrame);
+    this.pointerFrame = null;
   }
 
   async mount() {
@@ -285,11 +311,19 @@ class PocketWebRuntime {
   }
 
   show() { if (!this.disposed) { this.active = true; this.host.show(); this.workerTransport?.setActive(true); this.gameInput?.setActive(true); } }
-  hide() { if (!this.disposed) { this.gameInput?.setActive(false); this.active = false; this.workerTransport?.setActive(false); this.host.hide(); } }
+  hide() {
+    if (this.disposed) return;
+    this.cancelPointerFrame();
+    this.gameInput?.setActive(false);
+    this.active = false;
+    this.workerTransport?.setActive(false);
+    this.host.hide();
+  }
 
   dispose() {
     if (this.disposed) return;
     this.disposed = true; this.active = false;
+    this.cancelPointerFrame();
     const released = this.live2d?.dispose().catch(error => this.onError?.(error)); this.live2d = null;
     removeEventListener("resize", this.handleResize); removeEventListener("visibilitychange", this.handleVisibility);
     for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) this.canvas.removeEventListener(type, this.handlePointer);
