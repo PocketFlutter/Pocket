@@ -2277,9 +2277,10 @@
             "CubismInteractionCanvas",
             "CubismInteractionControllerOptions",
             "CubismPoint",
+            "containsCubismMeshPoint",
             "createCubismInteractionController"
           ],
-          "sourceSha256": "83fcf8f6d018bf854f73c030a6ca44d0047989602a0bd79675d41eaadb0a6bf2",
+          "sourceSha256": "eef86fe2592c91c40e49642900b119dcd5e85a65a923ee03b3581a8961a7f156",
           "reexports": []
         },
         {
@@ -5264,11 +5265,11 @@
         },
         {
           "file": "scripts/build_web.ts",
-          "sourceSha256": "6ff20dab3539c710a36e88dbda7294fb4f6cfb2fae1ba066512cceeeeda04cc9"
+          "sourceSha256": "244ff9d538b99e8cddc1b0445a64ed757e66917485918698bb6805aa7ae25a1a"
         },
         {
           "file": "scripts/build_web_engine.ts",
-          "sourceSha256": "0252d43a5a4d605742f88da9769f648f203cb139dfa9db795fa9bb97b4cf305f"
+          "sourceSha256": "16304b170d88e544ab29f749b55ddc4ba76ff250887760ebfe35b3ea1adad094"
         },
         {
           "file": "scripts/check_project.mjs",

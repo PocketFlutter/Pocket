@@ -6,7 +6,7 @@ Each import path lists every directly exported name and alias, linking to one sh
 
 Source-first reuse note: outside the retained parent `pocket_host/`, this work checked `README.md`, `docs/02_ARCHITECTURE_AND_MEMORY_DESIGN.md`, `docs/03_DUAL_HOST_UI_COMPONENTS_SPEC.md`, `docs/04_DEVELOPER_GUIDE_AND_VERIFICATION.md`, and `docs/04_BIDIRECTIONAL_FFI_WASM_AND_YOOASSET_HOTUPDATE.md` in `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo`. These preserve the earlier Flutter/WeChat host split, component-to-host projection notes, and run/regression scenarios. Their historical 38-component and QuickJS/WeChat-specific claims are not treated as this SDK API; the necessary adaptation is to enumerate current package exports, with UI policy and composition owned by JS. Validation uses TypeScript parser/checker exports, default-value examples, and source SHA markers.
 
-Coverage: 3836 importable export names, 2037 shared signature definitions, and 4089 listed members across 127 direct import paths. Source digests cover 187 inventoried files.
+Coverage: 3838 importable export names, 2038 shared signature definitions, and 4089 listed members across 127 direct import paths. Source digests cover 187 inventoried files.
 
 ## Packages and imports
 
@@ -4803,6 +4803,7 @@ Entry: [packages/pocket_live2d/src/index.ts](../packages/pocket_live2d/src/index
 
 Exports:
 - `applyCubismExpression3` — [signature](#api-sig-5dda144077d1d47f)
+- `containsCubismMeshPoint` — [signature](#api-sig-62470d825edb7224)
 - `createCubismInteractionController` — [signature](#api-sig-d545e9457e282196)
 - `createCubismPhysics3Simulation` — [signature](#api-sig-1bc53d9c1c4f00a0)
 - `createPocketLive2dClient` — [signature](#api-sig-d970198eba5cbb03)
@@ -4855,6 +4856,13 @@ Signatures:
 **Function** `applyCubismExpression3(base: Readonly<Record<string, number>>, expression: CubismExpression3, weight: number = 1): Readonly<Record<string, number>>`
 
 Source: [packages/pocket_live2d/src/motion.ts](../packages/pocket_live2d/src/motion.ts#L142)
+
+<a id="api-sig-62470d825edb7224"></a>
+### `containsCubismMeshPoint`
+
+**Function** `containsCubismMeshPoint(bytes: Uint8Array, point: CubismPoint): boolean`
+
+Source: [packages/pocket_live2d/src/interaction.ts](../packages/pocket_live2d/src/interaction.ts#L82)
 
 <a id="api-sig-d545e9457e282196"></a>
 ### `createCubismInteractionController`
@@ -5334,6 +5342,7 @@ Source: [packages/pocket_live2d/src/manifest.ts](../packages/pocket_live2d/src/m
 Entry: [packages/pocket_live2d/src/interaction.ts](../packages/pocket_live2d/src/interaction.ts)
 
 Exports:
+- `containsCubismMeshPoint` — [signature](#api-sig-62470d825edb7224)
 - `createCubismInteractionController` — [signature](#api-sig-d545e9457e282196)
 - `CubismInteractionCanvas` — [signature](#api-sig-9bde406a53a910b7)
 - `CubismInteractionControllerOptions` — [signature](#api-sig-20e79f25531e0b2d)
@@ -24572,7 +24581,7 @@ The following markers cover all inventoried declaration sources and package mani
 <!-- api-source: packages/pocket_liquid_glass/src/tokens.ts f5c9d9391a56e14712c09a0d7ccc795c3819c1ab5d3aa42d17fc719ed0caead2 -->
 <!-- api-source: packages/pocket_live2d/package.json 755007bc2731066aea86d8e381581949d872d4bbf7858fdb50e5b4e18f2d16bb -->
 <!-- api-source: packages/pocket_live2d/src/index.ts fa89eff37dd17348431d7f89f238707938f0d90e85b026f183754bf6eb0fe3c6 -->
-<!-- api-source: packages/pocket_live2d/src/interaction.ts 83fcf8f6d018bf854f73c030a6ca44d0047989602a0bd79675d41eaadb0a6bf2 -->
+<!-- api-source: packages/pocket_live2d/src/interaction.ts eef86fe2592c91c40e49642900b119dcd5e85a65a923ee03b3581a8961a7f156 -->
 <!-- api-source: packages/pocket_live2d/src/manifest.ts b01a6a42b8f734eb602d13385439e8b7e6a5d6726f14125c350cca855a790747 -->
 <!-- api-source: packages/pocket_live2d/src/motion.ts 047975cc5d9dd056ef0f17b92999c0600c212e9f86934a0da82a2375afe3ce5d -->
 <!-- api-source: packages/pocket_live2d/src/physics.ts 4a519f8a4827c6eb6f7e3100ceb5f5196230353e1ef3979eb13e6c5aca13f06e -->

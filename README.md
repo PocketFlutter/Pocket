@@ -80,7 +80,7 @@ flowchart TD
 
 | Workflow | Required | Start here |
 | --- | --- | --- |
-| **Web / Studio** | Node ≥22.22.2, npm; macOS arm64 or Windows x64 | [SDK 0.1.27 downloads](https://github.com/PocketFlutter/Pocket/releases/tag/sdk-v0.1.27) |
+| **Web / Studio** | Node ≥22.22.2, npm; macOS arm64 or Windows x64 | [SDK 0.1.28 downloads](https://github.com/PocketFlutter/Pocket/releases/tag/sdk-v0.1.28) |
 | **Flutter integration / source** | Flutter 3.50.0/Dart 3.14.0, Bun, Python 3, `patch`, Rust ≥1.93, platform C/C++ tools | [Source repository](https://github.com/PocketFlutter/Pocket) · [Integration](sdk/docs/SDK_INTEGRATION.md) |
 
 Public Flutter constraints remain Flutter ≥3.35.0 / Dart ^3.9.2; this repository pins 3.50.0. Release CI uses Rust 1.98.1. [Toolchain details](sdk/docs/NPM_TOOLCHAIN.md)
