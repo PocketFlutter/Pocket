@@ -79,6 +79,14 @@ them. See [pocket_config.dart](../lib/src/pocket_config.dart).
 
 `copyWith({...})` returns a new config. `withPlugins(factories)` replaces the complete
 list. To append, explicitly pass `[...config.pluginFactories, ...newFactories]`.
+
+For the `@pocket/ui` `InputField`, Flutter hosts the IME, editable text and caret.
+The guest supplies the field's fill and border. Low-level `textInput.open` and
+`textInput.update` callers may supply `caretColor` independently. If omitted,
+the editor uses its focused border color or the text color if that border is
+transparent. `textInput.open` and `textInput.update` can enable the editor's ASCII
+digit filter with `digitsOnly: true`. The keyboard type is a separate wire field.
+See [Studio text input](STUDIO_TEXT_INPUT.md).
 `withNativePolicy(policy)` merges trusted native policy. `validate()` throws on invalid
 configuration. The runtime uses config equality to detect changes. Reuse provider
 closure identities across build frames.

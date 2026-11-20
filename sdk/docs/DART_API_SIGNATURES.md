@@ -7869,7 +7869,7 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_runtime.dart 98eaf76141089185c85d1b4260ce11abec3192e580b28314372f5837d5076e08 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_startup_progress.dart 9bad727136e9aa06cb4b093b874df4a156df9476821df36867a6a330ec68e906 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_text_cache.dart dd2d6c89527fe86a19153873a5eed89e653c8d689a883b46e6d0ba453905d6d6 -->
-<!-- api-source: packages/pocket_flutter/lib/src/pocket_view.dart e101ccd7a7003a6208f792983a032c2030bfec0bf0b31ade7768cec028c08250 -->
+<!-- api-source: packages/pocket_flutter/lib/src/pocket_view.dart 533fa578f1d32d12fc2085af52d02c301a303b2142994fda521521f730b1c8a7 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_worker_runtime.dart f2d67e2cab0c35fd3b6f52bb2a3227beac7c9077a7933378206e20f120780ae7 -->
 <!-- api-source: packages/pocket_flutter/pubspec.yaml 1a7401a5855c2e85a553120eab790e5dc32c140441b2fcb566820b16bb9c46d6 -->
 <!-- api-source: packages/pocket_hardware/lib/pocket_hardware.dart 67b30d7afa3ec5397822d64f62229370e2229b68ae9e632d25f2f975e776e8f4 -->

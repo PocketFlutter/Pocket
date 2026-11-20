@@ -20,7 +20,33 @@ ported from it. Reused SDK code:
 New code is only the evidenced gaps: the host IME client, raw session methods, modifier mask
 folding, `multiline` props and the cache option.
 
-## A. Multi-line `InputField`
+## A. InputField appearance, focus and multiline
+
+`InputField` draws its fill and focused or unfocused border in the guest. The Flutter
+editor uses a transparent fill and border throughout the session. Its text and caret
+become visible after the existing `textInput.opened` acknowledgement. Studio's DOM
+editor also leaves the shell to the guest.
+
+`onFocusChange?: (focused: boolean) => void` reports transitions of the guest editing
+session. It fires with `true` after a successful open dispatch and with `false` when that
+session ends, including replacement or unmount. The initial idle state is implicit.
+For a field with a trailing action, update the outer shell from this callback. Keep
+the inner editor's `fillColor`, `borderColor` and `focusedBorderColor` transparent
+and keep its layout off the action's tap region. `appearance.caretColor` can color
+the Flutter caret independently. Omission uses `focusedBorderColor` or, when
+transparent, `textColor`. Direct Flutter `textInput.open/update` callers can send
+optional `caretColor` separately from their existing fill and border colors.
+
+A single-line fallback uses the shell's clipped area and reserves one display
+line plus vertical padding. Long values leave the shell and adjacent action
+geometry stable. The native editor scrolls horizontally as needed. Multiline
+fields continue to size their content vertically.
+
+`digitsOnly?: boolean` is an opt-in for single-line input. The current Flutter and
+Studio editors request a number keyboard and retain ASCII digits `0–9` from user
+edits, including paste. Omitted or `false` uses normal text editing. Multiline
+editing keeps its newline behavior. The guest owns initial and programmatic values,
+and enforces any domain-specific length or format rules.
 
 `InputField` takes optional `multiline`, `maxLines`, `minLines`.
 

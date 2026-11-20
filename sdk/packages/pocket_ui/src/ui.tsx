@@ -7,7 +7,7 @@
  * mounted by this sample.
  */
 
-import { For, Show, children as resolveChildren, createContext, createEffect, createSignal, onCleanup, useContext, type Accessor, type JSX } from "solid-js";
+import { For, Show, children as resolveChildren, createContext, createEffect, createSignal, onCleanup, untrack, useContext, type Accessor, type JSX } from "solid-js";
 import { createGesture } from "@pocketjs/framework/gesture";
 import { getOps } from "@pocketjs/framework/host";
 import { bindDpadScroll, createScroller } from "@pocketjs/framework/kinetics";
@@ -1239,6 +1239,8 @@ export interface TextInputParams {
   selectionExtent?: number;
   composingBase?: number;
   composingExtent?: number;
+  caretColor?: InputFieldColor;
+  digitsOnly?: boolean;
   force?: boolean;
   source?: string;
   [key: string]: unknown;
@@ -1312,13 +1314,14 @@ export interface InputFieldAppearance {
   fillColor?: InputFieldColor;
   borderColor?: InputFieldColor;
   focusedBorderColor?: InputFieldColor;
+  caretColor?: InputFieldColor;
   borderRadius?: number;
   fontSize?: 12 | 14 | 16;
   paddingHorizontal?: number;
   paddingVertical?: number;
 }
 
-const defaultInputFieldAppearance: Required<InputFieldAppearance> = {
+const defaultInputFieldAppearance: Required<Omit<InputFieldAppearance, "caretColor">> = {
   // Keep colours as CSS strings: the guest renderer's packed colour ABI is
   // ABGR, while the Flutter bridge accepts the same CSS spelling and converts
   // it to an ARGB Color. Passing raw integers here would swap red/blue in the
@@ -1342,6 +1345,10 @@ function normalizeInputColor(
   return normalized === "transparent" || /^#[0-9a-f]{6}$/.test(normalized)
     ? normalized as InputFieldColor
     : fallback;
+}
+
+function inputLineHeight(fontSize: 12 | 14 | 16): number {
+  return Math.ceil(fontSize * 1.2);
 }
 
 type TextInputPocket = {
@@ -1636,8 +1643,12 @@ export function InputField(props: {
   value: Accessor<string>;
   onInput?: (value: string) => void;
   onSubmit?: (value: string) => void;
+  /** Reports focus transitions after the host accepts an open and when the session ends. */
+  onFocusChange?: (focused: boolean) => void;
   placeholder?: string;
   appearance?: InputFieldAppearance;
+  /** Use the host's ASCII digit filter and numeric keyboard for single-line editing. */
+  digitsOnly?: boolean;
   /**
    * Multi-line editing. Enter inserts a newline (keyboardType "multiline",
    * action "newline") and `onSubmit` is not raised by the keyboard. Omitted or
@@ -1656,6 +1667,11 @@ export function InputField(props: {
   const transformCtx = useContext(TextInputTransformContext);
   const id = `guest-text-input-${nextTextInputId++}`;
   const [isFocused, setIsFocused] = createSignal(false);
+  const updateFocus = (focused: boolean): void => {
+    if (untrack(isFocused) === focused) return;
+    setIsFocused(focused);
+    untrack(() => props.onFocusChange?.(focused));
+  };
   const [settlePending, setSettlePending] = createSignal(false);
   let node: NodeMirror | undefined;
   let opened = false;
@@ -1684,12 +1700,15 @@ export function InputField(props: {
     const fontSize = provided.fontSize === 12 || provided.fontSize === 16
       ? provided.fontSize
       : 14;
+    const textColor = normalizeInputColor(provided.textColor, defaultInputFieldAppearance.textColor);
+    const focusedBorderColor = normalizeInputColor(provided.focusedBorderColor, defaultInputFieldAppearance.focusedBorderColor);
     return {
-      textColor: normalizeInputColor(provided.textColor, defaultInputFieldAppearance.textColor),
+      textColor,
       placeholderColor: normalizeInputColor(provided.placeholderColor, defaultInputFieldAppearance.placeholderColor),
       fillColor: normalizeInputColor(provided.fillColor, defaultInputFieldAppearance.fillColor),
       borderColor: normalizeInputColor(provided.borderColor, defaultInputFieldAppearance.borderColor),
-      focusedBorderColor: normalizeInputColor(provided.focusedBorderColor, defaultInputFieldAppearance.focusedBorderColor),
+      focusedBorderColor,
+      caretColor: normalizeInputColor(provided.caretColor, focusedBorderColor === "transparent" ? textColor : focusedBorderColor),
       borderRadius: typeof provided.borderRadius === "number" && Number.isFinite(provided.borderRadius)
         ? provided.borderRadius
         : defaultInputFieldAppearance.borderRadius,
@@ -1707,20 +1726,25 @@ export function InputField(props: {
     return {
       textColor: nativeTextVisible ? current.textColor : "transparent",
       placeholderColor: nativeTextVisible ? current.placeholderColor : "transparent",
-      fillColor: nativeTextVisible ? current.fillColor : "transparent",
-      borderColor: nativeTextVisible ? current.borderColor : "transparent",
-      focusedBorderColor: nativeTextVisible ? current.focusedBorderColor : "transparent",
+      caretColor: nativeTextVisible ? current.caretColor : "transparent",
+      fillColor: "transparent",
+      borderColor: "transparent",
+      focusedBorderColor: "transparent",
     };
   };
   // The guest line box includes leading below the first em box.
   const textOffsetY = (current: Required<InputFieldAppearance>): number => {
     if (props.multiline) return 0;
-    const halfLeading = (Math.ceil(current.fontSize * 1.2) - current.fontSize) / 2;
+    const halfLeading = (inputLineHeight(current.fontSize) - current.fontSize) / 2;
     return Math.min(Math.max(0, current.paddingVertical), halfLeading);
   };
   // Multi-line sends an explicit null for unbounded `maxLines`.
   const lineParams = (): TextInputParams => {
-    if (!props.multiline) return { keyboardType: "text", action: "done", maxLines: 1 };
+    if (!props.multiline) {
+      return props.digitsOnly
+        ? { keyboardType: "number", action: "done", maxLines: 1, digitsOnly: true }
+        : { keyboardType: "text", action: "done", maxLines: 1 };
+    }
     const rawMax = props.maxLines;
     const maxLines = rawMax === undefined || rawMax === null || !Number.isFinite(rawMax) || rawMax < 1
       ? null
@@ -1735,9 +1759,8 @@ export function InputField(props: {
   };
   const appearanceParams = (nativeTextVisible = overlayReady()): TextInputParams => {
     const current = appearance();
-    // Keep Flutter's entire editable surface out of the Guest fallback until
-    // the host confirms that its overlay is mounted. Transparent text alone
-    // would still let TextField's default fill and border cover the Guest.
+    // The native editor takes over text and caret after the mount ACK.
+    // The guest shell owns the fill and border for the whole session.
     return {
       ...current,
       ...appearanceColorParams(nativeTextVisible),
@@ -1748,14 +1771,11 @@ export function InputField(props: {
   const shellStyle = () => {
     const current = appearance();
     const border = isFocused() ? current.focusedBorderColor : current.borderColor;
-    // Once the native TextField overlay acknowledges mount and paints its own
-    // fill + focused border, hide the JS shell chrome so an intermediate resize
-    // or keyboard animation frame can never reveal two stacked boxes.
-    const hideShellChrome = overlayReady();
     return {
       width: -1,
-      bgColor: hideShellChrome || current.fillColor === "transparent" ? 0 : current.fillColor,
-      borderColor: hideShellChrome || border === "transparent" ? 0 : border,
+      ...(props.multiline ? {} : { minH: inputLineHeight(current.fontSize) + current.paddingVertical * 2 }),
+      bgColor: current.fillColor === "transparent" ? 0 : current.fillColor,
+      borderColor: border === "transparent" ? 0 : border,
       borderWidth: 1,
       radius: current.borderRadius,
       paddingL: current.paddingHorizontal,
@@ -1952,7 +1972,6 @@ export function InputField(props: {
       return;
     }
     opened = sent;
-    setIsFocused(sent);
     if (sent) {
       activeTextInput = session;
       lastRect = rect;
@@ -1964,18 +1983,27 @@ export function InputField(props: {
       settleFramesRemaining = 0;
       setSettlePending(false);
     }
+    updateFocus(sent);
   };
 
-  const close = (): void => {
-    if (!opened) return;
+  const finishSession = (): void => {
     opened = false;
-    setIsFocused(false);
+    if (activeTextInput === session) activeTextInput = undefined;
     setOverlayReady(false);
     settleFramesRemaining = 0;
     setSettlePending(false);
     lastRect = undefined;
     lastClipRect = undefined;
-    emitTextInput("textInput.close", { id, editingSession, revision: lastNativeRevision, jsRevision });
+    updateFocus(false);
+  };
+
+  const close = (): void => {
+    if (!opened) return;
+    try {
+      emitTextInput("textInput.close", { id, editingSession, revision: lastNativeRevision, jsRevision });
+    } finally {
+      finishSession();
+    }
   };
 
   const session: TextInputSession = {
@@ -2034,9 +2062,7 @@ export function InputField(props: {
         updateOffsets(params, text);
         if (parsed.text !== undefined) applyIncomingText(text);
       }
-      opened = false;
-      setIsFocused(false);
-      setOverlayReady(false);
+      finishSession();
       props.onSubmit?.(text);
     },
     onClosed: (params) => {
@@ -2053,11 +2079,7 @@ export function InputField(props: {
       if (opened) {
         lastHostDismissAt = Date.now();
       }
-      opened = false;
-      setIsFocused(false);
-      setOverlayReady(false);
-      settleFramesRemaining = 0;
-      setSettlePending(false);
+      finishSession();
     },
   };
 
@@ -2124,25 +2146,40 @@ export function InputField(props: {
       translateY: textOffsetY(current),
     };
   };
+  const shellText = (
+    <Text
+      class={appearance().fontSize === 12 ? "text-xs overflow-hidden" : appearance().fontSize === 16 ? "text-base overflow-hidden" : "text-sm overflow-hidden"}
+      style={shellTextStyle()}
+    >
+      {props.value() || props.placeholder || "Tap to type"}
+    </Text>
+  );
 
   return (
     <Focusable
       nodeRef={(current) => {
         node = current;
+        if (!current) close();
       }}
       debugName="SystemTextInput"
       onPress={open}
       style={{ ...shellStyle(), overflow: 1 }}
       class="w-full rounded-xl overflow-hidden"
     >
-      {/* Keep the text node mounted to preserve input-shell height. The
-          attached Flutter TextField becomes the only visible copy on ACK. */}
-      <Text
-        class={appearance().fontSize === 12 ? "text-xs overflow-hidden" : appearance().fontSize === 16 ? "text-base overflow-hidden" : "text-sm overflow-hidden"}
-        style={shellTextStyle()}
-      >
-        {props.value() || props.placeholder || "Tap to type"}
-      </Text>
+      {/* Single-line text stays out of flex sizing so a long value cannot
+          change the shell width. The attached editor takes over on ACK. */}
+      {props.multiline ? shellText : (
+        <View style={{
+          posType: 1,
+          insetL: appearance().paddingHorizontal,
+          insetR: appearance().paddingHorizontal,
+          insetT: appearance().paddingVertical,
+          insetB: 0,
+          overflow: 1,
+        }}>
+          {shellText}
+        </View>
+      )}
     </Focusable>
   );
 }

@@ -20,6 +20,7 @@ test("probe process exits cleanly", () => {
 
 for (const name of [
   "single-line default keeps keyboard metadata and centers text",
+  "digit filtering is an explicit single-line option",
   "unbounded multiline uses explicit null maxLines",
   "bounded multiline clamps minLines",
   "invalid line counts fall back",

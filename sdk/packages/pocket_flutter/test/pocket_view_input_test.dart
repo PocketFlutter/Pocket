@@ -862,6 +862,7 @@ void main() {
           'fillColor': 'transparent',
           'borderColor': 'transparent',
           'focusedBorderColor': 'transparent',
+          'caretColor': 0xffff9130,
           'borderRadius': 0,
         }),
       );
@@ -888,7 +889,7 @@ void main() {
       ]) {
         expect(border!.borderSide.color, Colors.transparent);
       }
-      expect(transparentUpdate.cursorColor, transparentUpdate.style?.color);
+      expect(transparentUpdate.cursorColor, const Color(0xffff9130));
 
       // An old session cannot overwrite the active IME value, even when its
       // text and selection look otherwise valid.
@@ -1492,6 +1493,35 @@ void main() {
       ),
       isEmpty,
     );
+  });
+
+  testWidgets('digits-only editing filters pasted text', (tester) async {
+    final runtime = _TextInputRuntime(
+      initialEvent: _textInputEvent('textInput.open', {
+        ..._textInputOpenParams('numeric'),
+        'text': '',
+        'keyboardType': 'number',
+        'digitsOnly': true,
+      }),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PocketView(
+          runtime: runtime,
+          jsSource: '',
+          pakBytes: Uint8List(0),
+          showDebugFps: false,
+        ),
+      ),
+    );
+    final fieldFinder = find.byType(TextField);
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(fieldFinder).keyboardType,
+      TextInputType.number,
+    );
+    await tester.enterText(fieldFinder, 'a1+2-3b４4');
+    expect(tester.widget<TextField>(fieldFinder).controller?.text, '1234');
   });
 
   testWidgets(

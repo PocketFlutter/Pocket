@@ -2536,6 +2536,7 @@ void main() {
         : 0;
       element.style.padding = `${vertical + textOffsetY}px ${horizontal}px ${vertical - textOffsetY}px`;
       element.style.fontSize = `${size}px`;
+      element.inputMode = state.params.digitsOnly === true ? "numeric" : "";
       element.style.display = "block";
     }
 
@@ -2553,6 +2554,19 @@ void main() {
         composingBase,
         composingExtent: Math.max(composingBase, composingExtent),
       };
+    }
+
+    function filterNumericTextInput(element) {
+      if (activeTextInput?.params.digitsOnly !== true) return;
+      const original = element.value;
+      const digits = original.replace(/[^0-9]/g, "");
+      if (original === digits) return;
+      const digitsBefore = (end) => original.slice(0, end).replace(/[^0-9]/g, "").length;
+      const start = digitsBefore(element.selectionStart);
+      const end = digitsBefore(element.selectionEnd);
+      const direction = element.selectionDirection;
+      element.value = digits;
+      element.setSelectionRange(start, end, direction);
     }
 
     function sameTextInputValue(left, right) {
@@ -2732,6 +2746,10 @@ void main() {
       const state = activeTextInput;
       const element = textInputElement;
       if (!state || !element) return;
+      if (state.params.digitsOnly === true) {
+        if (state.composition) return;
+        filterNumericTextInput(element);
+      }
       const value = textInputSelection(element);
       if (sameTextInputValue(state.lastSent, value)) return;
       void sendTextInputEvent("textInput.edit", state, value);
@@ -2741,6 +2759,7 @@ void main() {
       const state = activeTextInput;
       const element = textInputElement;
       if (!state || !element) return;
+      filterNumericTextInput(element);
       const value = textInputSelection(element);
       void sendTextInputEvent("textInput.submit", state, {
         ...value,

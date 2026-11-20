@@ -1104,6 +1104,7 @@ class _PocketViewState extends State<PocketView>
   TextInputAction _textInputAction = TextInputAction.done;
   bool _textInputObscure = false;
   bool _textInputAutocorrect = true;
+  bool _textInputDigitsOnly = false;
   int? _textInputMaxLines = 1;
   int? _textInputMinLines;
   // Visual input properties are supplied by the JS shell. The Flutter layer
@@ -1115,6 +1116,7 @@ class _PocketViewState extends State<PocketView>
   Color _textInputFillColor = Colors.white;
   Color _textInputBorderColor = const Color(0xff9aa5b2);
   Color _textInputFocusedBorderColor = const Color(0xff2676cb);
+  Color? _textInputCaretColor;
   double _textInputBorderRadius = 8;
   double _textInputFontSize = 14;
   FontWeight _textInputFontWeight = FontWeight.normal;
@@ -5755,6 +5757,16 @@ class _PocketViewState extends State<PocketView>
         changed = true;
       }
     }
+    if (params.containsKey('caretColor')) {
+      final raw = params['caretColor'];
+      final next = raw == null
+          ? null
+          : _textInputColor(raw, _textInputCaretColor ?? _textInputTextColor);
+      if (next != _textInputCaretColor) {
+        _textInputCaretColor = next;
+        changed = true;
+      }
+    }
     if (params.containsKey('borderRadius') || params.containsKey('radius')) {
       final next = _textInputDimension(
         params['borderRadius'] ?? params['radius'],
@@ -5813,11 +5825,7 @@ class _PocketViewState extends State<PocketView>
       }
     }
     if (params.containsKey('textOffsetY')) {
-      final next = _textInputDimension(
-        params['textOffsetY'],
-        0,
-        maximum: 128,
-      );
+      final next = _textInputDimension(params['textOffsetY'], 0, maximum: 128);
       if (next != _textInputOffsetY) {
         _textInputOffsetY = next;
         changed = true;
@@ -6080,6 +6088,7 @@ class _PocketViewState extends State<PocketView>
     _textInputObscure =
         params['obscureText'] == true || params['obscure'] == true;
     _textInputAutocorrect = params['autocorrect'] != false;
+    _textInputDigitsOnly = params['digitsOnly'] == true;
     _textInputMaxLines = _textInputLineCount(
       params,
       max: true,
@@ -6166,6 +6175,13 @@ class _PocketViewState extends State<PocketView>
       _textInputRevision = math.max(_textInputRevision, observedRevision);
     }
     var metadataChanged = _updateTextInputAppearance(params);
+    if (params.containsKey('digitsOnly')) {
+      final digitsOnly = params['digitsOnly'] == true;
+      if (_textInputDigitsOnly != digitsOnly) {
+        _textInputDigitsOnly = digitsOnly;
+        metadataChanged = true;
+      }
+    }
     if (params.containsKey('keyboardType') || params.containsKey('inputType')) {
       _textInputKeyboardType = _textInputKeyboardTypeFromParams(
         params,
@@ -6332,6 +6348,7 @@ class _PocketViewState extends State<PocketView>
     _textInputAction = TextInputAction.done;
     _textInputObscure = false;
     _textInputAutocorrect = true;
+    _textInputDigitsOnly = false;
     _textInputMaxLines = 1;
     _textInputMinLines = null;
     _textInputHintText = null;
@@ -6340,6 +6357,7 @@ class _PocketViewState extends State<PocketView>
     _textInputFillColor = Colors.white;
     _textInputBorderColor = const Color(0xff9aa5b2);
     _textInputFocusedBorderColor = const Color(0xff2676cb);
+    _textInputCaretColor = null;
     _textInputBorderRadius = 8;
     _textInputFontSize = 14;
     _textInputFontWeight = FontWeight.normal;
@@ -7780,6 +7798,9 @@ class _PocketViewState extends State<PocketView>
         controller: textInputController,
         focusNode: textInputFocusNode,
         keyboardType: _textInputKeyboardType,
+        inputFormatters: _textInputDigitsOnly
+            ? [FilteringTextInputFormatter.digitsOnly]
+            : null,
         textInputAction: _textInputAction,
         obscureText: _textInputObscure,
         autocorrect: _textInputAutocorrect,
@@ -7796,16 +7817,18 @@ class _PocketViewState extends State<PocketView>
         onTapOutside: _onTextInputTapOutside,
         onTapUpOutside: _onTextInputTapUpOutside,
         style: textStyle,
-        cursorColor: _textInputFocusedBorderColor.a == 0
-            ? _textInputTextColor
-            : _textInputFocusedBorderColor,
+        cursorColor:
+            _textInputCaretColor ??
+            (_textInputFocusedBorderColor.a == 0
+                ? _textInputTextColor
+                : _textInputFocusedBorderColor),
         cursorWidth: 2 * appearanceScale,
         decoration: InputDecoration(
           isDense: true,
           // Use the supplied padding directly with the guest's explicit
           // offset. Outline alignment can cap the top inset at its midpoint.
           isCollapsed: textOffsetY > 0,
-          filled: true,
+          filled: _textInputFillColor.a != 0,
           fillColor: _textInputFillColor,
           hintText: _textInputHintText,
           hintStyle: textStyle.copyWith(color: _textInputHintColor),

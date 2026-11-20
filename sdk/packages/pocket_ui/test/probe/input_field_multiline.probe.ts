@@ -116,6 +116,17 @@ check('single-line default keeps keyboard metadata and centers text', () => {
   assert.ok(keys.indexOf("keyboardType") < keys.indexOf("action") && keys.indexOf("action") < keys.indexOf("maxLines"));
   assert.equal(JSON.stringify(openWith({ multiline: false, maxLines: 9, minLines: 3 })).includes('"minLines"'), false);});
 
+check('digit filtering is an explicit single-line option', () => {
+  assert.equal(Object.hasOwn(openWith({}), "digitsOnly"), false);
+  assert.equal(Object.hasOwn(openWith({ digitsOnly: false }), "digitsOnly"), false);
+  const digits = openWith({ digitsOnly: true });
+  assert.equal(digits.keyboardType, "number");
+  assert.equal(digits.digitsOnly, true);
+  const multiline = openWith({ multiline: true, digitsOnly: true });
+  assert.equal(multiline.keyboardType, "multiline");
+  assert.equal(Object.hasOwn(multiline, "digitsOnly"), false);
+});
+
 check('unbounded multiline uses explicit null maxLines', () => {
   // Unbounded multi-line: explicit null maxLines.
   const unbounded = openWith({ multiline: true });

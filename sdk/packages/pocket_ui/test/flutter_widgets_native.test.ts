@@ -14,6 +14,7 @@ type DrawOp = {
   y?: number;
   w?: number;
   h?: number;
+  clip?: { x: number; y: number; w: number; h: number };
 };
 type FrameEvent = { name?: string; payload?: JsonObject };
 type Frame = { ops?: DrawOp[]; events?: FrameEvent[] };
@@ -208,13 +209,15 @@ const inputColorKeys = [
   "fillColor",
   "borderColor",
   "focusedBorderColor",
+  "caretColor",
 ] as const;
 const expectedInputColors: Record<(typeof inputColorKeys)[number], string> = {
   textColor: "#09090B",
   placeholderColor: "#71717A",
-  fillColor: "#ffffff",
-  borderColor: "#E4E4E7",
-  focusedBorderColor: "#18181B",
+  fillColor: "transparent",
+  borderColor: "transparent",
+  focusedBorderColor: "transparent",
+  caretColor: "#18181B",
 };
 function assertInputColors(
   payload: JsonObject | undefined,
@@ -350,6 +353,17 @@ const preAckEditFrame = inputFrames[3];
 assert.ok(preAckEditFrame && hasText(preAckEditFrame, "林岚🙂"), "pre-ACK native edit should remain visible through the Guest fallback");
 const openedFrame = inputFrames[4];
 assert.ok(openedFrame && !hasVisibleText(openedFrame, "Tap to type"), "textInput.opened did not hide the duplicate guest placeholder");
+function shellColors(frame: Frame): Array<number | undefined> {
+  const rect = openRect as JsonObject;
+  return (frame.ops ?? [])
+    .filter((op) => op.type === "rounded" &&
+      ((op.x === rect.x && op.y === rect.y && op.w === rect.width && op.h === rect.height) ||
+        (op.x === Number(rect.x) + 1 && op.y === Number(rect.y) + 1 &&
+          op.w === Number(rect.width) - 2 && op.h === Number(rect.height) - 2)))
+    .map((op) => op.color);
+}
+assert.deepEqual(shellColors(openFrame!), [0xff18181b, 0xffffffff], "open draws the focused guest border and fill");
+assert.deepEqual(shellColors(openedFrame!), shellColors(openFrame!), "ACK preserves the guest border and fill");
 const openedUpdates = frameEvents(openedFrame!, "textInput.update");
 const restoredAppearanceEvents = openedUpdates.filter((item) =>
   inputColorKeys.every((key) => Object.hasOwn(item.payload ?? {}, key)),
@@ -378,6 +392,7 @@ assert.equal(hasVisibleText(editedFrame, "林岚🙂"), false, "focused native e
 assert.equal(frameEvents(editedFrame, "textInput.update").length, 0, "native text echo caused a redundant update");
 const dismissedFrame = inputFrames[7];
 assert.ok(dismissedFrame && hasText(dismissedFrame, "林岚🙂"), "textInput.dismiss did not restore the edited guest value");
+assert.deepEqual(shellColors(dismissedFrame!), [0xffe4e4e7, 0xffffffff], "dismiss restores the unfocused guest border and preserves the fill");
 assert.equal((dismissedFrame!.ops ?? []).filter((item) => item.type === "text" && item.text === "林岚🙂").length, 1, "dismissed guest fallback should paint the CJK/emoji value once");
 assert.ok(hasText(inputFrames[8]!, "林岚🙂"), "late opened acknowledgement after dismissal must not hide fallback text");
 assert.ok(hasText(inputFrames[11]!, "林岚🙂"), "stale opened acknowledgement from the previous editingSession must not hide text");
@@ -475,6 +490,42 @@ assert.equal(
   false,
   "QJBC viewport resize incorrectly closed the active input",
 );
+
+const phonePoint = center(initial, "123");
+const phoneId = "guest-text-input-2";
+const phoneSession = `${phoneId}:1`;
+const longPhone = "1234567890".repeat(12);
+const constrainedInputFrames = framesOf(runProbe([
+  ...bootstrap(),
+  ...tap(phonePoint),
+  event("textInput.edit", { id: phoneId, editingSession: phoneSession, revision: 1, text: longPhone }),
+  { op: "frame", deltaMs: 16 },
+  event("textInput.edit", { id: phoneId, editingSession: phoneSession, revision: 2, text: "456" }),
+  { op: "frame", deltaMs: 16 },
+  { op: "quit" },
+]));
+function phoneShell(frame: Frame | undefined): DrawOp {
+  const shell = frame?.ops?.find((op) => op.type === "rounded" && op.color === 0xff102030);
+  assert.ok(shell, "constrained input must draw its shell");
+  return shell;
+}
+const shortShell = phoneShell(constrainedInputFrames[2]);
+const longShell = phoneShell(constrainedInputFrames[3]);
+const restoredShell = phoneShell(constrainedInputFrames[4]);
+const phoneOpen = frameEvents(constrainedInputFrames[2]!, "textInput.open").find(({ payload }) => payload?.id === phoneId)?.payload;
+assert.equal(phoneOpen?.keyboardType, "number");
+assert.equal(phoneOpen?.digitsOnly, true);
+assert.equal(shortShell.w, 172, "committed input width must fit the 240px row beside its 60px button and 8px gap");
+assert.deepEqual(longShell, shortShell, "long text must preserve the input's committed rect");
+assert.deepEqual(restoredShell, shortShell, "shortening the text must preserve the input's committed rect");
+assert.equal(textOp(constrainedInputFrames[3]!, "Send").x, textOp(constrainedInputFrames[2]!, "Send").x);
+assert.ok(hasText(constrainedInputFrames[2]!, "123"));
+const longPhoneText = textOp(constrainedInputFrames[3]!, longPhone);
+const phonePadding = Number(phoneOpen?.paddingHorizontal);
+assert.equal(longPhoneText.x, longShell.x! + phonePadding);
+assert.equal(longPhoneText.clip?.x, longShell.x! + phonePadding);
+assert.equal(longPhoneText.clip?.w, longShell.w! - 2 * phonePadding);
+assert.ok(hasText(constrainedInputFrames[4]!, "456"));
 
 console.log(`flutter_widgets_native.test: pointer, compiled scroll and IME layout passed (${probe}; ${artifactDir})`);
 if (generatedFixture) rmSync(generatedFixture, { recursive: true, force: true });

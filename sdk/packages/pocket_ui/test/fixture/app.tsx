@@ -1,5 +1,5 @@
 import { mount } from "@pocketjs/framework/solid";
-import { createSignal, onCleanup, onMount } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 import { Screen, Text, View } from "@pocketjs/framework/solid/components";
 import {
   Chip,
@@ -11,34 +11,19 @@ import {
   NavigationDestination,
   ScrollablePage,
   deliverTextInputEvent,
+  subscribeHostEvents,
+  type TextInputParams,
 } from "@pocket/ui";
-
-const bridge = globalThis as typeof globalThis & {
-  __pocketEvent?: (packet: Record<string, unknown>) => void;
-};
 
 function App() {
   const [progress, setProgress] = createSignal(0.5);
   const [selected, setSelected] = createSignal("home");
   const [fabDisabled, setFabDisabled] = createSignal(false);
   const [draft, setDraft] = createSignal("");
-  onMount(() => {
-    const previous = bridge.__pocketEvent;
-    const receive = (message: Record<string, unknown>): void => {
-      const method = typeof message.method === "string"
-        ? message.method
-        : typeof message.name === "string" ? message.name : "";
-      const params = message.params ?? message.payload;
-      if (params && typeof params === "object" && !Array.isArray(params)) {
-        deliverTextInputEvent(method, params as any);
-      }
-      previous?.(message);
-    };
-    bridge.__pocketEvent = receive;
-    onCleanup(() => {
-      if (bridge.__pocketEvent === receive) bridge.__pocketEvent = previous;
-    });
-  });
+  const [phone, setPhone] = createSignal("123");
+  onCleanup(subscribeHostEvents(({ method, params }) => {
+    deliverTextInputEvent(method, params as TextInputParams);
+  }));
   return (
     <Screen>
       <ScrollablePage>
@@ -56,6 +41,12 @@ function App() {
             <NavigationDestination icon="◉" label="Library" selected={selected() === "library"} onPress={() => setSelected("library")} />
           </View>
           <InputField value={draft} onInput={setDraft} placeholder="Tap to type" />
+          <View class="flex-row gap-2" style={{ width: 240 }}>
+            <View class="flex-1">
+              <InputField value={phone} onInput={setPhone} digitsOnly appearance={{ borderColor: "#102030", focusedBorderColor: "#102030" }} />
+            </View>
+            <View class="shrink-0" style={{ width: 60 }}><Text>Send</Text></View>
+          </View>
           <View style={{ height: 320 }} />
         </View>
       </ScrollablePage>

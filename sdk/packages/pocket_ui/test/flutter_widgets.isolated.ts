@@ -236,6 +236,7 @@ console.log("flutter_widgets.test: public Flutter vocabulary adapters and indepe
   const { deliverTextInputEvent, InputField, ScrollablePage, getActiveTextInputSession } = await import("../src/ui.tsx");
 
   const [draft, setDraft] = mockSolid.createSignal("");
+  const focusTransitions: boolean[] = [];
 
   // Mount the SDK page scroller before the input. The fallback test below
   // models a retained layout node being temporarily unavailable during a
@@ -244,7 +245,9 @@ console.log("flutter_widgets.test: public Flutter vocabulary adapters and indepe
   InputField({
     value: draft,
     onInput: (v: string) => setDraft(v),
+    onFocusChange: (focused) => focusTransitions.push(focused),
   });
+  assert.deepEqual(focusTransitions, [], "mount does not report initial focus");
 
   // The native resize path dispatches this existing event synchronously,
   // before PocketView requests its delta=0 frame. Verify that the page
@@ -323,6 +326,7 @@ console.log("flutter_widgets.test: public Flutter vocabulary adapters and indepe
   // Open the input field
   assert.ok(pressInput, "InputField should provide an onPress handler to focus/open");
   pressInput();
+  assert.deepEqual(focusTransitions, [true], "accepted open reports focus before attachment");
 
   assert.equal(emitted.length, 1);
   assert.equal(emitted[0].name, "textInput.open");
@@ -337,6 +341,7 @@ console.log("flutter_widgets.test: public Flutter vocabulary adapters and indepe
     "fillColor",
     "borderColor",
     "focusedBorderColor",
+    "caretColor",
   ];
   for (const key of inputColorKeys) {
     assert.equal(emitted[0].payload[key], "transparent", `textInput.open ${key} must stay transparent until attachment`);
@@ -409,7 +414,7 @@ console.log("flutter_widgets.test: public Flutter vocabulary adapters and indepe
   assert.equal(appearanceRestore.payload.id, inputId);
   assert.equal(appearanceRestore.payload.editingSession, inputEditingSession);
   assert.equal(appearanceRestore.payload.jsRevision, 2);
-  const restoredInputColors = ["#09090B", "#71717A", "#ffffff", "#E4E4E7", "#18181B"];
+  const restoredInputColors = ["#09090B", "#71717A", "transparent", "transparent", "transparent", "#18181B"];
   inputColorKeys.forEach((key, index) => {
     assert.equal(appearanceRestore.payload[key], restoredInputColors[index]);
   });
@@ -454,6 +459,7 @@ console.log("flutter_widgets.test: public Flutter vocabulary adapters and indepe
     "a failed refresh must retain the existing appearance handoff",
   );
   assert.equal(emitted.length, 3, "a ready session does not resend appearance on a duplicate ACK");
+  assert.deepEqual(focusTransitions, [true], "attachment and refresh do not repeat focus");
   assert.equal(
     deliverTextInputEvent("textInput.opened", {
       id: inputId,
@@ -631,5 +637,27 @@ console.log("flutter_widgets.test: public Flutter vocabulary adapters and indepe
     payload: { width: 300, height: 220 },
   });
   assert.equal(emitted.length, emittedBeforeCleanup + 1, "input cleanup may emit one close event");
+  assert.deepEqual(focusTransitions, [true, false], "unmount reports focus loss exactly once");
   console.log("flutter_widgets.test: display observer cleanup guard passed");
+
+  for (const [appearance, caretColor] of [
+    [{ textColor: "#102030", focusedBorderColor: "transparent" }, "#102030"],
+    [{ textColor: "#102030", focusedBorderColor: "#203040", caretColor: "#304050" }, "#304050"],
+  ] as const) {
+    const transitions: boolean[] = [];
+    InputField({ value: () => "", appearance, onFocusChange: (focused) => transitions.push(focused) });
+    emissionMode = "false";
+    pressInput!();
+    assert.deepEqual(transitions, [], "rejected open does not report focus");
+    emissionMode = "success";
+    pressInput!();
+    const openPayload = emitted.at(-1)!.payload;
+    assert.equal(openPayload.caretColor, "transparent");
+    const { id, editingSession } = openPayload;
+    assert.equal(deliverTextInputEvent("textInput.opened", { id, editingSession }), true);
+    assert.equal(emitted.at(-1)!.payload.caretColor, caretColor);
+    assert.equal(deliverTextInputEvent("textInput.closed", { id, editingSession }), true);
+    assert.equal(deliverTextInputEvent("textInput.closed", { id, editingSession }), false);
+    assert.deepEqual(transitions, [true, false], "native close reports focus loss exactly once");
+  }
 }
