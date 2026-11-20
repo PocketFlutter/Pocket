@@ -16,6 +16,7 @@ import {
   packageArtifacts,
   pocketReleaseDirectory,
 } from "../../../scripts/package_update.ts";
+import type { PublishedVersion } from "../../../editor/version_store.ts";
 import { runCloudflareCli } from "../src/cli.ts";
 import {
   createR2Client,
@@ -24,11 +25,13 @@ import {
   deployWebToR2Site,
   inspectLocalCloudflareEnvironment,
   publishNativeInstallersToCloudflare,
+  publishStudioVersionToCloudflareMatrix,
   publishToCloudflareMatrix,
   removeWorkspaceCloudflareProfile,
   resolveLocalCloudflareCredentials,
   sha256Hex,
   upsertWorkspaceCloudflareProfile,
+  validateCloudflareRouteMatrix,
   type CloudflareR2Credentials,
   type UpsertWorkspaceCloudflareProfileInput,
 } from "../src/index.ts";
@@ -706,6 +709,131 @@ test("uploadFile streams multipart slices via file descriptor and rejects symlin
     await expect(
       client.uploadFile("installers/symlink-installer.dmg", linkPath),
     ).rejects.toThrow(/Refusing to upload non-regular or symlink file/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("standalone moving index selects the highest signed build and keeps signed blobs relative to the immutable manifest", async () => {
+  const dir = makeTempDir();
+  try {
+    const keyPath = join(dir, "key.json");
+    const key = generateDevKey(keyPath, "release");
+    const jsPath = join(dir, "app.js");
+    const pakPath = join(dir, "app.pak");
+    const deployRoot = join(dir, "deploy");
+    writeFileSync(pakPath, packPak([]));
+    for (const [version, build] of [["1.9.0", 9], ["1.10.0", 10]] as const) {
+      writeFileSync(jsPath, `globalThis.frame=()=>${build};\n`);
+      packageArtifacts({
+        appId: "pocket.demo", version, build, jsPath, pakPath, keyFile: keyPath,
+        outDir: pocketReleaseDirectory(deployRoot, "0.2.0", "pocket.demo", version),
+        bundleFormat: "zip",
+      });
+    }
+    const cloud = createMockCloudflareCloud();
+    const client = createR2Client({
+      target: {
+        accountId: ACC_APPLE, bucket: "pocket-demo", endpoint: "https://r2-demo.test",
+        publicBaseUrl: "https://ota-demo.test/mirror",
+      },
+      credentials: mockR2Auth(ACC_APPLE, "mock-key", "mock-secret"),
+      fetchImpl: cloud.fetchImpl,
+    });
+    const out = join(dir, "endpoints.json");
+    writeFileSync(out, "stable");
+    const link = join(dir, "endpoints-link.json");
+    symlinkSync(out, link);
+    const options = { clients: [client], deployRoot, publicKey: key.publicKeyPem, routePrefix: "app" };
+    await expect(publishToCloudflareMatrix({ ...options, writeEndpointsPath: link })).rejects.toThrow(/Invalid endpoint asset path/);
+    expect(cloud.objects.size).toBe(0);
+
+    const result = await publishToCloudflareMatrix({ ...options, slot: "test", writeEndpointsPath: out });
+    expect(readFileSync(out, "utf8")).toBe("stable");
+    const indexUrl = result.platformEndpoints!.routes["*"]!.primaryUrl;
+    expect(indexUrl).toBe("https://ota-demo.test/mirror/app/test/pocket/0.2.0/pocket.demo/latest.json");
+    const getBytes = (url: string) => cloud.objects.get(
+      `r2-demo.test/pocket-demo/${new URL(url).pathname.slice("/mirror/".length)}`,
+    )?.bytes;
+    const index = JSON.parse(Buffer.from(getBytes(indexUrl)!).toString("utf8"));
+    expect(index.latest.version).toBe("1.10.0");
+    const manifestUrl = new URL(index.latest.manifestUrl, indexUrl).href;
+    const envelope = JSON.parse(Buffer.from(getBytes(manifestUrl)!).toString("utf8"));
+    const payload = JSON.parse(Buffer.from(envelope.payload, "base64").toString("utf8"));
+    expect(payload.build).toBe(10);
+    for (const file of payload.files) {
+      const bytes = getBytes(new URL(file.url, manifestUrl).href);
+      expect(sha256Hex(bytes!)).toBe(file.sha256);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("Studio catalogs only advertise history verified on each target and leave a reused owner's index intact", async () => {
+  const dir = makeTempDir();
+  try {
+    const keyPath = join(dir, "key.json");
+    const key = generateDevKey(keyPath, "release");
+    const jsPath = join(dir, "app.js");
+    const pakPath = join(dir, "app.pak");
+    writeFileSync(pakPath, packPak([]));
+    const release = (appId: string, releaseId: string, build: number): PublishedVersion => {
+      const artifactRoot = `packages/${releaseId}`;
+      const outDir = join(dir, artifactRoot);
+      const version = `1.0.${build}`;
+      writeFileSync(jsPath, `globalThis.frame=()=>${build};\n`);
+      const signed = packageArtifacts({
+        appId, version, build, jsPath, pakPath, keyFile: keyPath, outDir, bundleFormat: "zip",
+      });
+      const payloadSha256 = sha256Hex(readFileSync(join(outDir, "payload.json")));
+      writeFileSync(join(outDir, "host.json"), JSON.stringify({
+        schemaVersion: 1, kind: "pocket-editor-app-host", systemUI: appId, rootPayloadSha256: payloadSha256,
+      }));
+      return {
+        id: releaseId, releaseId, slot: "stable", channel: "release", version, build,
+        routeVersion: version, compatVersion: version, revision: build, publishedAt: "2026-01-01T00:00:00.000Z",
+        hostVersion: "0.2.0", packageVersion: version, keyId: key.keyId, runtimeAbi: signed.payload.runtimeAbi ?? "",
+        payloadSha256, archivePath: "", packages: [{ id: appId, version, build, artifactRoot }],
+      };
+    };
+    const cloud = createMockCloudflareCloud();
+    const target = (accountId: string, bucket: string, role: "primary" | "fallback") => createR2Client({
+      target: { accountId, bucket, role, endpoint: "https://r2-demo.test", publicBaseUrl: `https://${bucket}.test` },
+      credentials: mockR2Auth(accountId, "mock-key", "mock-secret"),
+      fetchImpl: cloud.fetchImpl,
+    });
+    const first = target(ACC_APPLE, "pocket-first", "primary");
+    const second = target(ACC_BACKUP, "pocket-second", "fallback");
+    expect(() => validateCloudflareRouteMatrix([
+      first.target, { ...first.target, role: "fallback", publicBaseUrl: "https://different.test" },
+    ])).toThrow(/Duplicate Cloudflare R2 destination/);
+    const prior = release("pocket.root", "root-old", 1);
+    const current = release("pocket.root", "root-new", 2);
+    const reused = release("pocket.owner", "owner-old", 1);
+    const newerOwner = release("pocket.owner", "owner-new", 2);
+    current.reusedPackages = [{ id: "pocket.owner", ownerProjectId: "owner", releaseId: reused.releaseId, version: reused.version, build: reused.build }];
+    const common = { updatesDir: dir, publicKey: key.publicKeyPem, purgeCache: false };
+    await publishStudioVersionToCloudflareMatrix({
+      ...common, clients: [first], projectId: "root", rootAppId: "pocket.root", entry: prior,
+    });
+    await publishStudioVersionToCloudflareMatrix({
+      ...common, clients: [first, second], projectId: "owner", rootAppId: "pocket.owner", entry: newerOwner,
+    });
+    const object = (bucket: string, appId: string) => cloud.objects.get(
+      `r2-demo.test/${bucket}/stable/pocket/0.2.0/${appId}/latest.json`,
+    )?.bytes;
+    const ownerBefore = object("pocket-first", "pocket.owner");
+    expect(ownerBefore).toBeDefined();
+    await publishStudioVersionToCloudflareMatrix({
+      ...common, clients: [first, second], projectId: "root", rootAppId: "pocket.root",
+      entry: current, previouslyPublishedEntries: [prior], reusedEntries: [{ ownerProjectId: "owner", entry: reused }],
+    });
+    expect(object("pocket-first", "pocket.owner")).toEqual(ownerBefore);
+    const catalog = (bucket: string) => JSON.parse(Buffer.from(object(bucket, "pocket.root")!).toString("utf8"));
+    expect(catalog("pocket-first").versions.map((record: { releaseId: string }) => record.releaseId)).toEqual(["root-new", "root-old"]);
+    expect(catalog("pocket-second").versions.map((record: { releaseId: string }) => record.releaseId)).toEqual(["root-new"]);
+    expect(cloud.objects.has("r2-demo.test/pocket-second/pocket/0.2.0/pocket.owner/owner-old/latest.json")).toBe(true);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -497,11 +497,21 @@ export function validateCloudflareRouteMatrix(
   }
   const primaryOwnerByPlatform = new Map<CloudflarePlatformSelector, string>();
   const seenPublicOrigins = new Map<string, string>();
+  const seenDestinations = new Map<string, string>();
 
   for (const target of targets) {
     const label = target.profileId
       ? `${target.profileId} (${target.bucket})`
       : `${target.accountId.slice(0, 8)}:${target.bucket}`;
+
+    const destination = JSON.stringify([target.accountId, target.bucket, target.keyPrefix]);
+    const existingDestination = seenDestinations.get(destination);
+    if (existingDestination) {
+      throw new Error(
+        `Duplicate Cloudflare R2 destination between ${existingDestination} and ${label} (bucket "${target.bucket}", keyPrefix "${target.keyPrefix}")`,
+      );
+    }
+    seenDestinations.set(destination, label);
 
     const duplicateKey = `${target.role}:${target.publicBaseUrl}`;
     if (seenPublicOrigins.has(duplicateKey)) {

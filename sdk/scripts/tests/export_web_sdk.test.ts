@@ -155,6 +155,10 @@ test("export_web_sdk creates a Flutter-free toolchain repo with Editor and the Q
   expect(manifest.workspaces).not.toContain("packages/pocket_tftc");
   expect(manifest.workspaces).toContain("packages/pocket_ui");
 
+  const registryCli = spawnSync("bun", ["pocket.ts", "packages", "."], { cwd: output, encoding: "utf8" });
+  expect(registryCli.stderr).toBe("");
+  expect(registryCli.status).toBe(0);
+
   // Exercise the exported scaffold boundary, including its Python URL helper.
   const consumer = mkdtempSync(join(tmpdir(), "pocket-export-surfaces-"));
   try {

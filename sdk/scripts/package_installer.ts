@@ -8,14 +8,19 @@ import { createHash, createPublicKey, randomUUID, verify as cryptoVerify } from 
 import {
   cpSync,
   existsSync,
+  lstatSync,
+  mkdtempSync,
+  statSync,
+  readdirSync,
   mkdirSync,
   readFileSync,
   realpathSync,
   renameSync,
   rmSync,
+  rmdirSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { extractSafeTarGz } from "./install_studio.mjs";
 import { SDK_VERSION } from "./prebuilt_tools.mjs";
@@ -24,6 +29,7 @@ import {
   buildPackageRegistry,
   DEFAULT_GITHUB_REGISTRY_ORIGIN,
   DEFAULT_R2_REGISTRY_ORIGIN,
+  OFFICIAL_PACKAGE_SPECS,
   type HostPluginWiringSpec,
   type PocketRegistryIndexDocument,
   type PocketRegistryPackageKind,
@@ -39,6 +45,10 @@ export type PocketLockPackageEntry = {
   dartPackageName?: string;
   vendorPath?: string;
   flutterPackagePath?: string;
+  vendorTreeSha256?: string;
+  flutterTreeSha256?: string;
+  managedJsDependency?: boolean;
+  managedDartDependency?: boolean;
   tarballSha256: string;
   resolvedFrom: string;
   requiresHostRebuild: boolean;
@@ -100,7 +110,10 @@ export async function loadRegistryIndex(options: {
     const localDir = resolve(options.registry.trim());
     const signedPath = join(localDir, "registry/v1/signed-index.json");
     const indexPath = join(localDir, "registry/v1/index.json");
-    if (existsSync(signedPath) && options.publicKeyPem) {
+    if (options.publicKeyPem) {
+      if (!existsSync(signedPath)) {
+        throw new Error(`Local registry directory missing registry/v1/signed-index.json: ${localDir}`);
+      }
       const signed = JSON.parse(
         readFileSync(signedPath, "utf8"),
       ) as SignedPocketRegistryIndex;
@@ -131,8 +144,8 @@ export async function loadRegistryIndex(options: {
       ].map((u) => u.replace(/\/+$/g, ""));
 
   const remotePublicKeyPem =
-    options.publicKeyPem ??
-    process.env.POCKET_REGISTRY_PUBLIC_KEY_PEM?.trim() ??
+    (options.publicKeyPem?.trim() ||
+      process.env.POCKET_REGISTRY_PUBLIC_KEY_PEM?.trim()) ||
     (options.allowUnsignedRemoteIndex ? undefined : POCKET_OFFICIAL_REGISTRY_PUBLIC_KEY_PEM);
 
   let lastError: unknown;
@@ -174,17 +187,33 @@ export async function loadRegistryIndex(options: {
     }
   }
 
-  if (!options.registry && options.sdkRoot && existsSync(join(options.sdkRoot, "packages"))) {
-    const localBuildOut = join(options.sdkRoot, ".pocket-build", "local-registry");
-    const built = buildPackageRegistry({
-      sdkRoot: options.sdkRoot,
-      outDir: localBuildOut,
-    });
-    return {
-      index: built.index,
-      baseLocation: localBuildOut,
-      isLocalDirectory: true,
-    };
+  if (!options.registry && options.sdkRoot) {
+    const sdkRoot = resolve(options.sdkRoot);
+    const hasSource = OFFICIAL_PACKAGE_SPECS.every(({ slug }) =>
+      lstatSync(join(sdkRoot, "packages", slug), { throwIfNoEntry: false })?.isDirectory(),
+    );
+    if (hasSource) {
+      const localRegistry = checkedPath(realpathSync(sdkRoot), ".pocket-build/local-registry", "directory");
+      mkdirSync(localRegistry, { recursive: true });
+      const stage = mkdtempSync(join(localRegistry, ".stage-"));
+      try {
+        const { index } = buildPackageRegistry({ sdkRoot, outDir: stage });
+        const key = sha256Hex(JSON.stringify(index));
+        const baseLocation = checkedPath(localRegistry, key, "directory");
+        try {
+          renameSync(stage, baseLocation);
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException).code;
+          if ((code !== "EEXIST" && code !== "ENOTEMPTY")
+            || !statSync(baseLocation, { throwIfNoEntry: false })?.isDirectory()) {
+            throw error;
+          }
+        }
+        return { index, baseLocation, isLocalDirectory: true };
+      } finally {
+        rmSync(stage, { recursive: true, force: true });
+      }
+    }
   }
 
   throw new Error(
@@ -265,7 +294,7 @@ async function fetchVerifiedPackageTarball(
   fetchImpl: typeof fetch,
 ): Promise<{ bytes: Uint8Array; resolvedFrom: string }> {
   if (source.isLocalDirectory) {
-    const localPath = join(source.baseLocation, entry.tarballPath);
+    const localPath = checkedPath(realpathSync(source.baseLocation), entry.tarballPath, "file");
     const bytes = new Uint8Array(readFileSync(localPath));
     if (
       bytes.byteLength !== entry.tarballSize ||
@@ -309,8 +338,123 @@ async function fetchVerifiedPackageTarball(
   );
 }
 
+function checkedPath(root: string, rel: string, kind: "file" | "directory"): string {
+  const target = resolve(root, rel);
+  const inside = relative(root, target);
+  if (!inside || isAbsolute(inside) || inside.split(sep)[0] === "..") {
+    throw new Error(`Path must stay inside ${root}: ${rel}`);
+  }
+  let current = root;
+  for (const part of inside.split(sep)) {
+    current = join(current, part);
+    const stat = lstatSync(current, { throwIfNoEntry: false });
+    if (!stat) continue;
+    if (stat.isSymbolicLink() || !(current !== target || kind === "directory"
+      ? stat.isDirectory()
+      : stat.isFile())) {
+      throw new Error(`Unexpected file type at ${current}`);
+    }
+  }
+  return target;
+}
+
+function managedPackagePaths(slug: string, entry: {
+  jsPackageName?: string;
+  dartPackageName?: string;
+}) {
+  if (!/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(slug)
+    || (entry.jsPackageName !== undefined && !/^@pocket\/[a-z0-9_-]+$/.test(entry.jsPackageName))
+    || (entry.dartPackageName !== undefined && !/^[a-z][a-z0-9_]*$/.test(entry.dartPackageName))) {
+    throw new Error(`Invalid managed package identity: ${slug}`);
+  }
+  return {
+    vendor: entry.jsPackageName ? `vendor/${slug.replaceAll("_", "-")}` : undefined,
+    flutter: entry.dartPackageName ? `flutter/vendor_packages/${slug}` : undefined,
+  };
+}
+
+function treeDigest(root: string): string | undefined {
+  const hash = createHash("sha256");
+  function visit(directory: string, prefix: string): boolean {
+    for (const name of readdirSync(directory).sort()) {
+      const path = join(directory, name);
+      const rel = prefix + name;
+      const stat = lstatSync(path);
+      if (stat.isDirectory()) {
+        hash.update(JSON.stringify([rel, "directory", stat.mode & 0o777]));
+        if (!visit(path, rel + "/")) return false;
+      } else if (stat.isFile() && stat.nlink === 1) {
+        hash.update(JSON.stringify([rel, "file", stat.mode & 0o777, sha256Hex(readFileSync(path))]));
+      } else {
+        return false;
+      }
+    }
+    return true;
+  }
+  return visit(root, "") ? hash.digest("hex") : undefined;
+}
+
+function beginProjectChange(projectDir: string) {
+  const mutex = join(projectDir, ".pocket-package-operation");
+  try {
+    mkdirSync(mutex, { mode: 0o700 });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+      throw new Error(`A Pocket package operation is already active in ${projectDir}`);
+    }
+    throw error;
+  }
+  const undo: Array<() => void> = [];
+
+  function replace(target: string, source?: string) {
+    const parent = dirname(target);
+    function createParents(directory: string) {
+      if (existsSync(directory)) return;
+      createParents(dirname(directory));
+      mkdirSync(directory);
+      undo.push(() => rmdirSync(directory));
+    }
+    createParents(parent);
+    const backup = join(mutex, randomUUID());
+    const previous = lstatSync(target, { throwIfNoEntry: false });
+    if (previous) renameSync(target, backup);
+    undo.push(() => {
+      rmSync(target, { recursive: true, force: true });
+      if (previous) renameSync(backup, target);
+    });
+    if (source) renameSync(source, target);
+  }
+
+  return {
+    mutex,
+    replace,
+    write(target: string, contents: string) {
+      const source = join(mutex, randomUUID());
+      const mode = lstatSync(target, { throwIfNoEntry: false })?.mode;
+      writeFileSync(source, contents, { mode });
+      replace(target, source);
+    },
+    finish(committed: boolean) {
+      if (!committed) {
+        const errors: unknown[] = [];
+        for (const restore of undo.reverse()) {
+          try {
+            restore();
+          } catch (error) {
+            errors.push(error);
+          }
+        }
+        if (errors.length > 0) {
+          throw new AggregateError(errors, `Package rollback failed. Backups are in ${mutex}`);
+        }
+      }
+      rmSync(mutex, { recursive: true });
+    },
+  };
+}
+
 export function readProjectLockfile(projectDir: string): PocketLockfile {
-  const lockPath = join(projectDir, "pocket-lock.json");
+  const lockPath = checkedPath(realpathSync(projectDir), "pocket-lock.json", "file");
   if (!existsSync(lockPath)) {
     return {
       schemaVersion: 1,
@@ -321,8 +465,21 @@ export function readProjectLockfile(projectDir: string): PocketLockfile {
     };
   }
   const parsed = JSON.parse(readFileSync(lockPath, "utf8")) as PocketLockfile;
-  if (parsed.kind !== "pocket-package-lock") {
+  if (parsed.kind !== "pocket-package-lock" || parsed.schemaVersion !== 1
+    || !parsed.packages || typeof parsed.packages !== "object" || Array.isArray(parsed.packages)) {
     throw new Error(`Invalid pocket-lock.json in ${projectDir}`);
+  }
+  for (const [slug, entry] of Object.entries(parsed.packages)) {
+    if (!entry || typeof entry !== "object" || entry.slug !== slug) {
+      throw new Error(`Invalid package lock entry: ${slug}`);
+    }
+    const managed = managedPackagePaths(slug, entry);
+    if ((entry.vendorPath !== undefined && entry.vendorPath !== managed.vendor)
+      || (entry.flutterPackagePath !== undefined && entry.flutterPackagePath !== managed.flutter)
+      || (entry.dependencies && (!Array.isArray(entry.dependencies)
+        || entry.dependencies.some((dep) => typeof dep !== "string")))) {
+      throw new Error(`Invalid managed package metadata: ${slug}`);
+    }
   }
   return parsed;
 }
@@ -352,14 +509,15 @@ function syncFlutterHostFromInstalledPackages(
   projectDir: string,
   lock: PocketLockfile,
   indexBySlug: ReadonlyMap<string, RegistryPackageCatalogEntry>,
+  change: ReturnType<typeof beginProjectChange>,
 ): { generatedDartFile?: string; updatedHostFiles: string[] } {
   const flutterDir = join(projectDir, "flutter");
-  if (!existsSync(join(flutterDir, "pubspec.yaml"))) {
+  const pubspecPath = checkedPath(projectDir, "flutter/pubspec.yaml", "file");
+  if (!existsSync(pubspecPath)) {
     return { updatedHostFiles: [] };
   }
 
   const updatedHostFiles: string[] = [];
-  const pubspecPath = join(flutterDir, "pubspec.yaml");
   let pubspecText = readFileSync(pubspecPath, "utf8");
 
   const activeHostEntries: Array<{
@@ -373,27 +531,25 @@ function syncFlutterHostFromInstalledPackages(
 
     const depName = lockEntry.dartPackageName;
     const relFromFlutter = relative(
-      realpathSync(flutterDir),
-      realpathSync(join(projectDir, lockEntry.flutterPackagePath)),
+      flutterDir,
+      checkedPath(projectDir, lockEntry.flutterPackagePath, "directory"),
     ).replaceAll("\\", "/");
 
-    const existingDepRe = new RegExp(
-      `(^  ${depName}:\\n    path:\\s*)([^\\n]+)`,
-      "m",
-    );
-    if (existingDepRe.test(pubspecText)) {
-      pubspecText = pubspecText.replace(existingDepRe, `$1${relFromFlutter}`);
-    } else if (!new RegExp(`^  ${depName}:`, "m").test(pubspecText)) {
+    if (!new RegExp(`^  ${depName}:`, "m").test(pubspecText)) {
+      const before = pubspecText;
       pubspecText = pubspecText.replace(
         /(^dependencies:\n(?:  [^\n]+\n(?:    [^\n]+\n)*)*)/m,
         `$1  ${depName}:\n    path: ${relFromFlutter}\n`,
       );
+      lockEntry.managedDartDependency = pubspecText !== before;
+    } else if (lockEntry.managedDartDependency === undefined && lockEntry.flutterTreeSha256) {
+      lockEntry.managedDartDependency = false;
     }
 
-    const pluginJsonPath = join(
+    const pluginJsonPath = checkedPath(
       projectDir,
-      lockEntry.flutterPackagePath,
-      "pocket-plugin.json",
+      `${lockEntry.flutterPackagePath}/pocket-plugin.json`,
+      "file",
     );
     let wiring: HostPluginWiringSpec | undefined;
     if (existsSync(pluginJsonPath)) {
@@ -408,7 +564,7 @@ function syncFlutterHostFromInstalledPackages(
     }
   }
 
-  writeFileSync(pubspecPath, pubspecText);
+  change.write(pubspecPath, pubspecText);
   updatedHostFiles.push("flutter/pubspec.yaml");
 
   const imports = new Set<string>([
@@ -434,8 +590,7 @@ function syncFlutterHostFromInstalledPackages(
   }
 
   const generatedDartRel = "flutter/lib/pocket_plugins.g.dart";
-  const generatedDartAbs = join(projectDir, generatedDartRel);
-  mkdirSync(dirname(generatedDartAbs), { recursive: true });
+  const generatedDartAbs = checkedPath(projectDir, generatedDartRel, "file");
   const generatedSource = [
     "// GENERATED CODE - DO NOT MODIFY BY HAND.",
     "// Maintained automatically by `pocket add` / `pocket remove` from `pocket-lock.json`.",
@@ -481,10 +636,10 @@ function syncFlutterHostFromInstalledPackages(
     "}",
     "",
   ].join("\n");
-  writeFileSync(generatedDartAbs, generatedSource);
+  change.write(generatedDartAbs, generatedSource);
   updatedHostFiles.push(generatedDartRel);
 
-  const mainDartPath = join(flutterDir, "lib/main.dart");
+  const mainDartPath = checkedPath(projectDir, "flutter/lib/main.dart", "file");
   if (existsSync(mainDartPath)) {
     let mainDart = readFileSync(mainDartPath, "utf8");
     if (
@@ -495,17 +650,17 @@ function syncFlutterHostFromInstalledPackages(
         /runApp\(PocketApp\(config:\s*PocketAppConfig\(([\s\S]*?)\)\)\);/,
         "runApp(PocketApp(config: applyGeneratedPocketPlugins(PocketAppConfig($1))));",
       );
-      writeFileSync(mainDartPath, mainDart);
+      change.write(mainDartPath, mainDart);
       updatedHostFiles.push("flutter/lib/main.dart");
     }
   }
 
   const prevManagedCaps = new Set(lock.managedCapabilities ?? []);
   const prevManagedPerms = new Set(lock.managedPermissions ?? []);
-  lock.managedCapabilities = [...allCapabilities].sort();
-  lock.managedPermissions = [...allPermissions].sort();
+  lock.managedCapabilities = [];
+  lock.managedPermissions = [];
 
-  const manifestPath = join(projectDir, "manifest.json");
+  const manifestPath = checkedPath(projectDir, "manifest.json", "file");
   if (existsSync(manifestPath)) {
     const manifestDoc = JSON.parse(readFileSync(manifestPath, "utf8")) as Record<
       string,
@@ -519,6 +674,7 @@ function syncFlutterHostFromInstalledPackages(
       ? (capsObj.optional as string[])
       : []
     ).filter((c) => !prevManagedCaps.has(c));
+    lock.managedCapabilities = [...allCapabilities].filter((c) => !userOptCaps.includes(c)).sort();
     manifestDoc.capabilities = {
       ...capsObj,
       optional: [...new Set([...userOptCaps, ...allCapabilities])].sort(),
@@ -532,18 +688,16 @@ function syncFlutterHostFromInstalledPackages(
       ? (permsObj.optional as string[])
       : []
     ).filter((p) => !prevManagedPerms.has(p));
+    lock.managedPermissions = [...allPermissions].filter((p) => !userOptPerms.includes(p)).sort();
     manifestDoc.permissions = {
       ...permsObj,
       optional: [...new Set([...userOptPerms, ...allPermissions])].sort(),
     };
-    writeFileSync(manifestPath, JSON.stringify(manifestDoc, null, 2) + "\n");
+    change.write(manifestPath, JSON.stringify(manifestDoc, null, 2) + "\n");
     updatedHostFiles.push("manifest.json");
   }
 
-  const androidManifestPath = join(
-    flutterDir,
-    "android/app/src/main/AndroidManifest.xml",
-  );
+  const androidManifestPath = checkedPath(projectDir, "flutter/android/app/src/main/AndroidManifest.xml", "file");
   if (existsSync(androidManifestPath)) {
     const origXml = readFileSync(androidManifestPath, "utf8");
     let xml = origXml.replace(
@@ -569,12 +723,12 @@ function syncFlutterHostFromInstalledPackages(
       xml = xml.replace(/\r?\n?\s*<\/manifest>\s*$/i, "\n</manifest>\n");
     }
     if (xml !== origXml) {
-      writeFileSync(androidManifestPath, xml);
+      change.write(androidManifestPath, xml);
       updatedHostFiles.push("flutter/android/app/src/main/AndroidManifest.xml");
     }
   }
 
-  const iosPlistPath = join(flutterDir, "ios/Runner/Info.plist");
+  const iosPlistPath = checkedPath(projectDir, "flutter/ios/Runner/Info.plist", "file");
   if (existsSync(iosPlistPath)) {
     const origPlist = readFileSync(iosPlistPath, "utf8");
     let plist = origPlist.replace(
@@ -601,7 +755,7 @@ function syncFlutterHostFromInstalledPackages(
       plist = plist.replace(/\s*<\/dict>\s*<\/plist>\s*$/s, "\n</dict>\n</plist>\n");
     }
     if (plist !== origPlist) {
-      writeFileSync(iosPlistPath, plist);
+      change.write(iosPlistPath, plist);
       updatedHostFiles.push("flutter/ios/Runner/Info.plist");
     }
   }
@@ -625,7 +779,7 @@ export async function installProjectPackages(options: {
   generatedDartFile?: string;
   updatedFiles: string[];
 }> {
-  const projectDir = resolve(options.projectDir);
+  const projectDir = realpathSync(options.projectDir);
   if (!existsSync(join(projectDir, "package.json"))) {
     throw new Error(`Target directory has no package.json: ${projectDir}`);
   }
@@ -655,145 +809,192 @@ export async function installProjectPackages(options: {
     loadedRegistry.index.packages.map((p) => [p.slug, p]),
   );
 
-  const cacheRoot = resolve(
-    options.cacheDir ??
-      process.env.POCKET_PACKAGE_CACHE_DIR ??
-      join(projectDir, ".pocket-build", "package-cache"),
-  );
-  mkdirSync(cacheRoot, { recursive: true });
-
-  const lock = readProjectLockfile(projectDir);
-  const pkgJsonPath = join(projectDir, "package.json");
-  const pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf8")) as Record<
-    string,
-    unknown
-  >;
-  const dependencies =
-    pkgJson.dependencies && typeof pkgJson.dependencies === "object"
-      ? (pkgJson.dependencies as Record<string, string>)
-      : {};
-  const hasFlutterHost = existsSync(join(projectDir, "flutter/pubspec.yaml"));
-  const updatedFiles = new Set<string>();
-  const newlyInstalled: PocketLockPackageEntry[] = [];
-
-  for (const entry of resolvedClosure) {
-    const cacheKey = `${entry.slug}-${entry.version}-${entry.tarballSha256.slice(0, 12)}`;
-    const cachedPkgDir = join(cacheRoot, cacheKey);
-    let resolvedFrom = loadedRegistry.baseLocation;
-
-    if (!existsSync(join(cachedPkgDir, "provenance.json"))) {
-      const downloaded = await fetchVerifiedPackageTarball(
-        entry,
-        loadedRegistry,
-        fetchImpl,
-      );
-      resolvedFrom = downloaded.resolvedFrom;
-      const stageDir = join(cacheRoot, `.stage-${cacheKey}-${randomUUID()}`);
-      try {
-        extractSafeTarGz(downloaded.bytes, stageDir);
-        rmSync(cachedPkgDir, { recursive: true, force: true });
-        renameSync(stageDir, cachedPkgDir);
-      } finally {
-        rmSync(stageDir, { recursive: true, force: true });
-      }
-    }
-
-    let vendorRelPath: string | undefined;
-    if (entry.jsPackageName) {
-      const vendorDirName = entry.slug.replaceAll("_", "-");
-      vendorRelPath = `vendor/${vendorDirName}`;
-      const vendorAbs = join(projectDir, vendorRelPath);
-      rmSync(vendorAbs, { recursive: true, force: true });
-      mkdirSync(dirname(vendorAbs), { recursive: true });
-      cpSync(cachedPkgDir, vendorAbs, { recursive: true, force: true });
-      dependencies[entry.jsPackageName] = `file:${vendorRelPath}`;
-      updatedFiles.add("package.json");
-      updatedFiles.add(vendorRelPath);
-    }
-
-    let flutterPackageRelPath: string | undefined;
-    if (entry.dartPackageName && hasFlutterHost) {
-      // Rewrite intra-SDK ../pocket_* relative path dependencies inside extracted pubspec.yaml
-      // so installed vendor_packages/<slug> resolves sibling vendor_packages/<dep> cleanly.
-      flutterPackageRelPath = `flutter/vendor_packages/${entry.slug}`;
-      const flutterPkgAbs = join(projectDir, flutterPackageRelPath);
-      rmSync(flutterPkgAbs, { recursive: true, force: true });
-      mkdirSync(dirname(flutterPkgAbs), { recursive: true });
-      cpSync(cachedPkgDir, flutterPkgAbs, { recursive: true, force: true });
-
-      const extractedPubspec = join(flutterPkgAbs, "pubspec.yaml");
-      if (existsSync(extractedPubspec) && options.sdkRoot) {
-        const sdkAbs = resolve(options.sdkRoot);
-        let psText = readFileSync(extractedPubspec, "utf8");
-        psText = psText.replace(
-          /path:\s*\.\.\/(pocket_[a-z0-9_]+)/g,
-          (_m, siblingSlug: string) => {
-            const siblingVendor = join(
-              projectDir,
-              "flutter/vendor_packages",
-              siblingSlug,
-            );
-            if (existsSync(siblingVendor) || resolvedClosure.some((r) => r.slug === siblingSlug)) {
-              return `path: ../${siblingSlug}`;
-            }
-            const sdkPkg = join(sdkAbs, "packages", siblingSlug);
-            if (existsSync(sdkPkg)) {
-              return `path: ${relative(flutterPkgAbs, sdkPkg).replaceAll("\\", "/")}`;
-            }
-            return `path: ../${siblingSlug}`;
-          },
-        );
-        writeFileSync(extractedPubspec, psText);
-      }
-
-      updatedFiles.add(flutterPackageRelPath);
-    }
-
-    const lockEntry: PocketLockPackageEntry = {
-      slug: entry.slug,
-      version: entry.version,
-      kind: entry.kind,
-      ...(entry.jsPackageName ? { jsPackageName: entry.jsPackageName } : {}),
-      ...(entry.dartPackageName ? { dartPackageName: entry.dartPackageName } : {}),
-      ...(vendorRelPath ? { vendorPath: vendorRelPath } : {}),
-      ...(flutterPackageRelPath ? { flutterPackagePath: flutterPackageRelPath } : {}),
-      tarballSha256: entry.tarballSha256,
-      resolvedFrom,
-      requiresHostRebuild: entry.requiresHostRebuild,
-      direct: directRequestedSlugs.has(entry.slug) || lock.packages[entry.slug]?.direct === true,
-      dependencies: [...entry.dependencies],
-      ...(entry.hostWiring ? { hostWiring: entry.hostWiring } : {}),
-    };
-
-    lock.packages[entry.slug] = lockEntry;
-    newlyInstalled.push(lockEntry);
+  const configuredCache = options.cacheDir ?? process.env.POCKET_PACKAGE_CACHE_DIR;
+  const cacheRoot = configuredCache
+    ? resolve(configuredCache)
+    : checkedPath(projectDir, ".pocket-build/package-cache", "directory");
+  const cacheStat = lstatSync(cacheRoot, { throwIfNoEntry: false });
+  if (cacheStat && !cacheStat.isDirectory()) {
+    throw new Error(`Invalid Pocket package cache directory: ${cacheRoot}`);
   }
+  mkdirSync(cacheRoot, { recursive: true });
+  const canonicalCacheRoot = realpathSync(cacheRoot);
 
-  pkgJson.dependencies = dependencies;
-  writeFileSync(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + "\n");
+  const change = beginProjectChange(projectDir);
+  let committed = false;
+  try {
+    const lock = readProjectLockfile(projectDir);
+    const pkgJsonPath = checkedPath(projectDir, "package.json", "file");
+    const pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    const dependencies =
+      pkgJson.dependencies && typeof pkgJson.dependencies === "object"
+        ? (pkgJson.dependencies as Record<string, string>)
+        : {};
+    const hasFlutterHost = existsSync(checkedPath(projectDir, "flutter/pubspec.yaml", "file"));
+    const updatedFiles = new Set<string>();
+    const newlyInstalled: PocketLockPackageEntry[] = [];
+    const prepared: Array<{
+      entry: RegistryPackageCatalogEntry;
+      paths: ReturnType<typeof managedPackagePaths>;
+      stageDir: string;
+      resolvedFrom: string;
+    }> = [];
 
-  const hostSync = syncFlutterHostFromInstalledPackages(
-    projectDir,
-    lock,
-    indexBySlug,
-  );
-  for (const f of hostSync.updatedHostFiles) updatedFiles.add(f);
+    for (const entry of resolvedClosure) {
+      const paths = managedPackagePaths(entry.slug, entry);
+      if (!/^[a-f0-9]{64}$/.test(entry.tarballSha256)) {
+        throw new Error(`Invalid archive digest for ${entry.slug}`);
+      }
+      const cachedArchive = checkedPath(canonicalCacheRoot, `${entry.tarballSha256}.tar.gz`, "file");
+      let bytes: Uint8Array | undefined;
+      let resolvedFrom = lock.packages[entry.slug]?.resolvedFrom ?? loadedRegistry.baseLocation;
+      const cachedStat = lstatSync(cachedArchive, { throwIfNoEntry: false });
+      if (cachedStat?.size === entry.tarballSize) {
+        const cachedBytes = readFileSync(cachedArchive);
+        if (sha256Hex(cachedBytes) === entry.tarballSha256) bytes = cachedBytes;
+      }
+      const cacheHit = bytes !== undefined;
+      if (!bytes) {
+        const downloaded = await fetchVerifiedPackageTarball(entry, loadedRegistry, fetchImpl);
+        bytes = downloaded.bytes;
+        resolvedFrom = downloaded.resolvedFrom;
+      }
 
-  lock.sdkVersion = SDK_VERSION;
-  lock.updatedAt = new Date().toISOString();
-  const lockfilePath = join(projectDir, "pocket-lock.json");
-  writeFileSync(lockfilePath, JSON.stringify(lock, null, 2) + "\n");
-  updatedFiles.add("pocket-lock.json");
+      const stageDir = mkdtempSync(join(change.mutex, "package-"));
+      extractSafeTarGz(bytes, stageDir);
+      if (!cacheHit) {
+        const stageArchive = join(canonicalCacheRoot, `.${randomUUID()}.tar.gz`);
+        try {
+          writeFileSync(stageArchive, bytes, { flag: "wx" });
+          renameSync(stageArchive, cachedArchive);
+        } finally {
+          rmSync(stageArchive, { force: true });
+        }
+      }
 
-  return {
-    installed: newlyInstalled,
-    requiresHostRebuild: newlyInstalled.some((p) => p.requiresHostRebuild),
-    lockfilePath,
-    ...(hostSync.generatedDartFile
-      ? { generatedDartFile: hostSync.generatedDartFile }
-      : {}),
-    updatedFiles: [...updatedFiles].sort(),
-  };
+      prepared.push({ entry, paths, stageDir, resolvedFrom });
+    }
+
+    for (const { entry, paths, stageDir, resolvedFrom } of prepared) {
+      const previous = lock.packages[entry.slug];
+      function installTree(rel: string, source: string, previouslyOwnedDigest?: string) {
+        const target = checkedPath(projectDir, rel, "directory");
+        const incomingDigest = treeDigest(source);
+        if (existsSync(target)) {
+          const currentDigest = treeDigest(target);
+          if (currentDigest && currentDigest === incomingDigest) {
+            return previouslyOwnedDigest === currentDigest ? currentDigest : undefined;
+          }
+          if (!currentDigest || !previouslyOwnedDigest || currentDigest !== previouslyOwnedDigest) {
+            if (previous?.tarballSha256 === entry.tarballSha256) return previouslyOwnedDigest;
+            throw new Error(`Preserving existing package files in ${rel}; move them before installing ${entry.slug}`);
+          }
+        }
+        change.replace(target, source);
+        updatedFiles.add(rel);
+        return incomingDigest;
+      }
+
+      const vendorRelPath = paths.vendor;
+      let vendorTreeSha256: string | undefined;
+      let managedJsDependency = previous?.managedJsDependency;
+      if (vendorRelPath && entry.jsPackageName) {
+        const vendorStage = join(change.mutex, randomUUID());
+        cpSync(stageDir, vendorStage, { recursive: true });
+        vendorTreeSha256 = installTree(vendorRelPath, vendorStage, previous?.vendorTreeSha256);
+        if (dependencies[entry.jsPackageName] === undefined) {
+          dependencies[entry.jsPackageName] = `file:${vendorRelPath}`;
+          managedJsDependency = true;
+        } else if (!previous?.vendorPath) {
+          managedJsDependency = false;
+        }
+      }
+
+      const flutterPackageRelPath = hasFlutterHost ? paths.flutter : undefined;
+      let flutterTreeSha256: string | undefined;
+      if (flutterPackageRelPath) {
+        const flutterPkgAbs = checkedPath(projectDir, flutterPackageRelPath, "directory");
+        const extractedPubspec = checkedPath(stageDir, "pubspec.yaml", "file");
+        if (existsSync(extractedPubspec) && options.sdkRoot) {
+          const sdkAbs = resolve(options.sdkRoot);
+          const psText = readFileSync(extractedPubspec, "utf8").replace(
+            /path:\s*\.\.\/(pocket_[a-z0-9_]+)/g,
+            (_m, siblingSlug: string) => {
+              const siblingVendor = checkedPath(projectDir, `flutter/vendor_packages/${siblingSlug}`, "directory");
+              if (existsSync(siblingVendor) || resolvedClosure.some((r) => r.slug === siblingSlug)) {
+                return `path: ../${siblingSlug}`;
+              }
+              const sdkPkg = join(sdkAbs, "packages", siblingSlug);
+              if (existsSync(sdkPkg)) {
+                return `path: ${relative(flutterPkgAbs, sdkPkg).replaceAll("\\", "/")}`;
+              }
+              return `path: ../${siblingSlug}`;
+            },
+          );
+          writeFileSync(extractedPubspec, psText);
+        }
+        flutterTreeSha256 = installTree(flutterPackageRelPath, stageDir, previous?.flutterTreeSha256);
+      }
+
+      const lockEntry: PocketLockPackageEntry = {
+        slug: entry.slug,
+        version: entry.version,
+        kind: entry.kind,
+        ...(entry.jsPackageName ? { jsPackageName: entry.jsPackageName } : {}),
+        ...(entry.dartPackageName ? { dartPackageName: entry.dartPackageName } : {}),
+        ...(vendorRelPath ? { vendorPath: vendorRelPath } : {}),
+        ...(flutterPackageRelPath ? { flutterPackagePath: flutterPackageRelPath } : {}),
+        ...(vendorTreeSha256 ? { vendorTreeSha256 } : {}),
+        ...(managedJsDependency !== undefined ? { managedJsDependency } : {}),
+        ...(previous?.managedDartDependency !== undefined
+          ? { managedDartDependency: previous.managedDartDependency }
+          : {}),
+        ...(flutterTreeSha256 ? { flutterTreeSha256 } : {}),
+        tarballSha256: entry.tarballSha256,
+        resolvedFrom,
+        requiresHostRebuild: entry.requiresHostRebuild,
+        direct: directRequestedSlugs.has(entry.slug) || lock.packages[entry.slug]?.direct === true,
+        dependencies: entry.dependencies.map((spec) => resolvePackageInCatalog(loadedRegistry.index, spec)!.slug),
+        ...(entry.hostWiring ? { hostWiring: entry.hostWiring } : {}),
+      };
+
+      lock.packages[entry.slug] = lockEntry;
+      newlyInstalled.push(lockEntry);
+    }
+
+    pkgJson.dependencies = dependencies;
+    change.write(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + "\n");
+
+    const hostSync = syncFlutterHostFromInstalledPackages(
+      projectDir,
+      lock,
+      indexBySlug,
+      change,
+    );
+    for (const f of hostSync.updatedHostFiles) updatedFiles.add(f);
+
+    lock.sdkVersion = SDK_VERSION;
+    lock.updatedAt = new Date().toISOString();
+    const lockfilePath = checkedPath(projectDir, "pocket-lock.json", "file");
+    change.write(lockfilePath, JSON.stringify(lock, null, 2) + "\n");
+    updatedFiles.add("pocket-lock.json");
+
+    committed = true;
+    return {
+      installed: newlyInstalled,
+      requiresHostRebuild: newlyInstalled.some((p) => p.requiresHostRebuild),
+      lockfilePath,
+      ...(hostSync.generatedDartFile
+        ? { generatedDartFile: hostSync.generatedDartFile }
+        : {}),
+      updatedFiles: [...updatedFiles].sort(),
+    };
+  } finally {
+    change.finish(committed);
+  }
 }
 
 export function removeProjectPackages(options: {
@@ -803,109 +1004,116 @@ export function removeProjectPackages(options: {
   removed: string[];
   updatedFiles: string[];
 } {
-  const projectDir = resolve(options.projectDir);
-  const lock = readProjectLockfile(projectDir);
-  const pkgJsonPath = join(projectDir, "package.json");
-  const pkgJson = existsSync(pkgJsonPath)
-    ? (JSON.parse(readFileSync(pkgJsonPath, "utf8")) as Record<string, unknown>)
-    : undefined;
-  const dependencies =
-    pkgJson?.dependencies && typeof pkgJson.dependencies === "object"
-      ? (pkgJson.dependencies as Record<string, string>)
-      : {};
+  const projectDir = realpathSync(options.projectDir);
+  const change = beginProjectChange(projectDir);
+  let committed = false;
+  try {
+    const lock = readProjectLockfile(projectDir);
+    const pkgJsonPath = checkedPath(projectDir, "package.json", "file");
+    const pkgJson = existsSync(pkgJsonPath)
+      ? (JSON.parse(readFileSync(pkgJsonPath, "utf8")) as Record<string, unknown>)
+      : undefined;
+    const dependencies =
+      pkgJson?.dependencies && typeof pkgJson.dependencies === "object"
+        ? (pkgJson.dependencies as Record<string, string>)
+        : {};
 
-  const removed: string[] = [];
-  const updatedFiles = new Set<string>();
+    const removed: string[] = [];
+    const updatedFiles = new Set<string>();
 
-  const purgeSingleLockEntry = (matchSlug: string) => {
-    const entry = lock.packages[matchSlug]!;
-    if (entry.vendorPath) {
-      rmSync(join(projectDir, entry.vendorPath), { recursive: true, force: true });
-    }
-    if (entry.jsPackageName && dependencies[entry.jsPackageName]) {
-      delete dependencies[entry.jsPackageName];
-      updatedFiles.add("package.json");
-    }
-    if (entry.flutterPackagePath) {
-      rmSync(join(projectDir, entry.flutterPackagePath), {
-        recursive: true,
-        force: true,
+    const resolveInstalledSlug = (rawName: string) => {
+      const q = rawName.trim().toLowerCase();
+      return Object.keys(lock.packages).find((slug) => {
+        const item = lock.packages[slug]!;
+        return slug === q || item.jsPackageName?.toLowerCase() === q
+          || item.dartPackageName?.toLowerCase() === q || slug.replace(/^pocket_/, "") === q;
       });
+    };
+
+    const requested = new Set<string>();
+    for (const name of options.packages) {
+      const slug = resolveInstalledSlug(name);
+      if (!slug) continue;
+      if (slug === "pocket_ui") {
+        throw new Error("Core @pocket/ui package cannot be removed from a Pocket project");
+      }
+      requested.add(slug);
     }
-    if (entry.dartPackageName) {
-      const pubspecPath = join(projectDir, "flutter/pubspec.yaml");
-      if (existsSync(pubspecPath)) {
-        const cleaned = readFileSync(pubspecPath, "utf8").replace(
-          new RegExp(`^  ${entry.dartPackageName}:\\n    path: [^\\n]+\\n`, "m"),
-          "",
-        );
-        writeFileSync(pubspecPath, cleaned);
-        updatedFiles.add("flutter/pubspec.yaml");
+    const reachable = new Set<string>();
+    function visit(slug: string, root: string) {
+      if (requested.has(slug)) {
+        throw new Error(`Cannot remove ${slug}; it is required by ${root}`);
+      }
+      if (reachable.has(slug)) return;
+      reachable.add(slug);
+      for (const dependency of lock.packages[slug]!.dependencies ?? []) {
+        const canonical = resolveInstalledSlug(dependency);
+        if (canonical) visit(canonical, root);
       }
     }
-    delete lock.packages[matchSlug];
-    removed.push(matchSlug);
-  };
-
-  for (const rawName of options.packages) {
-    const q = rawName.trim().toLowerCase();
-    const matchSlug = Object.keys(lock.packages).find((slug) => {
-      const item = lock.packages[slug]!;
-      return (
-        slug.toLowerCase() === q ||
-        item.jsPackageName?.toLowerCase() === q ||
-        item.dartPackageName?.toLowerCase() === q ||
-        slug.replace(/^pocket_/, "").toLowerCase() === q
-      );
-    });
-    if (!matchSlug) continue;
-    const entry = lock.packages[matchSlug]!;
-    if (entry.slug === "pocket_ui") {
-      throw new Error("Core @pocket/ui package cannot be removed from a Pocket project");
+    for (const [slug, item] of Object.entries(lock.packages)) {
+      if (!requested.has(slug) && (item.direct !== false || slug === "pocket_ui")) visit(slug, slug);
     }
-    purgeSingleLockEntry(matchSlug);
-  }
+    const purge = new Set([
+      ...requested,
+      ...Object.keys(lock.packages).filter((slug) => !reachable.has(slug)),
+    ]);
 
-  // Prune transitive (direct === false) orphan packages no longer reachable from direct roots
-  const reachable = new Set<string>();
-  const walkReachable = (slug: string) => {
-    if (reachable.has(slug)) return;
-    const node = lock.packages[slug];
-    if (!node) return;
-    reachable.add(slug);
-    for (const dep of node.dependencies ?? []) {
-      walkReachable(dep);
+    function removeOwnedTree(rel: string, expectedDigest?: string) {
+      const target = checkedPath(projectDir, rel, "directory");
+      if (expectedDigest && existsSync(target) && treeDigest(target) === expectedDigest) {
+        change.replace(target);
+        updatedFiles.add(rel);
+      }
     }
-  };
-  for (const [slug, item] of Object.entries(lock.packages)) {
-    if (item.direct !== false) {
-      walkReachable(slug);
+
+    for (const slug of purge) {
+      const entry = lock.packages[slug]!;
+      const paths = managedPackagePaths(slug, entry);
+      if (entry.vendorPath && paths.vendor) {
+        if (entry.managedJsDependency !== false) removeOwnedTree(paths.vendor, entry.vendorTreeSha256);
+        if (entry.managedJsDependency !== false && entry.jsPackageName
+          && dependencies[entry.jsPackageName] === `file:${paths.vendor}`) {
+          delete dependencies[entry.jsPackageName];
+          updatedFiles.add("package.json");
+        }
+      }
+      if (entry.flutterPackagePath && paths.flutter && entry.dartPackageName) {
+        if (entry.managedDartDependency !== false) removeOwnedTree(paths.flutter, entry.flutterTreeSha256);
+        const pubspecPath = checkedPath(projectDir, "flutter/pubspec.yaml", "file");
+        if (entry.managedDartDependency !== false && existsSync(pubspecPath)) {
+          const pathFromFlutter = paths.flutter.slice("flutter/".length);
+          const before = readFileSync(pubspecPath, "utf8");
+          const managedDependency = new RegExp(`^  ${entry.dartPackageName}:\\r?\\n    path: ${pathFromFlutter}\\r?\\n`, "m");
+          const cleaned = before.replace(managedDependency, "");
+          if (cleaned !== before) {
+            change.write(pubspecPath, cleaned);
+            updatedFiles.add("flutter/pubspec.yaml");
+          }
+        }
+      }
+      delete lock.packages[slug];
+      removed.push(slug);
     }
-  }
-  for (const slug of Object.keys(lock.packages)) {
-    if (!reachable.has(slug) && lock.packages[slug]?.direct === false && slug !== "pocket_ui") {
-      purgeSingleLockEntry(slug);
+
+    if (pkgJson && updatedFiles.has("package.json")) {
+      pkgJson.dependencies = dependencies;
+      change.write(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + "\n");
     }
+
+    const hostSync = syncFlutterHostFromInstalledPackages(projectDir, lock, new Map(), change);
+    for (const f of hostSync.updatedHostFiles) updatedFiles.add(f);
+
+    lock.updatedAt = new Date().toISOString();
+    change.write(
+      checkedPath(projectDir, "pocket-lock.json", "file"),
+      JSON.stringify(lock, null, 2) + "\n",
+    );
+    updatedFiles.add("pocket-lock.json");
+
+    committed = true;
+    return { removed, updatedFiles: [...updatedFiles].sort() };
+  } finally {
+    change.finish(committed);
   }
-
-  if (pkgJson && updatedFiles.has("package.json")) {
-    pkgJson.dependencies = dependencies;
-    writeFileSync(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + "\n");
-  }
-
-  const hostSync = syncFlutterHostFromInstalledPackages(
-    projectDir,
-    lock,
-    new Map(),
-  );
-  for (const f of hostSync.updatedHostFiles) updatedFiles.add(f);
-
-  lock.updatedAt = new Date().toISOString();
-  writeFileSync(
-    join(projectDir, "pocket-lock.json"),
-    JSON.stringify(lock, null, 2) + "\n",
-  );
-  updatedFiles.add("pocket-lock.json");
-
-  return { removed, updatedFiles: [...updatedFiles].sort() };
 }

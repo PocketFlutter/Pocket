@@ -686,7 +686,7 @@ Entry: [packages/pocket_cloudflare/src/index.ts](../packages/pocket_cloudflare/s
 
 Exports:
 - `awsUriEncode` — [signature](#api-sig-84f978ea900cb99d)
-- `buildPlatformEndpointsDocument` — [signature](#api-sig-ba709c7429a7858b)
+- `buildPlatformEndpointsDocument` — [signature](#api-sig-8032f485bcf3435e)
 - `CF_ACCOUNT_ID_PATTERN` — [signature](#api-sig-ef28400ec49fb536)
 - `CF_PROFILE_ID_PATTERN` — [signature](#api-sig-5f6d971ac25b0c4f)
 - `CF_PROJECT_NAME_PATTERN` — [signature](#api-sig-11b03e3b01c781e9)
@@ -704,8 +704,8 @@ Exports:
 - `CloudflarePurgeSummary` — [signature](#api-sig-ca5337858520f25d)
 - `CloudflareR2Credentials` — [signature](#api-sig-9f02800a0878cf9c)
 - `CloudflareRouteRole` — [signature](#api-sig-2884d550a30a8e07)
-- `CloudflareStudioPublishSummary` — [signature](#api-sig-134cd6260fba6ee2)
-- `CloudflareStudioTargetSummary` — [signature](#api-sig-74ee9a4c566f4681)
+- `CloudflareStudioPublishSummary` — [signature](#api-sig-ade19c5b41389b14)
+- `CloudflareStudioTargetSummary` — [signature](#api-sig-a12fb6c0fb369214)
 - `CloudflareTargetConfig` — [signature](#api-sig-8b04efc8a05bf5d9)
 - `CloudflareTargetPublishResult` — [signature](#api-sig-a8e0b522523d6b01)
 - `CloudflareUploadProgress` — [signature](#api-sig-ef6b06dc035ad83b)
@@ -724,14 +724,14 @@ Exports:
 - `formatAmzTimestamps` — [signature](#api-sig-d7e571b59b816864)
 - `hmacSha256Bytes` — [signature](#api-sig-dbef857d5405c76d)
 - `hmacSha256Hex` — [signature](#api-sig-b9a1c2fc81821ee7)
-- `IMMUTABLE_CACHE_CONTROL` — [signature](#api-sig-8265c159228e9222)
+- `IMMUTABLE_CACHE_CONTROL` — [signature](#api-sig-b977dd04b70227af)
 - `inferWebAssetContentType` — [signature](#api-sig-5066597f3856b3da)
 - `inspectLocalCloudflareEnvironment` — [signature](#api-sig-d87668463f6dde7c)
 - `LocalCloudflareInspection` — [signature](#api-sig-26afe45410203143)
 - `LocalCloudflareOptions` — [signature](#api-sig-d44bf4d71d4f900e)
 - `maskAccountId` — [signature](#api-sig-f16226759022f669)
 - `maskSecretValue` — [signature](#api-sig-723907f1dce8912d)
-- `MUTABLE_CACHE_CONTROL` — [signature](#api-sig-504462bd630fb909)
+- `MUTABLE_CACHE_CONTROL` — [signature](#api-sig-b9729cc365c48fb3)
 - `NativeDownloadManifestPayload` — [signature](#api-sig-cde4ab795681c82c)
 - `NativeInstallerInput` — [signature](#api-sig-8b76ac0ab5f3d4cf)
 - `NativeInstallerRecord` — [signature](#api-sig-b484610d33a8979b)
@@ -740,13 +740,13 @@ Exports:
 - `PlatformEndpointRoute` — [signature](#api-sig-24505b99bc0fc9d9)
 - `PlatformEndpointsDocument` — [signature](#api-sig-c433a01f2a1d0ab4)
 - `ProjectCloudflareRouteConfig` — [signature](#api-sig-59cceed4f6c3cfce)
-- `PublishNativeInstallersOptions` — [signature](#api-sig-86f5564a763715ae)
-- `PublishNativeInstallersResult` — [signature](#api-sig-3538cd868fb84a5f)
-- `publishNativeInstallersToCloudflare` — [signature](#api-sig-abe218cf3ebe2b38)
-- `publishStudioVersionToCloudflareMatrix` — [signature](#api-sig-64ababce8dedb7ef)
-- `PublishStudioVersionToCloudflareOptions` — [signature](#api-sig-1d1c937de230c708)
-- `publishToCloudflareMatrix` — [signature](#api-sig-eda44461dfa29dd7)
-- `PublishToCloudflareMatrixOptions` — [signature](#api-sig-734ba8197f93862a)
+- `PublishNativeInstallersOptions` — [signature](#api-sig-69fd0c8b60c0e531)
+- `PublishNativeInstallersResult` — [signature](#api-sig-d6a8ac04f90ab29a)
+- `publishNativeInstallersToCloudflare` — [signature](#api-sig-8a1a9495a6e03ac4)
+- `publishStudioVersionToCloudflareMatrix` — [signature](#api-sig-f6ba9be18819102c)
+- `PublishStudioVersionToCloudflareOptions` — [signature](#api-sig-f1d347a8fe65b8f4)
+- `publishToCloudflareMatrix` — [signature](#api-sig-e3d03aefb256273f)
+- `PublishToCloudflareMatrixOptions` — [signature](#api-sig-0b7e9570fa505225)
 - `purgeCloudflareZoneCache` — [signature](#api-sig-81fcfd8091baecf3)
 - `R2_BUCKET_PATTERN` — [signature](#api-sig-16a5e76170ea7a45)
 - `R2Client` — [signature](#api-sig-e1eec43354e5ae9b)
@@ -754,7 +754,7 @@ Exports:
 - `R2HeadObjectResult` — [signature](#api-sig-b15b617c4809359c)
 - `R2PutObjectOptions` — [signature](#api-sig-4f756bcc7747284d)
 - `R2UploadFileOptions` — [signature](#api-sig-0aabb774a7afbdf2)
-- `rebaseHostDescriptorForCloudflare` — [signature](#api-sig-9937d0ec82ce5452)
+- `rebaseHostDescriptorForCloudflare` — [signature](#api-sig-16833a3973cf1283)
 - `redactCloudflareSecrets` — [signature](#api-sig-60556c88e9e94640)
 - `removeWorkspaceCloudflareProfile` — [signature](#api-sig-41a04cfa57906194)
 - `resolveCloudflareTarget` — [signature](#api-sig-d95bc2dadaf99c90)
@@ -767,7 +767,7 @@ Exports:
 - `SignR2RequestInput` — [signature](#api-sig-c4c22574778603c8)
 - `SignR2RequestResult` — [signature](#api-sig-8790aa5d26cdd802)
 - `StoredCloudflareAccountEntry` — [signature](#api-sig-4634a604fcb2782e)
-- `targetMatchesPlatform` — [signature](#api-sig-8dfdbff6a5a9f625)
+- `targetMatchesPlatform` — [signature](#api-sig-c4b66ead4643171f)
 - `upsertWorkspaceCloudflareProfile` — [signature](#api-sig-0702826fd491a02e)
 - `UpsertWorkspaceCloudflareProfileInput` — [signature](#api-sig-a52330bb42caab7f)
 - `validateCloudflareAccountId` — [signature](#api-sig-b3eaea2ee414e81f)
@@ -776,8 +776,8 @@ Exports:
 - `validateCloudflareZoneId` — [signature](#api-sig-64ec7efc35880bea)
 - `validateR2Bucket` — [signature](#api-sig-5b8435254f9283f7)
 - `validateRelativeR2ObjectPath` — [signature](#api-sig-63c6f9dfb6f5e597)
-- `VerifiedCloudflarePackage` — [signature](#api-sig-5eacb649948ddb32)
-- `verifyLocalPackageForCloudflare` — [signature](#api-sig-ffc4bf421872d78c)
+- `VerifiedCloudflarePackage` — [signature](#api-sig-d9914273aaf94cca)
+- `verifyLocalPackageForCloudflare` — [signature](#api-sig-f0a7b32efa4ed511)
 - `WORKSPACE_CLOUDFLARE_CREDENTIALS_FILENAME` — [signature](#api-sig-e0e91f5507d98680)
 
 Signatures:
@@ -788,12 +788,12 @@ Signatures:
 
 Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L171)
 
-<a id="api-sig-ba709c7429a7858b"></a>
+<a id="api-sig-8032f485bcf3435e"></a>
 ### `buildPlatformEndpointsDocument`
 
 **Function** `buildPlatformEndpointsDocument(options: { targets: readonly ResolvedCloudflareTarget[]; appId: string; hostVersion: string; packageVersion?: string; slot?: "test" | "stable"; routeVersion?: string; keyId?: string; publicKey?: string; trustRootKeyId?: string; trustRootPublicKey?: string; trustPolicyUrl?: string; generatedAt?: string; }): PlatformEndpointsDocument`
 
-Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L562)
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L572)
 
 <a id="api-sig-ef28400ec49fb536"></a>
 ### `CF_ACCOUNT_ID_PATTERN`
@@ -980,7 +980,7 @@ Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/
 
 Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L16)
 
-<a id="api-sig-134cd6260fba6ee2"></a>
+<a id="api-sig-ade19c5b41389b14"></a>
 ### `CloudflareStudioPublishSummary`
 
 **Type** `CloudflareStudioPublishSummary = { appConfigUrl: string; hostConfigUrl: string; slot: "test" | "stable"; channel: string; releaseId: string; version: string; build: number; uploadedFiles: number; skippedFiles: number; uploadedBytes: number; skippedBytes: number; purgedZones: number; targets: CloudflareStudioTargetSummary[]; platformEndpoints: PlatformEndpointsDocument; publishedAt: string; }`
@@ -1002,9 +1002,9 @@ Members:
 - `uploadedFiles: number`
 - `version: string`
 
-Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L686)
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L696)
 
-<a id="api-sig-74ee9a4c566f4681"></a>
+<a id="api-sig-a12fb6c0fb369214"></a>
 ### `CloudflareStudioTargetSummary`
 
 **Type** `CloudflareStudioTargetSummary = { profileId?: string; accountId: string; bucket: string; keyPrefix: string; publicBaseUrl: string; platforms: CloudflarePlatformSelector[]; role: CloudflareRouteRole; appConfigUrl: string; hostConfigUrl: string; uploadedFiles: number; skippedFiles: number; uploadedBytes: number; skippedBytes: number; purgedUrls?: number; }`
@@ -1025,7 +1025,7 @@ Members:
 - `uploadedBytes: number`
 - `uploadedFiles: number`
 
-Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L669)
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L679)
 
 <a id="api-sig-8b04efc8a05bf5d9"></a>
 ### `CloudflareTargetConfig`
@@ -1251,12 +1251,12 @@ Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/s
 
 Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L164)
 
-<a id="api-sig-8265c159228e9222"></a>
+<a id="api-sig-b977dd04b70227af"></a>
 ### `IMMUTABLE_CACHE_CONTROL`
 
 **Value** `IMMUTABLE_CACHE_CONTROL: "public, max-age=31536000, immutable"`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L39)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L41)
 
 <a id="api-sig-5066597f3856b3da"></a>
 ### `inferWebAssetContentType`
@@ -1313,12 +1313,12 @@ Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_clou
 
 Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L31)
 
-<a id="api-sig-504462bd630fb909"></a>
+<a id="api-sig-b9729cc365c48fb3"></a>
 ### `MUTABLE_CACHE_CONTROL`
 
 **Value** `MUTABLE_CACHE_CONTROL: "no-cache, no-store, must-revalidate"`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L40)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L42)
 
 <a id="api-sig-cde4ab795681c82c"></a>
 ### `NativeDownloadManifestPayload`
@@ -1440,7 +1440,7 @@ Members:
 
 Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L81)
 
-<a id="api-sig-86f5564a763715ae"></a>
+<a id="api-sig-69fd0c8b60c0e531"></a>
 ### `PublishNativeInstallersOptions`
 
 **Type** `PublishNativeInstallersOptions = { clients: readonly R2Client[]; appId: string; channel?: "test" | "stable"; installers: readonly NativeInstallerInput[]; signingKeyFile?: string; purgeCache?: boolean; dryRun?: boolean; signal?: AbortSignal; }`
@@ -1455,9 +1455,9 @@ Members:
 - `signal?: AbortSignal`
 - `signingKeyFile?: string`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L992)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1075)
 
-<a id="api-sig-3538cd868fb84a5f"></a>
+<a id="api-sig-d6a8ac04f90ab29a"></a>
 ### `PublishNativeInstallersResult`
 
 **Type** `PublishNativeInstallersResult = { appId: string; channel: "test" | "stable"; dryRun: boolean; manifest: SignedNativeDownloadManifest; targetManifestUrls: Array<{ profileId?: string; bucket: string; role: "primary" | "fallback"; manifestUrl: string; cachePurge?: CloudflarePurgeSummary; }>; publishedAt: string; }`
@@ -1470,23 +1470,23 @@ Members:
 - `publishedAt: string`
 - `targetManifestUrls: { profileId?: string; bucket: string; role: "primary" | "fallback"; manifestUrl: string; cachePurge?: CloudflarePurgeSummary; }[]`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1003)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1086)
 
-<a id="api-sig-abe218cf3ebe2b38"></a>
+<a id="api-sig-8a1a9495a6e03ac4"></a>
 ### `publishNativeInstallersToCloudflare`
 
 **Function** `publishNativeInstallersToCloudflare(options: PublishNativeInstallersOptions): Promise<PublishNativeInstallersResult>`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1018)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1101)
 
-<a id="api-sig-64ababce8dedb7ef"></a>
+<a id="api-sig-f6ba9be18819102c"></a>
 ### `publishStudioVersionToCloudflareMatrix`
 
 **Function** `publishStudioVersionToCloudflareMatrix(options: PublishStudioVersionToCloudflareOptions): Promise<CloudflareStudioPublishSummary>`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1241)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1324)
 
-<a id="api-sig-1d1c937de230c708"></a>
+<a id="api-sig-f1d347a8fe65b8f4"></a>
 ### `PublishStudioVersionToCloudflareOptions`
 
 **Type** `PublishStudioVersionToCloudflareOptions = { clients: readonly R2Client[]; updatesDir: string; projectId: string; rootAppId: string; entry: PublishedVersion; reusedEntries?: Array<{ ownerProjectId: string; entry: PublishedVersion }>; previouslyPublishedEntries?: PublishedVersion[]; publicKey?: string | Buffer; publicKeyBase64?: string; keyId?: string; purgeCache?: boolean; writeEndpointsPath?: string; concurrency?: number; signal?: AbortSignal; onProgress?: (progress: CloudflareUploadProgress) => void; }`
@@ -1508,16 +1508,16 @@ Members:
 - `updatesDir: string`
 - `writeEndpointsPath?: string`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1223)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1306)
 
-<a id="api-sig-eda44461dfa29dd7"></a>
+<a id="api-sig-e3d03aefb256273f"></a>
 ### `publishToCloudflareMatrix`
 
 **Function** `publishToCloudflareMatrix(options: PublishToCloudflareMatrixOptions): Promise<CloudflareMatrixPublishResult>`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L610)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L648)
 
-<a id="api-sig-734ba8197f93862a"></a>
+<a id="api-sig-0b7e9570fa505225"></a>
 ### `PublishToCloudflareMatrixOptions`
 
 **Type** `PublishToCloudflareMatrixOptions = { clients: readonly R2Client[]; packageDir?: string; deployRoot?: string; routePrefix?: string; slot?: "test" | "stable"; hostVersion?: string; appId?: string; packageVersion?: string; publicKey?: string | Buffer; keyId?: string; publicKeyBase64?: string; filterPlatforms?: readonly CloudflareConcretePlatform[]; purgeCache?: boolean; apiTokensByProfile?: ReadonlyMap<string, string>; writeEndpointsPath?: string; dryRun?: boolean; concurrency?: number; signal?: AbortSignal; onProgress?: (progress: CloudflareUploadProgress) => void; }`
@@ -1543,7 +1543,7 @@ Members:
 - `slot?: "test" | "stable"`
 - `writeEndpointsPath?: string`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L576)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L614)
 
 <a id="api-sig-81fcfd8091baecf3"></a>
 ### `purgeCloudflareZoneCache`
@@ -1629,12 +1629,12 @@ Members:
 
 Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L51)
 
-<a id="api-sig-9937d0ec82ce5452"></a>
+<a id="api-sig-16833a3973cf1283"></a>
 ### `rebaseHostDescriptorForCloudflare`
 
 **Function** `rebaseHostDescriptorForCloudflare(descriptor: Record<string, unknown>, publicBaseUrl: string, slot?: "test" | "stable"): Record<string, unknown>`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L409)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L447)
 
 <a id="api-sig-60556c88e9e94640"></a>
 ### `redactCloudflareSecrets`
@@ -1780,12 +1780,12 @@ Members:
 
 Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L64)
 
-<a id="api-sig-8dfdbff6a5a9f625"></a>
+<a id="api-sig-c4b66ead4643171f"></a>
 ### `targetMatchesPlatform`
 
 **Function** `targetMatchesPlatform(target: Pick<ResolvedCloudflareTarget, "platforms">, platform: CloudflareConcretePlatform): boolean`
 
-Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L534)
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L544)
 
 <a id="api-sig-0702826fd491a02e"></a>
 ### `upsertWorkspaceCloudflareProfile`
@@ -1854,7 +1854,7 @@ Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/
 
 Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L106)
 
-<a id="api-sig-5eacb649948ddb32"></a>
+<a id="api-sig-d9914273aaf94cca"></a>
 ### `VerifiedCloudflarePackage`
 
 **Type** `VerifiedCloudflarePackage = { packageDir: string; envelope: SignedManifest; envelopeBytes: Uint8Array; payload: PocketUpdatePayload; payloadBytes: Uint8Array; payloadSha256: string; rawHostDescriptor?: Record<string, unknown>; immutableFiles: Array<{ relativePath: string; filePath: string; bytes: Uint8Array; size: number; sha256: string; contentType: string; deduplicate: boolean; }>; mutableFiles: Array<{ relativePath: string; filePath: string; bytes: Uint8Array; size: number; sha256: string; contentType: string; }>; }`
@@ -1870,14 +1870,14 @@ Members:
 - `payloadSha256: string`
 - `rawHostDescriptor?: Record<string, unknown>`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L110)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L148)
 
-<a id="api-sig-ffc4bf421872d78c"></a>
+<a id="api-sig-f0a7b32efa4ed511"></a>
 ### `verifyLocalPackageForCloudflare`
 
 **Function** `verifyLocalPackageForCloudflare(packageDir: string, publicKey?: string | Buffer): VerifiedCloudflarePackage`
 
-Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L137)
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L175)
 
 <a id="api-sig-e0e91f5507d98680"></a>
 ### `WORKSPACE_CLOUDFLARE_CREDENTIALS_FILENAME`
@@ -1961,18 +1961,18 @@ Signatures:
 Entry: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts)
 
 Exports:
-- `IMMUTABLE_CACHE_CONTROL` — [signature](#api-sig-8265c159228e9222)
-- `MUTABLE_CACHE_CONTROL` — [signature](#api-sig-504462bd630fb909)
-- `PublishNativeInstallersOptions` — [signature](#api-sig-86f5564a763715ae)
-- `PublishNativeInstallersResult` — [signature](#api-sig-3538cd868fb84a5f)
-- `publishNativeInstallersToCloudflare` — [signature](#api-sig-abe218cf3ebe2b38)
-- `publishStudioVersionToCloudflareMatrix` — [signature](#api-sig-64ababce8dedb7ef)
-- `PublishStudioVersionToCloudflareOptions` — [signature](#api-sig-1d1c937de230c708)
-- `publishToCloudflareMatrix` — [signature](#api-sig-eda44461dfa29dd7)
-- `PublishToCloudflareMatrixOptions` — [signature](#api-sig-734ba8197f93862a)
-- `rebaseHostDescriptorForCloudflare` — [signature](#api-sig-9937d0ec82ce5452)
-- `VerifiedCloudflarePackage` — [signature](#api-sig-5eacb649948ddb32)
-- `verifyLocalPackageForCloudflare` — [signature](#api-sig-ffc4bf421872d78c)
+- `IMMUTABLE_CACHE_CONTROL` — [signature](#api-sig-b977dd04b70227af)
+- `MUTABLE_CACHE_CONTROL` — [signature](#api-sig-b9729cc365c48fb3)
+- `PublishNativeInstallersOptions` — [signature](#api-sig-69fd0c8b60c0e531)
+- `PublishNativeInstallersResult` — [signature](#api-sig-d6a8ac04f90ab29a)
+- `publishNativeInstallersToCloudflare` — [signature](#api-sig-8a1a9495a6e03ac4)
+- `publishStudioVersionToCloudflareMatrix` — [signature](#api-sig-f6ba9be18819102c)
+- `PublishStudioVersionToCloudflareOptions` — [signature](#api-sig-f1d347a8fe65b8f4)
+- `publishToCloudflareMatrix` — [signature](#api-sig-e3d03aefb256273f)
+- `PublishToCloudflareMatrixOptions` — [signature](#api-sig-0b7e9570fa505225)
+- `rebaseHostDescriptorForCloudflare` — [signature](#api-sig-16833a3973cf1283)
+- `VerifiedCloudflarePackage` — [signature](#api-sig-d9914273aaf94cca)
+- `verifyLocalPackageForCloudflare` — [signature](#api-sig-f0a7b32efa4ed511)
 
 Signatures:
 
@@ -2001,7 +2001,7 @@ Signatures:
 Entry: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts)
 
 Exports:
-- `buildPlatformEndpointsDocument` — [signature](#api-sig-ba709c7429a7858b)
+- `buildPlatformEndpointsDocument` — [signature](#api-sig-8032f485bcf3435e)
 - `CF_ACCOUNT_ID_PATTERN` — [signature](#api-sig-ef28400ec49fb536)
 - `CF_PROFILE_ID_PATTERN` — [signature](#api-sig-5f6d971ac25b0c4f)
 - `CF_PROJECT_NAME_PATTERN` — [signature](#api-sig-11b03e3b01c781e9)
@@ -2017,8 +2017,8 @@ Exports:
 - `CloudflarePurgeSummary` — [signature](#api-sig-ca5337858520f25d)
 - `CloudflareR2Credentials` — [signature](#api-sig-9f02800a0878cf9c)
 - `CloudflareRouteRole` — [signature](#api-sig-2884d550a30a8e07)
-- `CloudflareStudioPublishSummary` — [signature](#api-sig-134cd6260fba6ee2)
-- `CloudflareStudioTargetSummary` — [signature](#api-sig-74ee9a4c566f4681)
+- `CloudflareStudioPublishSummary` — [signature](#api-sig-ade19c5b41389b14)
+- `CloudflareStudioTargetSummary` — [signature](#api-sig-a12fb6c0fb369214)
 - `CloudflareTargetConfig` — [signature](#api-sig-8b04efc8a05bf5d9)
 - `CloudflareTargetPublishResult` — [signature](#api-sig-a8e0b522523d6b01)
 - `CloudflareUploadProgress` — [signature](#api-sig-ef6b06dc035ad83b)
@@ -2036,7 +2036,7 @@ Exports:
 - `resolveCloudflareTarget` — [signature](#api-sig-d95bc2dadaf99c90)
 - `ResolvedCloudflareTarget` — [signature](#api-sig-e33cbde28f6c2d7a)
 - `SignedNativeDownloadManifest` — [signature](#api-sig-4466ef3de423966b)
-- `targetMatchesPlatform` — [signature](#api-sig-8dfdbff6a5a9f625)
+- `targetMatchesPlatform` — [signature](#api-sig-c4b66ead4643171f)
 - `validateCloudflareAccountId` — [signature](#api-sig-b3eaea2ee414e81f)
 - `validateCloudflareProfileId` — [signature](#api-sig-46cc8bb3fd0040f0)
 - `validateCloudflareRouteMatrix` — [signature](#api-sig-5d26be099f109aca)
@@ -24535,15 +24535,15 @@ The following markers cover all inventoried declaration sources and package mani
 <!-- api-source: packages/pocket_arc/src/skins.tsx dcb7f37ec717b25c7d3bac9f4aabdc1a185210c63e728b21f5787c9b80c104c9 -->
 <!-- api-source: packages/pocket_arc/src/surfaces.tsx 419b5b0267a6c3987ec08aad9a0163aeb755d1e2aa62944e0295fc2d5fc9c946 -->
 <!-- api-source: packages/pocket_arc/src/tokens.ts 84dc1bb1fb33c5923c3b9ac6c15c9ce6453b221de53feeef087cbc2d6c8578ae -->
-<!-- api-source: packages/pocket_cloudflare/package.json 41cd2d820d9a8af848457573466f5c8b93d714c65d06d98fd7beba71a00043f5 -->
+<!-- api-source: packages/pocket_cloudflare/package.json e45251b197a9a5c1907a4950891a81c3511c676978afecc8028bb813159aa12b -->
 <!-- api-source: packages/pocket_cloudflare/src/cli.ts 7b05b9d29fef445934ac284d0653bada54295947ff0c02b17aacb7712e82f815 -->
 <!-- api-source: packages/pocket_cloudflare/src/client.ts f7d8838f2930114bfaee2c94b6172ca70ca5bc1ae59d76d707922717dcce533e -->
 <!-- api-source: packages/pocket_cloudflare/src/index.ts f08b2237d4e50688387edaf9e547455e3dcc0e0853e04fa08a4ae24b039c4b01 -->
 <!-- api-source: packages/pocket_cloudflare/src/local_config.ts 4353913a6ad023398e35decab20489254687b82a43adaeadd4fe5368c835f65b -->
 <!-- api-source: packages/pocket_cloudflare/src/pages.ts 4da6a46245e74f9ce4e31a930e6def5027e2c53af6f82528ec6374268cedf057 -->
-<!-- api-source: packages/pocket_cloudflare/src/publisher.ts 7d0a16a5b79c84d764fd60025dc7dc37e2d28339bd2dd4fa123323a84589eae3 -->
+<!-- api-source: packages/pocket_cloudflare/src/publisher.ts 69d6ada6a9834508c38b649c51c189146eb390cb213072a57f45009821815fe4 -->
 <!-- api-source: packages/pocket_cloudflare/src/sign.ts cdc9f9524ae13faf8295b853924746abce9cc69b5e2b82aaf5f6f81a0c3dee21 -->
-<!-- api-source: packages/pocket_cloudflare/src/types.ts 9af265e6d5d4099b2ae19f31181de3458414848c28d77cbeca003fb5678b3e14 -->
+<!-- api-source: packages/pocket_cloudflare/src/types.ts e6b41660c00f00609aed1653781fa937bff64f0e7dac5663f5f882738625335a -->
 <!-- api-source: packages/pocket_cos/package.json 2edd900ef0cee866cf39b5dd18c694766e47270fce75c1e2bf83273caae5d8f9 -->
 <!-- api-source: packages/pocket_cos/src/cli.ts 5491f099bc627434ad5cd9a9498a4374b821ed2835c1a3c22df2521070016a28 -->
 <!-- api-source: packages/pocket_cos/src/client.ts d561d4f84c49065a3447e33d0f634bffca6ec8f38d2577532e60f13e8b0cc429 -->

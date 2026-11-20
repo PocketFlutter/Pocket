@@ -22,6 +22,7 @@ import {
   type CloudflareCredentialProvider,
 } from "../packages/pocket_cloudflare/src/types.ts";
 import { BYTECODE_ABI, SDK_VERSION, UPSTREAM_REVISION } from "./prebuilt_tools.mjs";
+import { standalonePublisherFiles } from "./standalone_publisher_files.mjs";
 import {
   DEFAULT_GITHUB_REGISTRY_ORIGIN,
   DEFAULT_R2_REGISTRY_ORIGIN,
@@ -346,6 +347,12 @@ export function buildPackageRegistry(
     const version = jsVersion ?? dartMeta.version ?? SDK_VERSION;
 
     const files = collectPackageSourceFiles(pkgDir);
+    if (spec.slug === "pocket_cos" || spec.slug === "pocket_cloudflare") {
+      const publisher = readFileSync(join(pkgDir, "src", "publisher.ts"), "utf8");
+      for (const [path, bytes] of standalonePublisherFiles(sdkRoot, publisher)) {
+        files.set(path, bytes);
+      }
+    }
     if (spec.hostWiring) {
       files.set(
         "pocket-plugin.json",
@@ -372,13 +379,14 @@ export function buildPackageRegistry(
 
     const tgzBytes = createDeterministicPackageTgz(files);
     const tarballSha256 = sha256Hex(tgzBytes);
-    const tarballRelPath = `registry/v1/packages/${spec.slug}/${spec.slug}-${version}.tgz`;
+    const archiveName = `${spec.slug}-${version}-${tarballSha256}.tgz`;
+    const tarballRelPath = `registry/v1/packages/${spec.slug}/${archiveName}`;
     const tarballAbsPath = join(outDir, tarballRelPath);
     mkdirSync(dirname(tarballAbsPath), { recursive: true });
     writeFileSync(tarballAbsPath, tgzBytes);
     writeFileSync(
       `${tarballAbsPath}.sha256`,
-      `${tarballSha256}  ${spec.slug}-${version}.tgz\n`,
+      `${tarballSha256}  ${archiveName}\n`,
     );
 
     const entry: RegistryPackageCatalogEntry = {

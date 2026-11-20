@@ -1,5 +1,5 @@
 /**
- * Official 27-package catalog metadata and schema definitions for the
+ * Official 28-package catalog metadata and schema definitions for the
  * PocketFlutter static package registry.
  */
 

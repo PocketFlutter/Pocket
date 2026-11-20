@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
@@ -160,6 +161,24 @@ test("packages all 28 official SDK packages deterministically with Ed25519 signe
       expect(builtA.index.packages[i]!.tarballSha256).toBe(
         builtB.index.packages[i]!.tarballSha256,
       );
+    }
+
+    for (const entry of builtA.index.packages) {
+      expect(entry.tarballPath).toEndWith(`-${entry.tarballSha256}.tgz`);
+    }
+    for (const slug of ["pocket_cos", "pocket_cloudflare"]) {
+      const entry = builtA.index.packages.find((pkg) => pkg.slug === slug)!;
+      const extracted = join(temp, slug);
+      mkdirSync(extracted);
+      const unpack = spawnSync("tar", ["-xf", join(outA, entry.tarballPath), "-C", extracted], { encoding: "utf8" });
+      expect(unpack.stderr).toBe("");
+      expect(unpack.status).toBe(0);
+      const imported = spawnSync(process.execPath, ["-e", 'await import("./src/index.ts")'], {
+        cwd: join(extracted, "package"),
+        encoding: "utf8",
+      });
+      expect(imported.stderr).toBe("");
+      expect(imported.status).toBe(0);
     }
 
     const verified = await loadRegistryIndex({

@@ -81,6 +81,8 @@ npm --prefix sdk run cf -- check --profile cf-apple --bucket pocket-apple
 
 运行 `bun sdk/pocket.ts build <project>` 时，构建管线会自动将 `pocket-endpoints.json` 生成至 `build/pocket/pocket-endpoints.json` 与 `flutter/assets/pocket-endpoints.json`，并自动挂载到 `flutter/pubspec.yaml` 的 `assets` 列表。
 
+Studio 的 Cloudflare 同步从本机回环连接触发。局域网发布保留本地发布行为。Studio 仅在保存已启用设置或发布稳定版时更新 Flutter 端点资产。测试版和 dry-run 保留稳定版资产。独立 R2 目标的历史版本只包含已存在并通过存储摘要校验的产物。
+
 ## 4. 发布热更包、原生安装包与 Web 产物
 
 ```sh

@@ -43,7 +43,7 @@ See [sdk/package.json](../package.json) for the exact definitions.
 | JS compiler and targets | `build:guest -- [guest flags]`, `build:web -- [web flags]`, `export:web-sdk -- [export flags]`, `preview:wechat -- [target flags]` | Uses pinned Guest and QuickJS. See [Web SDK](WEB_SDK_EXPORT.md) and [WeChat host](WECHAT_HOST_IMPLEMENTATION.md) for target boundaries. |
 | Studio | `editor`, `editor:start`, `editor:restart`, `editor:stop`, `editor:status` | Calls Node service start/restart/stop/status. Use `bun pocket.ts editor DIRECTORY [options]` for foreground Editor. See [Studio](EDITOR_STUDIO.md). |
 | Toolchain | `setup`, `bootstrap`, `doctor`, `build:probe`, `setup:source`, `bootstrap:source`, `build:probe:source`, `build:engine:source`, `package:tools` | Prebuilt installation and validation and source release tools. See [NPM_TOOLCHAIN.md](NPM_TOOLCHAIN.md). |
-| Package registry | `search -- [keyword]`, `add -- DIR PKG...`, `remove -- DIR PKG...`, `registry -- build\|sync-r2` | Search, on-demand install/remove, and static registry build/R2 sync across official SDK packages. See [Package registry](PACKAGE_REGISTRY.md). |
+| Package registry | `search -- [keyword]`, `add -- DIR PKG...`, `packages -- DIR`, `remove -- DIR PKG...`, `registry -- build\|sync-r2` | Search, on-demand install/remove, and static registry build/R2 sync across official SDK packages. See [Package registry](PACKAGE_REGISTRY.md). |
 | Other CLI | `cos -- [cos args]`, `cf -- [cf args]`, `official-demos -- [demo args]` | COS and Cloudflare multi-account publishing and official sample builds. Credentials stay in local `0o600` vaults or env vars. |
 | Architecture | `check:architecture` | Checks SDK and Showcase boundaries. |
 | Test entry points | `test`, `test:demand`, `test:packages`, `test:editor`, `test:editor:live` | See manifest commands. Test results do not define the public contract. |
@@ -145,7 +145,7 @@ bun sdk/pocket.ts registry build [--out=DIR] [--key-file=FILE] [--r2-base-url=UR
 bun sdk/pocket.ts registry sync-r2 --registry-dir=DIR --account-id=HEX32 --bucket=NAME [--profile=ID] [--workspace=DIR] [--public-base-url=URL] [--zone-id=HEX32] [--dry-run]
 ```
 
-按需解析并安装官方 27 包（支持 Cloudflare R2 镜像优先与 GitHub 静态源自动回退、SHA-256 校验、`pocket-lock.json` 锁定与 `flutter/lib/pocket_plugins.g.dart` 无侵入自动装配）。完整说明见 [PACKAGE_REGISTRY.md](PACKAGE_REGISTRY.md)。
+按需解析并安装官方 28 包（支持 Cloudflare R2 镜像优先与 GitHub 静态源自动回退、SHA-256 校验、`pocket-lock.json` 锁定与 `flutter/lib/pocket_plugins.g.dart` 无侵入自动装配）。完整说明见 [PACKAGE_REGISTRY.md](PACKAGE_REGISTRY.md)。
 
 ### `types <descriptor.json> --out=plugin-types.ts`
 

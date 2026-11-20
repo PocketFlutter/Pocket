@@ -190,6 +190,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -300,6 +302,7 @@ jobs:
             packages/pocket_spine/test \
             packages/pocket_live2d/test \
             packages/pocket_diagnostics/test \
+            packages/pocket_cloudflare/test \
             tests \
             scripts/tests \
             editor/test/preview_text_transform.test.ts \
@@ -310,7 +313,8 @@ jobs:
             editor/test/preview_system_request_pending.test.ts \
             editor/test/preview_root_storage_startup.test.ts \
             editor/test/preview_idle_mini_app.test.ts \
-            editor/test/preview_storage.test.ts
+            editor/test/preview_storage.test.ts \
+            editor/test/cloudflare_and_packages_studio.test.ts
 
       - name: Run Showcase guest compilation, ablation, and native probe suites
         env:

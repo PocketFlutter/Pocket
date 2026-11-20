@@ -1284,7 +1284,6 @@ function validateConfig(id: string, input: Record<string, unknown>): EditorConfi
         profileId,
         ...(typeof item.accountId === "string" && item.accountId.trim() ? { accountId: item.accountId.trim().toLowerCase() } : {}),
         bucket,
-        ...(typeof item.endpoint === "string" && item.endpoint.trim() ? { endpoint: item.endpoint.trim() } : {}),
         ...(typeof item.keyPrefix === "string" && item.keyPrefix.trim() ? { keyPrefix: normalizeR2KeyPrefix(item.keyPrefix) } : {}),
         publicBaseUrl,
         platforms: normalizeCloudflarePlatforms(item.platforms as string[] | string | undefined),
@@ -4987,6 +4986,8 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
     };
   };
 
+  const flutterEndpointsPath = "flutter/assets/pocket-endpoints.json";
+
   const executeCloudflarePublish = async (
     id: string,
     config: EditorConfig,
@@ -5050,7 +5051,7 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
           profileId: route.profileId,
           accountId: route.accountId || credentials.accountId,
           bucket: route.bucket,
-          endpoint: options.cloudflareOptions?.endpointOverride || route.endpoint,
+          endpoint: options.cloudflareOptions?.endpointOverride,
           keyPrefix: route.keyPrefix,
           publicBaseUrl: route.publicBaseUrl,
           platforms: route.platforms,
@@ -5060,7 +5061,7 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
           workerScriptName: route.workerScriptName,
           apiBaseOrigin: options.cloudflareOptions?.apiBaseOriginOverride,
           allowInsecureHttpForTesting: Boolean(
-            options.cloudflareOptions?.allowInsecureHttpForTesting || route.allowInsecureHttpForTesting,
+            options.cloudflareOptions?.allowInsecureHttpForTesting,
           ),
         },
         credentials,
@@ -5070,10 +5071,8 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
 
     const { key } = await editorUpdateTrust(workspace, id);
     const pDir = projectDir(id);
-    const flutterAssetsDir = join(pDir, "flutter/assets");
-    const writeEndpointsPath = existsSync(join(pDir, "flutter/pubspec.yaml"))
-      ? join(flutterAssetsDir, "pocket-endpoints.json")
-      : undefined;
+    const writeFlutterEndpoints = slot === "stable" && existsSync(join(pDir, "flutter/pubspec.yaml"));
+    if (writeFlutterEndpoints) safeProjectFile(pDir, flutterEndpointsPath, { allowAssets: true });
 
     const summary = await publishStudioVersionToCloudflareMatrix({
       clients,
@@ -5087,8 +5086,15 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
       publicKeyBase64: key.publicKeyBase64,
       keyId: key.keyId,
       purgeCache: config.cloudflare?.purgeCacheOnPublish !== false,
-      ...(writeEndpointsPath ? { writeEndpointsPath } : {}),
     });
+    if (writeFlutterEndpoints) {
+      await writeProjectFile(
+        pDir,
+        flutterEndpointsPath,
+        JSON.stringify(summary.platformEndpoints, null, 2) + "\n",
+        { allowAssets: true },
+      );
+    }
 
     state.cloudflarePublish = {
       ...(state.cloudflarePublish ?? {}),
@@ -6694,9 +6700,11 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
                   purgeCacheOnPublish,
                   targets: cleanTargets,
                 };
+                const writeFlutterEndpoints = enabled && existsSync(join(pDir, "flutter/pubspec.yaml"));
+                if (writeFlutterEndpoints) safeProjectFile(pDir, flutterEndpointsPath, { allowAssets: true });
                 await writeProjectCloudflareConfig(pDir, nextCfConfig);
 
-                if (resolvedTargetsForEndpoints.length > 0 && existsSync(join(pDir, "flutter/pubspec.yaml"))) {
+                if (writeFlutterEndpoints) {
                   const { key } = await editorUpdateTrust(workspace, id);
                   const endpointsDoc = buildPlatformEndpointsDocument({
                     targets: resolvedTargetsForEndpoints,
@@ -6707,11 +6715,11 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
                     keyId: key.keyId,
                     publicKey: key.publicKeyBase64,
                   });
-                  await mkdir(join(pDir, "flutter", "assets"), { recursive: true });
-                  await writeFile(
-                    join(pDir, "flutter", "assets", "pocket-endpoints.json"),
+                  await writeProjectFile(
+                    pDir,
+                    flutterEndpointsPath,
                     JSON.stringify(endpointsDoc, null, 2) + "\n",
-                    "utf8",
+                    { allowAssets: true },
                   );
                 }
 
@@ -6888,7 +6896,7 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
             }
             let cloudflarePublish: CloudflareStudioPublishSummary | undefined;
             let cloudflareError: string | undefined;
-            if (config.cloudflare?.enabled && config.cloudflare?.syncOnPublish) {
+            if (loopback && config.cloudflare?.enabled && config.cloudflare?.syncOnPublish) {
               const cfLockKey = `cf:${updateHostVersion}/${config.appId}/${publishSlot}`;
               if (publishSlots.has(cfLockKey)) {
                 cloudflareError = "another Cloudflare publish is using this package slot; retry when it completes";

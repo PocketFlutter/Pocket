@@ -1,13 +1,15 @@
-import { createPrivateKey, createPublicKey, sign as cryptoSign } from "node:crypto";
+import { createPrivateKey, createPublicKey, randomUUID, sign as cryptoSign } from "node:crypto";
 import {
   existsSync,
   lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, posix, relative, resolve } from "node:path";
 
 import type { PublishedVersion } from "../../../editor/version_store.ts";
 import {
@@ -92,6 +94,42 @@ function readVerifiedRegularFile(filePath: string, label: string): Uint8Array {
     throw new Error(`File must be a regular non-symlink file (${label}): ${filePath}`);
   }
   return new Uint8Array(readFileSync(filePath));
+}
+
+function checkEndpointsOutputPath(path: string): void {
+  let current = path;
+  while (true) {
+    try {
+      const stat = lstatSync(current);
+      if (current === path ? !stat.isFile() : !stat.isDirectory()) {
+        throw new Error(`Invalid endpoint asset path: ${current} must be a regular non-symlink ${current === path ? "file" : "directory"}`);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    const parent = dirname(current);
+    if (parent === current) return;
+    current = parent;
+  }
+}
+
+function writeEndpointsDocument(path: string, document: PlatformEndpointsDocument): void {
+  checkEndpointsOutputPath(path);
+  mkdirSync(dirname(path), { recursive: true });
+  const temporaryPath = join(dirname(path), `.pocket-endpoints-${randomUUID()}.tmp`);
+  try {
+    writeFileSync(temporaryPath, JSON.stringify(document, null, 2) + "\n", { flag: "wx" });
+    renameSync(temporaryPath, path);
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
+}
+
+function relativePublicObjectUrl(indexKey: string, objectKey: string): string {
+  return posix.relative(posix.dirname(indexKey), objectKey)
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
 }
 
 function inferContentType(relativePath: string): string {
@@ -630,6 +668,10 @@ export async function publishToCloudflareMatrix(
   }
 
   const dryRun = options.dryRun === true;
+  const endpointsPath = !dryRun && options.slot !== "test" && options.writeEndpointsPath
+    ? resolve(options.writeEndpointsPath)
+    : undefined;
+  if (endpointsPath) checkEndpointsOutputPath(endpointsPath);
   const concurrency = Math.max(1, Math.min(16, options.concurrency ?? 4));
   const discovered = discoverReleasePackages({
     packageDir: options.packageDir,
@@ -641,6 +683,36 @@ export async function publishToCloudflareMatrix(
     ...item,
     verified: verifyLocalPackageForCloudflare(item.packageDir, options.publicKey),
   }));
+
+  const movingIndexes = new Map<string, (typeof verifiedList)[number]>();
+  for (const item of verifiedList) {
+    if (!item.hostVersion || !item.packageId || !item.routeVersion) continue;
+    if (item.packageId !== item.verified.payload.appId) {
+      throw new Error(`Release directory app ID "${item.packageId}" does not match signed app ID "${item.verified.payload.appId}"`);
+    }
+    if (options.packageVersion &&
+        item.routeVersion !== options.packageVersion &&
+        item.verified.payload.version !== options.packageVersion) continue;
+    const routeBase = options.routePrefix?.replace(/^\/+|\/+$/g, "");
+    const indexKey = [routeBase, options.slot, "pocket", item.hostVersion, item.packageId, "latest.json"]
+      .filter(Boolean).join("/");
+    const previous = movingIndexes.get(indexKey);
+    const build = item.verified.payload.build;
+    if (!Number.isSafeInteger(build) || build < 0) {
+      throw new Error(`Invalid signed build for release ${item.routePrefix}`);
+    }
+    if (previous?.verified.payload.build === build &&
+        previous.verified.payloadSha256 !== item.verified.payloadSha256) {
+      throw new Error(`Ambiguous signed build ${build} for ${indexKey}`);
+    }
+    if (!previous || build > previous.verified.payload.build) {
+      movingIndexes.set(indexKey, item);
+    }
+  }
+  if (options.packageVersion && verifiedList.some((item) => item.routeVersion) &&
+      movingIndexes.size === 0) {
+    throw new Error(`No signed Pocket release matches packageVersion "${options.packageVersion}"`);
+  }
 
   type TargetPlan = {
     client: R2Client;
@@ -719,29 +791,35 @@ export async function publishToCloudflareMatrix(
         });
       }
 
-      // When a canonical pocket/<hostVersion>/<pkgId>/<routeVersion> release is
-      // published, also emit the fixed moving index pocket/<hostVersion>/<pkgId>/latest.json
-      // (or <slot>/pocket/<hostVersion>/<pkgId>/latest.json) if not already covered,
-      // so PocketHostConfig / PocketUpdateCoordinator's canonical `<base>/pocket/<hostVersion>/<appId>/latest.json`
-      // resolves deterministically.
     }
 
-    // Add moving package-level latest.json pointer when publishing canonical deployRoot with routeVersion != "latest.json"
-    for (const item of verifiedList) {
-      if (item.hostVersion && item.packageId && item.routeVersion) {
-        const slotPrefix = options.slot ? `${options.slot}/` : "";
-        const fixedIndexRel = `${slotPrefix}pocket/${item.hostVersion}/${item.packageId}/latest.json`;
-        if (!phase2Tasks.some((t) => t.relativeKey === fixedIndexRel)) {
-          phase2Tasks.push({
-            relativeKey: fixedIndexRel,
-            bytes: item.verified.envelopeBytes,
-            size: item.verified.envelopeBytes.byteLength,
-            sha256: sha256Hex(item.verified.envelopeBytes),
-            contentType: "application/json; charset=utf-8",
-            cacheControl: MUTABLE_CACHE_CONTROL,
-          });
-        }
-      }
+    for (const [indexKey, item] of movingIndexes) {
+      const envelopeKey = `${item.routePrefix}/latest.json`;
+      const latest = {
+        id: item.verified.payload.appId,
+        version: item.verified.payload.version,
+        build: item.verified.payload.build,
+        payloadSha256: item.verified.payloadSha256,
+        manifestUrl: relativePublicObjectUrl(indexKey, envelopeKey),
+        ...(item.verified.rawHostDescriptor
+          ? { hostConfigUrl: relativePublicObjectUrl(indexKey, `${item.routePrefix}/host.json`) }
+          : {}),
+      };
+      const bytes = new TextEncoder().encode(JSON.stringify({
+        schemaVersion: 1,
+        kind: "pocket-editor-package-index",
+        packageId: latest.id,
+        latest,
+        versions: [latest],
+      }, null, 2) + "\n");
+      phase2Tasks.push({
+        relativeKey: indexKey,
+        bytes,
+        size: bytes.byteLength,
+        sha256: sha256Hex(bytes),
+        contentType: "application/json; charset=utf-8",
+        cacheControl: MUTABLE_CACHE_CONTROL,
+      });
     }
 
     return {
@@ -933,20 +1011,29 @@ export async function publishToCloudflareMatrix(
     });
   }
 
-  const firstVerified = verifiedList[0]?.verified;
+  const firstRelease = [...movingIndexes.values()].find((item) =>
+    (!options.appId || item.packageId === options.appId) &&
+    (!options.hostVersion || item.hostVersion === options.hostVersion),
+  ) ?? verifiedList[0];
+  const firstVerified = firstRelease?.verified;
   const inferredAppId = options.appId ?? firstVerified?.payload.appId;
   const inferredHostVersion =
-    options.hostVersion ?? verifiedList[0]?.hostVersion ?? "0.1.0";
+    options.hostVersion ?? firstRelease?.hostVersion ?? "0.1.0";
   const inferredPackageVersion =
     options.packageVersion ??
-    verifiedList[0]?.routeVersion ??
+    firstRelease?.routeVersion ??
     firstVerified?.payload.version;
   const inferredKeyId = options.keyId ?? firstVerified?.envelope.keyId;
 
   let platformEndpoints: PlatformEndpointsDocument | undefined;
   if (inferredAppId && inferredHostVersion) {
     platformEndpoints = buildPlatformEndpointsDocument({
-      targets: allTargets,
+      targets: options.routePrefix && movingIndexes.size > 0
+        ? allTargets.map((target) => ({
+            ...target,
+            publicBaseUrl: `${target.publicBaseUrl}/${options.routePrefix!.replace(/^\/+|\/+$/g, "").split("/").map(encodeURIComponent).join("/")}`,
+          }))
+        : allTargets,
       appId: inferredAppId,
       hostVersion: inferredHostVersion,
       packageVersion: inferredPackageVersion,
@@ -955,11 +1042,7 @@ export async function publishToCloudflareMatrix(
       publicKey: options.publicKeyBase64,
     });
 
-    if (options.writeEndpointsPath) {
-      const targetOut = resolve(options.writeEndpointsPath);
-      mkdirSync(dirname(targetOut), { recursive: true });
-      writeFileSync(targetOut, JSON.stringify(platformEndpoints, null, 2) + "\n");
-    }
+    if (endpointsPath) writeEndpointsDocument(endpointsPath, platformEndpoints);
   }
 
   return {
@@ -1253,22 +1336,55 @@ export async function publishStudioVersionToCloudflareMatrix(
   const slot = entry.slot;
   const channel = entry.channel;
   const hostVersion = entry.hostVersion;
+  const endpointsPath = slot === "stable" && options.writeEndpointsPath
+    ? resolve(options.writeEndpointsPath)
+    : undefined;
+  if (endpointsPath) checkEndpointsOutputPath(endpointsPath);
 
   type PackageToUpload = {
-    projectId: string;
     releaseEntry: PublishedVersion;
     pkgId: string;
     version: string;
     build: number;
-    packageDir: string;
     verified: VerifiedCloudflarePackage;
   };
 
   const packagesToUpload: PackageToUpload[] = [];
   const seenReleasePkg = new Set<string>();
 
+  const verifyEntryPackage = (
+    releaseEntry: PublishedVersion,
+    pkg: PublishedVersion["packages"][number],
+  ): PackageToUpload => {
+    if (!pkg.artifactRoot || isAbsolute(pkg.artifactRoot)) {
+      throw new Error(`Invalid package artifactRoot outside updatesDir: ${pkg.artifactRoot}`);
+    }
+    const packageDir = resolve(updatesDir, pkg.artifactRoot);
+    const relPackageDir = relative(updatesDir, packageDir);
+    if (
+      !relPackageDir ||
+      relPackageDir.startsWith("..") ||
+      isAbsolute(relPackageDir) ||
+      relPackageDir.split(/[\\/]+/).includes("..")
+    ) {
+      throw new Error(`Invalid package artifactRoot outside updatesDir: ${pkg.artifactRoot}`);
+    }
+    const verified = verifyLocalPackageForCloudflare(packageDir, options.publicKey);
+    if (verified.payload.appId !== pkg.id ||
+        verified.payload.version !== pkg.version ||
+        verified.payload.build !== pkg.build) {
+      throw new Error(`Published package metadata does not match signed manifest: ${pkg.id}`);
+    }
+    return {
+      releaseEntry,
+      pkgId: pkg.id,
+      version: pkg.version,
+      build: pkg.build,
+      verified,
+    };
+  };
+
   const addEntryPackages = (
-    ownerProjectId: string,
     releaseEntry: PublishedVersion,
     filterPackageIds?: Set<string>,
   ) => {
@@ -1278,33 +1394,20 @@ export async function publishStudioVersionToCloudflareMatrix(
       if (seenReleasePkg.has(key)) continue;
       seenReleasePkg.add(key);
 
-      if (!pkg.artifactRoot || isAbsolute(pkg.artifactRoot)) {
-        throw new Error(`Invalid package artifactRoot outside updatesDir: ${pkg.artifactRoot}`);
-      }
-      const packageDir = resolve(updatesDir, pkg.artifactRoot);
-      const relPackageDir = relative(updatesDir, packageDir);
-      if (
-        !relPackageDir ||
-        relPackageDir.startsWith("..") ||
-        isAbsolute(relPackageDir) ||
-        relPackageDir.split(/[\\/]+/).includes("..")
-      ) {
-        throw new Error(`Invalid package artifactRoot outside updatesDir: ${pkg.artifactRoot}`);
-      }
-      const verified = verifyLocalPackageForCloudflare(packageDir, options.publicKey);
-      packagesToUpload.push({
-        projectId: ownerProjectId,
-        releaseEntry,
-        pkgId: pkg.id,
-        version: pkg.version,
-        build: pkg.build,
-        packageDir,
-        verified,
-      });
+      packagesToUpload.push(verifyEntryPackage(releaseEntry, pkg));
     }
   };
 
-  addEntryPackages(options.projectId, entry);
+  addEntryPackages(entry);
+  const rootPackage = packagesToUpload.find((item) => item.pkgId === options.rootAppId);
+  if (!rootPackage || rootPackage.verified.payloadSha256 !== entry.payloadSha256) {
+    throw new Error(`Release ${entry.releaseId} has no verified root package`);
+  }
+  for (const item of packagesToUpload) {
+    if (!item.verified.rawHostDescriptor) {
+      throw new Error(`Release ${entry.releaseId} is missing host.json for ${item.pkgId}`);
+    }
+  }
 
   if (options.reusedEntries && entry.reusedPackages) {
     const reusedMap = new Map<string, Set<string>>();
@@ -1317,7 +1420,7 @@ export async function publishStudioVersionToCloudflareMatrix(
     for (const reused of options.reusedEntries) {
       const k = `${reused.ownerProjectId}\n${reused.entry.releaseId}`;
       const filter = reusedMap.get(k);
-      addEntryPackages(reused.ownerProjectId, reused.entry, filter);
+      if (filter) addEntryPackages(reused.entry, filter);
     }
   }
 
@@ -1332,7 +1435,7 @@ export async function publishStudioVersionToCloudflareMatrix(
     }
   }
 
-  const orderedIndexPackages = [...packagesToUpload].sort((a, b) => {
+  const orderedIndexPackages = packagesToUpload.filter((item) => item.releaseEntry === entry).sort((a, b) => {
     const aIsRoot = a.pkgId === options.rootAppId ? 1 : 0;
     const bIsRoot = b.pkgId === options.rootAppId ? 1 : 0;
     if (aIsRoot !== bIsRoot) return aIsRoot - bIsRoot;
@@ -1350,160 +1453,85 @@ export async function publishStudioVersionToCloudflareMatrix(
     deduplicate: boolean;
   };
 
-  // Build shared Phase 2 moving index documents (relative URLs inside index JSON are origin-agnostic)
-  const sharedPhase2Items: UploadItem[] = [];
-  const seenIndexPkg = new Set<string>();
-
+  const historyByPackage = new Map<string, PackageToUpload[]>();
   for (const item of orderedIndexPackages) {
-    if (seenIndexPkg.has(item.pkgId)) continue;
-    seenIndexPkg.add(item.pkgId);
-
-    const candidateEntries =
-      item.projectId === options.projectId ? allHistoryEntries : [item.releaseEntry];
-    const records: Array<Record<string, unknown>> = [];
-    for (const histEntry of candidateEntries) {
-      const pkgRecord = histEntry.packages.find((p) => p.id === item.pkgId);
-      if (!pkgRecord) continue;
-      let payloadSha256: string | undefined;
-      if (
-        histEntry.releaseId === item.releaseEntry.releaseId &&
-        item.pkgId === item.verified.payload.appId
-      ) {
-        payloadSha256 = item.verified.payloadSha256;
-      } else {
-        try {
-          const histDir = resolve(updatesDir, pkgRecord.artifactRoot);
-          const relHistDir = relative(updatesDir, histDir);
-          if (
-            !isAbsolute(pkgRecord.artifactRoot) &&
-            relHistDir &&
-            !relHistDir.startsWith("..") &&
-            !isAbsolute(relHistDir) &&
-            !relHistDir.split(/[\\/]+/).includes("..")
-          ) {
-            const envPath = join(histDir, "latest.json");
-            if (existsSync(envPath)) {
-              const envJson = JSON.parse(readFileSync(envPath, "utf8")) as SignedManifest;
-              if (typeof envJson.payload === "string") {
-                payloadSha256 = sha256Hex(Buffer.from(envJson.payload, "base64"));
-              }
-            }
-          }
-        } catch {
-          // Ignore unreadable historical envelope.
+    const history = [item];
+    for (const prior of allHistoryEntries.slice(1)) {
+      const pkg = prior.packages.find((candidate) => candidate.id === item.pkgId);
+      if (!pkg) continue;
+      try {
+        const historical = verifyEntryPackage(prior, pkg);
+        if (historical.verified.rawHostDescriptor &&
+            (item.pkgId !== options.rootAppId || historical.verified.payloadSha256 === prior.payloadSha256)) {
+          history.push(historical);
         }
+      } catch {
+        // A local release without verifiable artifacts cannot enter the catalog.
       }
-
-      const encodedPkg = encodeURIComponent(item.pkgId);
-      const recordReleaseId = histEntry.releaseId;
-      records.push({
-        id: item.pkgId,
-        version: pkgRecord.version,
-        build: pkgRecord.build,
-        releaseId: recordReleaseId,
-        channel: histEntry.channel,
-        slot: histEntry.slot,
-        compatVersion: histEntry.compatVersion ?? histEntry.version,
-        routeVersion: histEntry.routeVersion ?? histEntry.version,
-        packageVersion: histEntry.packageVersion,
-        publishedAt: histEntry.publishedAt,
-        manifestUrl: `../../../../pocket/${hostVersion}/${encodedPkg}/${recordReleaseId}/latest.json`,
-        hostConfigUrl: `../../../../pocket/${hostVersion}/${encodedPkg}/${recordReleaseId}/host.json`,
-        archiveUrl: null,
-        ...(payloadSha256 ? { payloadSha256 } : {}),
-        rootPayloadSha256: histEntry.payloadSha256,
-      });
     }
-
-    const latestRecord = records[0];
-    if (!latestRecord) continue;
-
-    const indexDoc = {
-      schemaVersion: 1,
-      kind: "pocket-editor-package-index",
-      projectId: item.projectId,
-      hostVersion,
-      rootAppId: options.rootAppId,
-      systemUI: options.rootAppId,
-      packageId: item.pkgId,
-      slot,
-      channel,
-      compatVersion: item.releaseEntry.compatVersion ?? item.releaseEntry.version,
-      latest: latestRecord,
-      versions: records,
-    };
-    const indexBytes = new TextEncoder().encode(JSON.stringify(indexDoc, null, 2) + "\n");
-    sharedPhase2Items.push({
-      phase: "phase2",
-      relativeKey: `${slot}/pocket/${hostVersion}/${item.pkgId}/latest.json`,
-      bytes: indexBytes,
-      size: indexBytes.byteLength,
-      sha256: sha256Hex(indexBytes),
-      contentType: "application/json; charset=utf-8",
-      cacheControl: MUTABLE_CACHE_CONTROL,
-      deduplicate: false,
-    });
+    historyByPackage.set(item.pkgId, history);
   }
 
+  const immutableItems = (item: PackageToUpload, client: R2Client): UploadItem[] => {
+    const items: UploadItem[] = [];
+    const immutablePrefix = `pocket/${item.releaseEntry.hostVersion}/${item.pkgId}/${item.releaseEntry.releaseId}`;
+    for (const file of item.verified.immutableFiles) {
+      items.push({
+        phase: "phase1",
+        relativeKey: `${immutablePrefix}/${file.relativePath}`,
+        bytes: file.bytes,
+        size: file.size,
+        sha256: file.sha256,
+        contentType: file.contentType,
+        cacheControl: IMMUTABLE_CACHE_CONTROL,
+        deduplicate: file.deduplicate,
+      });
+    }
+    for (const file of item.verified.mutableFiles) {
+      if (file.relativePath === "host.json") continue;
+      items.push({
+        phase: "phase1",
+        relativeKey: `${immutablePrefix}/${file.relativePath}`,
+        bytes: file.bytes,
+        size: file.size,
+        sha256: file.sha256,
+        contentType: file.contentType,
+        cacheControl: IMMUTABLE_CACHE_CONTROL,
+        deduplicate: false,
+      });
+    }
+    if (item.verified.rawHostDescriptor) {
+      const rebasedHost = rebaseHostDescriptorForCloudflare(
+        item.verified.rawHostDescriptor,
+        client.target.publicBaseUrl,
+        item.releaseEntry.slot,
+      );
+      const rebasedBytes = new TextEncoder().encode(
+        JSON.stringify(rebasedHost, null, 2) + "\n",
+      );
+      items.push({
+        phase: "phase1",
+        relativeKey: `${immutablePrefix}/host.json`,
+        bytes: rebasedBytes,
+        size: rebasedBytes.byteLength,
+        sha256: sha256Hex(rebasedBytes),
+        contentType: "application/json; charset=utf-8",
+        cacheControl: IMMUTABLE_CACHE_CONTROL,
+        deduplicate: false,
+      });
+    }
+    return items;
+  };
   const targetPlans = options.clients.map((client) => {
     const targetKey =
       client.target.profileId ?? `${client.target.accountId.slice(0, 8)}:${client.target.bucket}`;
-    const phase1Items: UploadItem[] = [];
-    for (const item of packagesToUpload) {
-      const immutablePrefix = `pocket/${item.releaseEntry.hostVersion}/${item.pkgId}/${item.releaseEntry.releaseId}`;
-      for (const file of item.verified.immutableFiles) {
-        phase1Items.push({
-          phase: "phase1",
-          relativeKey: `${immutablePrefix}/${file.relativePath}`,
-          bytes: file.bytes,
-          size: file.size,
-          sha256: file.sha256,
-          contentType: file.contentType,
-          cacheControl: IMMUTABLE_CACHE_CONTROL,
-          deduplicate: file.deduplicate,
-        });
-      }
-      for (const file of item.verified.mutableFiles) {
-        if (file.relativePath === "host.json") continue;
-        phase1Items.push({
-          phase: "phase1",
-          relativeKey: `${immutablePrefix}/${file.relativePath}`,
-          bytes: file.bytes,
-          size: file.size,
-          sha256: file.sha256,
-          contentType: file.contentType,
-          cacheControl: IMMUTABLE_CACHE_CONTROL,
-          deduplicate: false,
-        });
-      }
-      if (item.verified.rawHostDescriptor) {
-        const rebasedHost = rebaseHostDescriptorForCloudflare(
-          item.verified.rawHostDescriptor,
-          client.target.publicBaseUrl,
-          slot,
-        );
-        const rebasedBytes = new TextEncoder().encode(
-          JSON.stringify(rebasedHost, null, 2) + "\n",
-        );
-        phase1Items.push({
-          phase: "phase1",
-          relativeKey: `${immutablePrefix}/host.json`,
-          bytes: rebasedBytes,
-          size: rebasedBytes.byteLength,
-          sha256: sha256Hex(rebasedBytes),
-          contentType: "application/json; charset=utf-8",
-          cacheControl: IMMUTABLE_CACHE_CONTROL,
-          deduplicate: false,
-        });
-      }
-    }
+    const phase1Items = packagesToUpload.flatMap((item) => immutableItems(item, client));
     return {
       client,
       targetKey,
       phase1Items,
-      phase2Items: sharedPhase2Items,
       completedFiles: 0,
-      totalFiles: phase1Items.length + sharedPhase2Items.length,
+      totalFiles: phase1Items.length + orderedIndexPackages.length,
       uploadedFiles: 0,
       skippedFiles: 0,
       uploadedBytes: 0,
@@ -1529,7 +1557,7 @@ export async function publishStudioVersionToCloudflareMatrix(
             if (
               head.exists &&
               head.size === task.size &&
-              (!head.sha256 || head.sha256.toLowerCase() === task.sha256.toLowerCase())
+              head.sha256?.toLowerCase() === task.sha256.toLowerCase()
             ) {
               action = "skipped";
             }
@@ -1573,6 +1601,74 @@ export async function publishStudioVersionToCloudflareMatrix(
     }),
   );
 
+  // Resolve every target's catalog before changing any moving index.
+  const phase2Plans = await Promise.all(targetPlans.map(async (plan) => {
+    const items: UploadItem[] = [];
+    for (const item of orderedIndexPackages) {
+      const indexKey = `${slot}/pocket/${hostVersion}/${item.pkgId}/latest.json`;
+      const records = [];
+      for (const historical of historyByPackage.get(item.pkgId) ?? []) {
+        const release = historical.releaseEntry;
+        if (historical !== item) {
+          let available = true;
+          for (const file of immutableItems(historical, plan.client)) {
+            const head = await plan.client.headObject(file.relativeKey, options.signal);
+            if (!head.exists || head.size !== file.size ||
+                head.sha256?.toLowerCase() !== file.sha256) {
+              available = false;
+              break;
+            }
+          }
+          if (!available) continue;
+        }
+        const releasePrefix = `pocket/${release.hostVersion}/${item.pkgId}/${release.releaseId}`;
+        records.push({
+          id: item.pkgId,
+          version: historical.version,
+          build: historical.build,
+          releaseId: release.releaseId,
+          channel: release.channel,
+          slot: release.slot,
+          compatVersion: release.compatVersion ?? release.version,
+          routeVersion: release.routeVersion ?? release.version,
+          packageVersion: release.packageVersion,
+          publishedAt: release.publishedAt,
+          manifestUrl: relativePublicObjectUrl(indexKey, `${releasePrefix}/latest.json`),
+          hostConfigUrl: relativePublicObjectUrl(indexKey, `${releasePrefix}/host.json`),
+          archiveUrl: null,
+          payloadSha256: historical.verified.payloadSha256,
+          rootPayloadSha256: release.payloadSha256,
+        });
+      }
+      const indexDoc = {
+        schemaVersion: 1,
+        kind: "pocket-editor-package-index",
+        projectId: options.projectId,
+        hostVersion,
+        rootAppId: options.rootAppId,
+        systemUI: options.rootAppId,
+        packageId: item.pkgId,
+        slot,
+        channel,
+        compatVersion: entry.compatVersion ?? entry.version,
+        latest: records[0],
+        versions: records,
+      };
+      const bytes = new TextEncoder().encode(JSON.stringify(indexDoc, null, 2) + "\n");
+      items.push({
+        phase: "phase2",
+        relativeKey: indexKey,
+        bytes,
+        size: bytes.byteLength,
+        sha256: sha256Hex(bytes),
+        contentType: "application/json; charset=utf-8",
+        cacheControl: MUTABLE_CACHE_CONTROL,
+        deduplicate: false,
+      });
+    }
+    return { ...plan, phase2Items: items };
+  }));
+
   // === GLOBAL PHASE 2 + Zone Cache Purge ===
   const targetSummaries: CloudflareStudioTargetSummary[] = [];
   let totalUploadedFiles = 0;
@@ -1580,7 +1676,7 @@ export async function publishStudioVersionToCloudflareMatrix(
   let totalUploadedBytes = 0;
   let totalSkippedBytes = 0;
 
-  for (const plan of targetPlans) {
+  for (const plan of phase2Plans) {
     const mutableUrls: string[] = [];
     for (const task of plan.phase2Items) {
       options.signal?.throwIfAborted?.();
@@ -1649,22 +1745,17 @@ export async function publishStudioVersionToCloudflareMatrix(
     });
   }
 
-  const rootVerified = packagesToUpload.find((p) => p.pkgId === options.rootAppId)?.verified ?? packagesToUpload[0]?.verified;
   const platformEndpoints = buildPlatformEndpointsDocument({
     targets: allTargets,
     appId: options.rootAppId,
     hostVersion,
     packageVersion: entry.compatVersion ?? entry.version,
     slot,
-    keyId: options.keyId ?? rootVerified?.envelope.keyId,
+    keyId: options.keyId ?? rootPackage.verified.envelope.keyId,
     publicKey: options.publicKeyBase64,
   });
 
-  if (options.writeEndpointsPath) {
-    const outPath = resolve(options.writeEndpointsPath);
-    mkdirSync(dirname(outPath), { recursive: true });
-    writeFileSync(outPath, JSON.stringify(platformEndpoints, null, 2) + "\n");
-  }
+  if (endpointsPath) writeEndpointsDocument(endpointsPath, platformEndpoints);
 
   const primaryTarget =
     targetSummaries.find((t) => t.role === "primary") ?? targetSummaries[0]!;

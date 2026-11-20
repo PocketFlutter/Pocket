@@ -1717,7 +1717,7 @@
             "rebaseHostDescriptorForCloudflare",
             "verifyLocalPackageForCloudflare"
           ],
-          "sourceSha256": "7d0a16a5b79c84d764fd60025dc7dc37e2d28339bd2dd4fa123323a84589eae3",
+          "sourceSha256": "69d6ada6a9834508c38b649c51c189146eb390cb213072a57f45009821815fe4",
           "reexports": []
         },
         {
@@ -1784,7 +1784,7 @@
             "validateCloudflareZoneId",
             "validateR2Bucket"
           ],
-          "sourceSha256": "9af265e6d5d4099b2ae19f31181de3458414848c28d77cbeca003fb5678b3e14",
+          "sourceSha256": "e6b41660c00f00609aed1653781fa937bff64f0e7dac5663f5f882738625335a",
           "reexports": []
         }
       ]
@@ -5240,7 +5240,7 @@
         },
         {
           "file": "editor/server.ts",
-          "sourceSha256": "0715db710905dee5172abeed2cd01a41e215806ea1f031dd68d68ee7ef391f77"
+          "sourceSha256": "eed72c3b1009a6134f9bfbe65e2ee63f4aadbd1dcb2403adeddebb6c15ff4702"
         },
         {
           "file": "editor/test/editor_live_probe.ts",
@@ -5284,7 +5284,7 @@
         },
         {
           "file": "scripts/export_web_sdk.ts",
-          "sourceSha256": "48c7cbfb21c274162e1214164bc87c946169eeec430e6b739d74c1d6b217ea3c"
+          "sourceSha256": "9bc415d6b46c57322fde3a8cb62962aa4b8a81f3df50883b990ca4e779c41936"
         },
         {
           "file": "scripts/install_studio.mjs",

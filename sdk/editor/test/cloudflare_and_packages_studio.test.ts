@@ -7,6 +7,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -428,6 +429,15 @@ test(
       read: async () => new Response("ok"),
     });
 
+    const cloudflareRequests: URL[] = [];
+    const mockCloudflareFetch: typeof fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const destination = new URL(input instanceof Request ? input.url : input);
+        cloudflareRequests.push(destination);
+        return fetch(new URL(destination.pathname + destination.search, mockCf.origin), init);
+      },
+      { preconnect: fetch.preconnect },
+    );
     const editorServer = await startEditor({
       port: 0,
       updateHost: "127.0.0.1",
@@ -439,9 +449,7 @@ test(
       cloudflareOptions: {
         env: {},
         homeDir,
-        allowInsecureHttpForTesting: true,
-        endpointOverride: mockCf.origin,
-        apiBaseOriginOverride: mockCf.origin,
+        fetchImpl: mockCloudflareFetch,
       },
       packageRegistryOptions: {
         ...(FALLBACK_REGISTRY_MODE ? { registry: FALLBACK_REGISTRY_MODE } : {}),
@@ -600,7 +608,115 @@ test(
       });
       expect(unknownProfileRes.response.status).toBe(400);
 
-      // 3c. Non-loopback LAN peer (192.168.1.50) even with valid CSRF token must get 403 on cloudflare/cos/packages mutations and scrubbed versions snapshot
+      // 4. Configure multi-account × platform matrix & verify pocket-endpoints.json generation + probe
+      const saveMatrix = await editorRequest(editorServer, `/api/projects/${projectId}/cloudflare`, {
+        method: "PUT",
+        csrfToken,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          enabled: true,
+          syncOnPublish: true,
+          purgeCacheOnPublish: true,
+          targets: [
+            {
+              profileId: "cf-apple",
+              bucket: "bucket-apple",
+              keyPrefix: `apps/${projectId}`,
+              publicBaseUrl: "https://ota-apple.test",
+              platforms: ["ios", "macos"],
+              role: "primary",
+            },
+            {
+              profileId: "cf-global",
+              bucket: "bucket-global",
+              keyPrefix: `apps/${projectId}`,
+              publicBaseUrl: "https://ota-global.test",
+              platforms: ["*"],
+              role: "fallback",
+              zoneId: "abcdef0123456789abcdef0123456789",
+            },
+          ],
+        }),
+      });
+      expect(saveMatrix.response.status, JSON.stringify(saveMatrix.value)).toBe(200);
+      expect(saveMatrix.value.config.enabled).toBe(true);
+      expect(saveMatrix.value.config.targets).toHaveLength(2);
+
+      const endpointsPath = join(projectDir, "flutter", "assets", "pocket-endpoints.json");
+      expect(existsSync(endpointsPath)).toBe(true);
+      const stableEndpoints = readFileSync(endpointsPath, "utf8");
+      const endpointsJson = JSON.parse(stableEndpoints);
+      expect(endpointsJson.routes.ios.primaryUrl).toBe(
+        "https://ota-apple.test/stable/pocket/0.2.0/pocket.cf.studio/latest.json",
+      );
+      expect(endpointsJson.routes.ios.fallbackUrls).toEqual([
+        "https://ota-global.test/stable/pocket/0.2.0/pocket.cf.studio/latest.json",
+      ]);
+
+      const disable = await editorRequest(editorServer, `/api/projects/${projectId}/cloudflare`, {
+        method: "PUT",
+        csrfToken,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          enabled: false,
+          targets: saveMatrix.value.config.targets.map((route: Record<string, unknown>) => ({
+            ...route,
+            publicBaseUrl: "https://disabled.example",
+          })),
+        }),
+      });
+      expect(disable.response.status, JSON.stringify(disable.value)).toBe(200);
+      expect(readFileSync(endpointsPath, "utf8")).toBe(stableEndpoints);
+
+      const editorPath = join(projectDir, "editor.json");
+      const savedEditor = JSON.parse(readFileSync(editorPath, "utf8"));
+      savedEditor.cloudflare.enabled = true;
+      savedEditor.cloudflare.targets = saveMatrix.value.config.targets;
+      savedEditor.cloudflare.targets[0].endpoint = "https://project-controlled.example";
+      savedEditor.cloudflare.targets[0].allowInsecureHttpForTesting = true;
+      writeFileSync(editorPath, JSON.stringify(savedEditor));
+
+      const outsideEndpoints = join(rootDir, "outside-endpoints.json");
+      writeFileSync(outsideEndpoints, "outside");
+      rmSync(endpointsPath);
+      symlinkSync(outsideEndpoints, endpointsPath);
+      const unsafeSave = await editorRequest(editorServer, `/api/projects/${projectId}/cloudflare`, {
+        method: "PUT",
+        csrfToken,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ enabled: true }),
+      });
+      expect(unsafeSave.response.status, JSON.stringify(unsafeSave.value)).toBe(400);
+      expect(readFileSync(outsideEndpoints, "utf8")).toBe("outside");
+      rmSync(endpointsPath);
+      writeFileSync(endpointsPath, stableEndpoints);
+
+      const checkRes = await editorRequest(editorServer, `/api/projects/${projectId}/cloudflare/check`, {
+        method: "POST",
+        csrfToken,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          profileId: "cf-apple",
+          bucket: "bucket-apple",
+          keyPrefix: `apps/${projectId}`,
+          publicBaseUrl: "https://ota-apple.test",
+        }),
+      });
+      expect(checkRes.response.status, JSON.stringify(checkRes.value)).toBe(200);
+      expect(checkRes.value.ok).toBe(true);
+
+      // 5. Build + publish local test slot, then two-phase publish to Cloudflare multi-account matrix
+      const buildStart = await editorRequest(editorServer, `/api/projects/${projectId}/build`, {
+        method: "POST",
+        csrfToken,
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      expect(buildStart.response.status).toBe(202);
+      const builtStatus = await waitForBuild(editorServer, projectId);
+      expect(builtStatus.error, builtStatus.logs?.join("\n")).toBeUndefined();
+
+      // A LAN peer with a valid CSRF token can publish locally without contacting Cloudflare.
       const origRequestIPDesc = Object.getOwnPropertyDescriptor(editorServer, "requestIP");
       Object.defineProperty(editorServer, "requestIP", {
         value: () => ({ address: "192.168.1.50", family: "IPv4", port: 54321 }),
@@ -634,6 +750,20 @@ test(
         expect(lanVersions.value.cloudflare.local.available).toBe(false);
         expect(lanVersions.value.cloudflare.local.profiles).toEqual([]);
         expect(lanVersions.value.cos.local.available).toBe(false);
+
+        const requestCount = cloudflareRequests.length;
+        const localPub = await editorRequest(editorServer, `/api/projects/${projectId}/publish`, {
+          method: "POST",
+          csrfToken,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ channel: "test" }),
+        });
+        expect(localPub.response.status, JSON.stringify(localPub.value)).toBe(200);
+        const releaseId = String(localPub.value.publish?.releaseId || localPub.value.version?.releaseId);
+        expect(releaseId.length).toBeGreaterThan(0);
+        expect(localPub.value.cloudflarePublish).toBeUndefined();
+        expect(localPub.value.cloudflareError).toBeUndefined();
+        expect(cloudflareRequests).toHaveLength(requestCount);
       } finally {
         if (origRequestIPDesc) {
           Object.defineProperty(editorServer, "requestIP", origRequestIPDesc);
@@ -641,85 +771,6 @@ test(
           delete (editorServer as any).requestIP;
         }
       }
-
-      // 4. Configure multi-account × platform matrix & verify pocket-endpoints.json generation + probe
-      const saveMatrix = await editorRequest(editorServer, `/api/projects/${projectId}/cloudflare`, {
-        method: "PUT",
-        csrfToken,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          enabled: true,
-          syncOnPublish: false,
-          purgeCacheOnPublish: true,
-          targets: [
-            {
-              profileId: "cf-apple",
-              bucket: "bucket-apple",
-              keyPrefix: `apps/${projectId}`,
-              publicBaseUrl: "https://ota-apple.test",
-              platforms: ["ios", "macos"],
-              role: "primary",
-            },
-            {
-              profileId: "cf-global",
-              bucket: "bucket-global",
-              keyPrefix: `apps/${projectId}`,
-              publicBaseUrl: "https://ota-global.test",
-              platforms: ["*"],
-              role: "fallback",
-              zoneId: "abcdef0123456789abcdef0123456789",
-            },
-          ],
-        }),
-      });
-      expect(saveMatrix.response.status, JSON.stringify(saveMatrix.value)).toBe(200);
-      expect(saveMatrix.value.config.enabled).toBe(true);
-      expect(saveMatrix.value.config.targets).toHaveLength(2);
-
-      const endpointsPath = join(projectDir, "flutter", "assets", "pocket-endpoints.json");
-      expect(existsSync(endpointsPath)).toBe(true);
-      const endpointsJson = JSON.parse(readFileSync(endpointsPath, "utf8"));
-      expect(endpointsJson.routes.ios.primaryUrl).toBe(
-        "https://ota-apple.test/stable/pocket/0.2.0/pocket.cf.studio/latest.json",
-      );
-      expect(endpointsJson.routes.ios.fallbackUrls).toEqual([
-        "https://ota-global.test/stable/pocket/0.2.0/pocket.cf.studio/latest.json",
-      ]);
-
-      const checkRes = await editorRequest(editorServer, `/api/projects/${projectId}/cloudflare/check`, {
-        method: "POST",
-        csrfToken,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          profileId: "cf-apple",
-          bucket: "bucket-apple",
-          keyPrefix: `apps/${projectId}`,
-          publicBaseUrl: "https://ota-apple.test",
-        }),
-      });
-      expect(checkRes.response.status, JSON.stringify(checkRes.value)).toBe(200);
-      expect(checkRes.value.ok).toBe(true);
-
-      // 5. Build + publish local test slot, then two-phase publish to Cloudflare multi-account matrix
-      const buildStart = await editorRequest(editorServer, `/api/projects/${projectId}/build`, {
-        method: "POST",
-        csrfToken,
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      });
-      expect(buildStart.response.status).toBe(202);
-      const builtStatus = await waitForBuild(editorServer, projectId);
-      expect(builtStatus.error, builtStatus.logs?.join("\n")).toBeUndefined();
-
-      const localPub = await editorRequest(editorServer, `/api/projects/${projectId}/publish`, {
-        method: "POST",
-        csrfToken,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ channel: "test" }),
-      });
-      expect(localPub.response.status, JSON.stringify(localPub.value)).toBe(200);
-      const releaseId = String(localPub.value.publish?.releaseId || localPub.value.version?.releaseId);
-      expect(releaseId.length).toBeGreaterThan(0);
 
       const cfPub = await editorRequest(editorServer, `/api/projects/${projectId}/cloudflare/publish`, {
         method: "POST",
@@ -734,6 +785,13 @@ test(
       expect(cfPub.value.cloudflarePublish.appConfigUrl).toBe(
         "https://ota-apple.test/test/pocket/0.2.0/pocket.cf.studio/latest.json",
       );
+
+      expect(readFileSync(endpointsPath, "utf8")).toBe(stableEndpoints);
+      expect(new Set(cloudflareRequests.map((url) => url.hostname))).toEqual(new Set([
+        "11112222333344445555666677778888.r2.cloudflarestorage.com",
+        "99998888777766665555444433332222.r2.cloudflarestorage.com",
+        "api.cloudflare.com",
+      ]));
 
       // Verify cross-account Phase 1 immutable barrier BEFORE Phase 2 mutable moving index
       const mutableRelSuffix = `/test/pocket/0.2.0/pocket.cf.studio/latest.json`;
@@ -779,6 +837,32 @@ test(
       expect(mockCf.purgeEvents[0]?.authHeader).toBe(`Bearer ${rawZoneToken}`);
       expect(mockCf.purgeEvents[0]?.files).toContain(
         "https://ota-global.test/test/pocket/0.2.0/pocket.cf.studio/latest.json",
+      );
+
+      rmSync(endpointsPath);
+      symlinkSync(outsideEndpoints, endpointsPath);
+      const requestCount = cloudflareRequests.length;
+      const unsafeStable = await editorRequest(editorServer, `/api/projects/${projectId}/publish`, {
+        method: "POST",
+        csrfToken,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ channel: "release" }),
+      });
+      expect(unsafeStable.response.status, JSON.stringify(unsafeStable.value)).toBe(200);
+      expect(unsafeStable.value.cloudflareError).toContain("symbolic links are not allowed");
+      expect(cloudflareRequests).toHaveLength(requestCount);
+      expect(readFileSync(outsideEndpoints, "utf8")).toBe("outside");
+
+      rmSync(endpointsPath);
+      const cfStable = await editorRequest(editorServer, `/api/projects/${projectId}/cloudflare/publish`, {
+        method: "POST",
+        csrfToken,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ channel: "release" }),
+      });
+      expect(cfStable.response.status, JSON.stringify(cfStable.value)).toBe(200);
+      expect(JSON.parse(readFileSync(endpointsPath, "utf8"))).toEqual(
+        cfStable.value.cloudflarePublish.platformEndpoints,
       );
     } finally {
       editorServer.stop(true);

@@ -57,3 +57,7 @@ The exporter’s optional `--publish` operation publishes the standalone source 
 - Playwright Chromium booted the QJBC Guest with no page/runtime error. The Canvas rendered 130,560 non-empty pixels at 480×272. At 480×800, a pointer down/up on “Increment lobby counter” changed the real Guest frame and both `visits` and `count` from 0 to 1.
 
 The release build emitted a local `rust-objcopy` warning because that optional stripping tool could not find `libLLVM.dylib`; Cargo still completed the optimized `pocket_probe` successfully. This does not affect runtime correctness, but the local Rust installation should be repaired before requiring stripped release binaries.
+
+## 按需包管理
+
+导出的 Web SDK 提供 `npm run search`、`npm run add`、`npm run packages` 和 `npm run remove`。使用 `--registry` 指定本地注册表目录或 HTTPS 签名注册表。包含全部 Flutter 宿主插件源码的静态注册表由 SDK 源码检出生成。详见[包注册表指南](PACKAGE_REGISTRY.md)。
