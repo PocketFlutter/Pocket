@@ -560,6 +560,7 @@ for (const forceCanvas of [false, true]) {
         result.streamUrl.includes("meshes=retained-v1"),
         `Expected SSE URL to negotiate meshes=retained-v1, got ${result.streamUrl}`,
       );
+      assert.equal(new URL(result.streamUrl, "http://127.0.0.1").searchParams.get("meshSlots"), "128");
       assert.deepStrictEqual(result.installedFrame1, canonical1);
       assert.deepStrictEqual(result.installedFrame2, canonical2);
       assert.deepStrictEqual(result.pixelsWire1, result.pixelsCanon1, "cold encoded frame pixels must match canonical");

@@ -36,6 +36,7 @@ export const MANAGED_SDK_PATHS = [
   'packages',
   'targets',
   'templates',
+  'examples',
   'docs',
   'prebuilt',
   'native',

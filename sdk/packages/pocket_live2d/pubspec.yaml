@@ -1,6 +1,6 @@
 name: pocket_live2d
 description: Thin cross-platform Cubism Core deformation provider for PocketJS.
-version: 0.1.0
+version: 0.1.1
 publish_to: none
 
 environment:

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://pocketjs.dev/schema/pocket-2.json",
+  "pocket": 2,
+  "id": "dev.pocketjs.live2dworkbench",
+  "name": "pocket-live2d-costumes",
+  "title": "Pocket Live2D 看板娘 · 同模换装",
+  "version": "0.1.0",
+  "engine": {
+    "capabilities": {
+      "requires": [
+        "text.glyphs.baked",
+        "media.live2d.model.load",
+        "media.live2d.model.update",
+        "media.live2d.model.release"
+      ],
+      "enhances": []
+    }
+  },
+  "app": {
+    "entry": "app.tsx",
+    "output": "live2d-workbench",
+    "framework": "solid",
+    "presentation": {
+      "style": "page"
+    }
+  }
+}

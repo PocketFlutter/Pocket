@@ -1,5 +1,7 @@
 # Live2D Cubism support
 
+The [Pocket Live2D 看板娘 mini-app](LIVE2D_WORKBENCH.md) demonstrates Mao’s outfit change, touch reactions, dragging, and authored animations in Pocket Editor and phone previews.
+
 ## Current high-resolution checkpoint, 2026-11-07
 
 2026-11-08 update: the real Core Profile matrix at 390×844 / 1920×1080,

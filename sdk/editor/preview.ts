@@ -26,7 +26,7 @@ import { servePreviewMedia } from "./preview_media_assets.ts";
 import type { LocalBluetoothProvider } from "./local_bluetooth.ts";
 import { hotCommandSource, hotIdentity, type HotIdentity } from "./hot_reload.ts";
 import { createPreviewLive2d } from "./live2d.ts";
-import { createPreviewMeshWireEncoder, previewMeshWireDecoderSource } from "./preview_mesh_wire.ts";
+import { createPreviewMeshWireEncoder, EXTENDED_MAX_MESH_WIRE_SLOTS, previewMeshWireDecoderSource } from "./preview_mesh_wire.ts";
 import { enqueuePreviewPacket, previewStreamByteLengthStrategy } from "./preview_stream_queue.ts";
 import { encodeMessage } from "../targets/wechat/template/binary-bridge.js";
 import type { DiagnosticsCollector } from "../packages/pocket_diagnostics/src/types.ts";
@@ -5546,13 +5546,13 @@ class PreviewSession {
     this.releaseWebBluetoothOwner(owner.lease);
   }
 
-  stream(browserPresentation = false, webBluetooth?: { clientId: string; lease: string }, compactResources = false, externalResources = false, retainedMeshes = false): Response {
+  stream(browserPresentation = false, webBluetooth?: { clientId: string; lease: string }, compactResources = false, externalResources = false, retainedMeshes = false, meshSlots?: number): Response {
     this.touch();
     const encoder = new TextEncoder();
     let subscriber!: Subscriber;
     const body = new ReadableStream<Uint8Array>({
       start: (controller) => {
-        subscriber = { controller, closed: false, browserPresentation, compactResources, externalResources, ...(retainedMeshes ? { meshWire: createPreviewMeshWireEncoder() } : {}), ...(webBluetooth ? { webBluetooth } : {}) };
+        subscriber = { controller, closed: false, browserPresentation, compactResources, externalResources, ...(retainedMeshes ? { meshWire: createPreviewMeshWireEncoder({ maxSlots: meshSlots }) } : {}), ...(webBluetooth ? { webBluetooth } : {}) };
         this.subscribers.add(subscriber);
         try {
           enqueuePreviewPacket(controller, encoder.encode(`data: ${JSON.stringify({ type: "status", status: this.status() })}\n\n`));
@@ -5781,7 +5781,8 @@ class PreviewManagerImpl implements PreviewManager {
         const pluginOwner = webBluetooth ? session.claimWebBluetooth(clientId, "local") : undefined;
         if (webBluetooth && !pluginOwner) return failure("Noble Bluetooth client could not claim the preview", 409);
         await session.ensureStarted();
-        return session.stream(query.get("presentation") === "browser", pluginOwner, query.get("resources") === "base64", query.get("resources") === "http", query.get("meshes") === "retained-v1");
+        const meshSlots = query.get("meshSlots") === String(EXTENDED_MAX_MESH_WIRE_SLOTS) ? EXTENDED_MAX_MESH_WIRE_SLOTS : undefined;
+        return session.stream(query.get("presentation") === "browser", pluginOwner, query.get("resources") === "base64", query.get("resources") === "http", query.get("meshes") === "retained-v1", meshSlots);
       }
       if (route === "status" && request.method === "GET") return json(session.status());
       if (route === "snapshot" && request.method === "GET") return json(session.snapshot());

@@ -32,8 +32,9 @@ sdk/prebuilt/
 
 **/.kotlin/
 
-# Generated Lantern guest bundle; canonical authoring sources live in demo/js/apps/lantern.
+# Generated opt-in guest bundles; authoring sources live in demo/js/apps.
 /demo/assets/apps/lantern/
+/demo/assets/apps/live2d-workbench/
 
 # Native compiler intermediates and local QuickJS diagnostic executables.
 **/.cxx/

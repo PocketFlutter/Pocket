@@ -1588,6 +1588,7 @@ void main() {
   }
 
   const PREVIEW_MESH_WIRE_CODEC = "retained-v1";
+  const PREVIEW_MESH_WIRE_SLOTS = 128;
 
   function client(root, options) {
     const projectId = String(options.projectId || root.dataset.projectId || "");
@@ -1637,7 +1638,7 @@ void main() {
     let stream = null;
     let closed = false;
     let resourceReconnectTimer = 0;
-    const meshWireDecoder = global.PocketPreviewMeshWireDecoder?.();
+    const meshWireDecoder = global.PocketPreviewMeshWireDecoder?.({ maxSlots: PREVIEW_MESH_WIRE_SLOTS });
     let webBluetoothEnabled = (() => {
       try { return new URL(global.location.href).searchParams.get("webBluetooth") === "1"; } catch { return false; }
     })();
@@ -3249,7 +3250,10 @@ void main() {
         resources: "http",
         clientId: webBluetoothClientId,
       });
-      if (meshWireDecoder) params.set("meshes", PREVIEW_MESH_WIRE_CODEC);
+      if (meshWireDecoder) {
+        params.set("meshes", PREVIEW_MESH_WIRE_CODEC);
+        params.set("meshSlots", String(PREVIEW_MESH_WIRE_SLOTS));
+      }
       if (webBluetoothEnabled) { params.set("webBluetooth", "1"); params.set("bluetoothProvider", bluetoothProvider); }
       const current = new EventSource(`${endpoint}?${params.toString()}`);
       stream = current;

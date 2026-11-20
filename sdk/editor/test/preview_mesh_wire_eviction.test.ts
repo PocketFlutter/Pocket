@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "bun:test";
-import { createPreviewMeshWireEncoder, createPreviewMeshWireDecoder } from "../preview_mesh_wire.ts";
+import { createPreviewMeshWireEncoder, createPreviewMeshWireDecoder, EXTENDED_MAX_MESH_WIRE_SLOTS, previewMeshWireDecoderSource } from "../preview_mesh_wire.ts";
 
 const run = (asset: string, extra?: unknown) => Array.from({ length: 12 }, (_, i) => ({
   type: "textureTriangle", asset, color: 0xffffffff, repeatTexture: true,
@@ -8,6 +8,23 @@ const run = (asset: string, extra?: unknown) => Array.from({ length: 12 }, (_, i
   uvs: [0, 0, 1, 0, 0, 1], ...(extra === undefined ? {} : { extra }),
 }));
 const frame = (ops: unknown[]) => ({ type: "frame", frame: { frame: 1, width: 64, height: 64, ops, events: [], resources: [] } });
+
+test("the opted-in served decoder retains all mesh runs in a frame with 71 drawables", () => {
+  const options = { maxSlots: EXTENDED_MAX_MESH_WIRE_SLOTS };
+  const encoder = createPreviewMeshWireEncoder(options);
+  const browser = {};
+  const createDecoder = new Function("globalThis", `${previewMeshWireDecoderSource()}
+    return globalThis.PocketPreviewMeshWireDecoder;`)(browser) as typeof createPreviewMeshWireDecoder;
+  const decoder = createDecoder(options);
+  const input = frame(Array.from({ length: 71 }, (_, index) => run(`atlas-${index}`)).flat());
+  const cold = encoder.encode(input) as ReturnType<typeof frame>;
+  assert.equal(cold.frame.ops.filter(op => Array.isArray(op) && op[0] === "d").length, 71);
+  assert.deepEqual(decoder.decode(cold), input);
+
+  const warm = encoder.encode(input) as ReturnType<typeof frame>;
+  assert.equal(warm.frame.ops.filter(op => Array.isArray(op) && op[0] === "s").length, 71);
+  assert.deepEqual(decoder.decode(warm), input);
+});
 
 test("changing a recently used UV template cannot evict another still-referenced run", () => {
   const encoder = createPreviewMeshWireEncoder({ maxSlots: 2 });

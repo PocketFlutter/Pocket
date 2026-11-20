@@ -1,0 +1,16 @@
+{
+  "$schema": "https://pocketjs.dev/schema/pocket-guest-manifest.json",
+  "protocolVersion": 1,
+  "capabilities": {
+    "requires": [
+      "text.glyphs.baked",
+      "media.live2d.model.load",
+      "media.live2d.model.update",
+      "media.live2d.model.release"
+    ],
+    "optional": []
+  },
+  "permissions": {
+    "optional": []
+  }
+}

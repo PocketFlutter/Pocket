@@ -7873,7 +7873,7 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: packages/pocket_live2d/lib/pocket_live2d.dart 7d4c47b545d993a5d8caebd1f788f8d7b59f7c654278fe12a8b771b2cd70d627 -->
 <!-- api-source: packages/pocket_live2d/lib/src/pocket_live2d_plugin.dart 48909d936d594d850978fd0372fceb47c2e2fbbe2cccf0dc1a1d5d6d0fabd310 -->
 <!-- api-source: packages/pocket_live2d/lib/src/pocket_live2d_types.dart d1fdf039417e4c3d0fb799c9e013a14badec7019996f339dafd5332e9c14b957 -->
-<!-- api-source: packages/pocket_live2d/pubspec.yaml f6cea28c56ce8df3d14bc42cc322e580d52af516203df70b5d73e08f43050130 -->
+<!-- api-source: packages/pocket_live2d/pubspec.yaml b7c8e242a8e0d849dff38e575d36a590458854988ac51c24432581a659a1821c -->
 <!-- api-source: packages/pocket_location/lib/pocket_location.dart e2c84e4fd4a88ff30436dea2ceec5b8fb3dc025831a187b77e32af01dd8689b4 -->
 <!-- api-source: packages/pocket_location/pubspec.yaml a47a5197e1e36a3cf5e21d6cbaa9b6175dfcdba58bc6e22d3ab9e78b54b96cd4 -->
 <!-- api-source: packages/pocket_permissions/lib/pocket_permissions.dart aa355337467a81b1a9276fba3b97ea493d1984294f6e8b5d604625739ed60bf0 -->

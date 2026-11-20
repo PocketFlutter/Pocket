@@ -3,6 +3,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { buildGuest, type BuildGuestResult } from "../../../sdk/scripts/build_guest.ts";
 import { resolveSystemDocument, validateSystemFile } from "../../../sdk/scripts/build_system.ts";
+import { prepareWorkbenchGuest } from "../apps/live2d-workbench/stage.ts";
 
 const scriptRoot = resolve(import.meta.dir);
 const demoRoot = resolve(scriptRoot, "../..");
@@ -19,11 +20,12 @@ const pubspecAssetMarkerEnd = "    # END GENERATED OFFICIAL DEMO ASSETS";
 const hiyoriSampleSourceRevision = "b8024738f108e6003e4925193e8d5ec04cd18196";
 
 const miniApps = [
-  { name: "profile", projectRoot: resolve(scriptRoot, "../apps/profile") },
-  { name: "lobby", projectRoot: resolve(scriptRoot, "../apps/lobby") },
-  { name: "lantern", projectRoot: resolve(scriptRoot, "../apps/lantern") },
+  { name: "profile", projectRoot: resolve(scriptRoot, "../apps/profile"), bundled: true },
+  { name: "lobby", projectRoot: resolve(scriptRoot, "../apps/lobby"), bundled: true },
+  { name: "lantern", projectRoot: resolve(scriptRoot, "../apps/lantern"), bundled: false },
+  { name: "live2d-workbench", projectRoot: resolve(scriptRoot, "../apps/live2d-workbench"), bundled: false },
 ] as const;
-const bundledMiniApps = miniApps.filter(app => app.name !== "lantern");
+const bundledMiniApps = miniApps.filter(app => app.bundled);
 
 const fixedCompositorSurfaces: Readonly<Record<string, number>> = {
   "pocket.demo.profile": 2,
@@ -88,13 +90,13 @@ function parseOptions(args: string[]): Options {
     else if (arg.startsWith("--density=")) options.density = parsePositiveInteger(arg.slice("--density=".length), "density");
     else if (arg.startsWith("--bench-bin=")) options.benchBin = resolve(arg.slice("--bench-bin=".length));
     else if (arg === "--help" || arg === "-h") {
-      console.log(`Usage: bun scripts/build_mini_apps.ts [--official-only | --mini-app=profile|lobby|lantern] [--apps=hero,motions] [--frames=N] [--warmup=N]
+      console.log(`Usage: bun scripts/build_mini_apps.ts [--official-only | --mini-app=${miniApps.map(app => app.name).join("|")}] [--apps=hero,motions] [--frames=N] [--warmup=N]
 
 Builds the local profile/lobby guests, then runs the pinned official demo build,
 native benchmark and asset staging. --official-only skips local guests so a
 focused staging check does not rebuild unrelated apps. --mini-app builds one
 local guest and skips the unrelated official demo sweep and native benchmarks.
-Lantern is an optional guest and only builds with an explicit --mini-app=lantern.`);
+Lantern and the Live2D widget are opt-in guests built by selecting their name.`);
       process.exit(0);
     } else throw new Error(`Unknown argument: ${arg}`);
   }
@@ -439,6 +441,22 @@ function stageOfficialDemos(options: Options): { staged: number; failed: number;
 
 export async function buildMiniApps(args: string[] = process.argv.slice(2)): Promise<BuildGuestResult[]> {
   const options = parseOptions(args);
+  if (options.miniApp === "live2d-workbench") {
+    const app = miniApps.find(app => app.name === "live2d-workbench")!;
+    const assets = join(demoRoot, "assets/apps", app.name);
+    console.log(`build_mini_apps: building ${app.name} from ${app.projectRoot}`);
+    const cache = join(demoRoot, ".pocket-build", app.name);
+    const { projectRoot } = prepareWorkbenchGuest(join(cache, "guest"));
+    const built = await buildGuest({
+      projectRoot,
+      outDir: join(cache, "out"),
+      copyAssetsTo: assets,
+      bakeFonts: true,
+      rasterDensity: 2,
+    });
+    console.log(`build_mini_apps: wrote ${assets}`);
+    return [built];
+  }
   if (!options.officialOnly) {
     const systemFile = resolve(scriptRoot, "../pocket.system.json");
     const validated = await validateSystemFile(systemFile);

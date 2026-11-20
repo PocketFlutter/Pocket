@@ -20,6 +20,9 @@
 
 export const PREVIEW_MESH_WIRE_CODEC = "retained-v1" as const;
 export const DEFAULT_MAX_MESH_WIRE_SLOTS = 64;
+// A Mao preview frame has 71 mesh runs. Opted-in clients can retain all of
+// them without increasing the byte budget or changing the legacy default.
+export const EXTENDED_MAX_MESH_WIRE_SLOTS = 128;
 export const DEFAULT_MAX_MESH_WIRE_BYTES = 8 * 1024 * 1024;
 
 export type PreviewMeshWireOptions = {

@@ -993,10 +993,15 @@ describe("Studio built-in self-upgrade unit & security gates", () => {
     const installRoot = mkdtempSync(join(tmpdir(), "pocket-standalone-preserve-"));
     const stageGood = mkdtempSync(join(tmpdir(), "pocket-stage-good-"));
     const backupDir = join(installRoot, ".pocket-build", "sdk-upgrade-backup-0.1.10");
+    const examplePath = "examples/optional/lantern";
+    const examplePackage = join(installRoot, examplePath, "package.json");
+    const exampleEntry = join(installRoot, examplePath, "app.tsx");
+    const exampleConsumerNotes = join(installRoot, examplePath, "local-notes.md");
     try {
       createStandaloneSdkTree(installRoot, "0.1.10", {
         extraPackageFiles: {
           "packages/pocket_ui/legacy_only.ts": "export const LEGACY = true;\n",
+          [`${examplePath}/package.json`]: '{"version":"0.1.10"}\n',
         },
       });
       // Seed initial SDK manifest so obsolete SDK files are tracked while custom consumer files remain distinct
@@ -1039,6 +1044,7 @@ describe("Studio built-in self-upgrade unit & security gates", () => {
       writeFileSync(customDiagFile, '{"logs":["preserved-diagnostic"]}\n');
       writeFileSync(customConsumerRootFile, '{"customConsumerSetting":true}\n');
       writeFileSync(customNodeModuleFile, "module.exports = {};\n");
+      writeFileSync(exampleConsumerNotes, "local Lantern notes\n");
 
       // Incomplete backup (without backup-complete.json) must refuse destructive restore
       const incompleteBackupDir = join(installRoot, ".pocket-build", "incomplete-backup");
@@ -1053,6 +1059,8 @@ describe("Studio built-in self-upgrade unit & security gates", () => {
       const v11Archive = createStandaloneSdkTree(v11Build, "0.1.11", {
         extraPackageFiles: {
           "packages/pocket_ui/new_v11_feature.ts": "export const V11_FEATURE = true;\n",
+          [`${examplePath}/package.json`]: '{"version":"0.1.11"}\n',
+          [`${examplePath}/app.tsx`]: "export const title = 'Lantern';\n",
         },
       });
       rmSync(v11Build, { recursive: true, force: true });
@@ -1075,6 +1083,12 @@ describe("Studio built-in self-upgrade unit & security gates", () => {
       expect(readFileSync(customDiagFile, "utf8")).toBe('{"logs":["preserved-diagnostic"]}\n');
       expect(readFileSync(customConsumerRootFile, "utf8")).toBe('{"customConsumerSetting":true}\n');
       expect(readFileSync(customNodeModuleFile, "utf8")).toBe("module.exports = {};\n");
+      expect(readFileSync(examplePackage, "utf8")).toBe('{"version":"0.1.11"}\n');
+      expect(readFileSync(exampleEntry, "utf8")).toBe("export const title = 'Lantern';\n");
+      expect(readFileSync(exampleConsumerNotes, "utf8")).toBe("local Lantern notes\n");
+      const ownership = JSON.parse(readFileSync(join(installRoot, ".pocket-build", ".pocket-sdk-manifest.json"), "utf8"));
+      expect(ownership.files).toContain(`${examplePath}/app.tsx`);
+      expect(ownership.files).not.toContain(`${examplePath}/local-notes.md`);
 
       // Simulate interrupted apply (backup directory still present on next service startup) and verify automatic crash recovery
       writePersistedUpgradeStatus(installRoot, {
@@ -1091,6 +1105,9 @@ describe("Studio built-in self-upgrade unit & security gates", () => {
       expect(existsSync(join(installRoot, "packages", "pocket_ui", "new_v11_feature.ts"))).toBe(false);
       expect(readFileSync(nestedCustomPackageFile, "utf8")).toBe('export const customPkg = "preserved-in-packages";\n');
       expect(readFileSync(nestedCustomUiPluginFile, "utf8")).toBe('export const customExt = "preserved-in-pocket-ui";\n');
+      expect(readFileSync(examplePackage, "utf8")).toBe('{"version":"0.1.10"}\n');
+      expect(existsSync(exampleEntry)).toBe(false);
+      expect(readFileSync(exampleConsumerNotes, "utf8")).toBe("local Lantern notes\n");
       expect(readPersistedUpgradeStatus(installRoot)?.rolledBack).toBe(true);
     } finally {
       rmSync(installRoot, { recursive: true, force: true });
