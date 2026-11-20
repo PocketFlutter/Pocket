@@ -19,7 +19,7 @@ This index covers the Pocket SDK API. Its baseline is the current `sdk/package.j
 - Native capability registration and restrictions. [Optional native plugins](OPTIONAL_PLUGINS.md) · [Hardware modules](HARDWARE_MODULES.md) · [Dio IO Worker](DIO_WORKER.md)
 - Component names, renderer projection, and outstanding features. [Component contracts](COMPONENTS.md) · [UI feature parity](POCKETJS_FEATURE_PARITY_UI.md)
 - Specialized interfaces and runtime boundaries. [Diagnostics package](DIAGNOSTICS_PACKAGE.md) · [Visual novel engine](VISUAL_NOVEL_ENGINE.md) · [Live2D Web support](WEB_LIVE2D.md)
-- Consumer guides. [Toolchain requirements](NPM_TOOLCHAIN.md) · [Studio workflow](EDITOR_STUDIO.md) · [Editor project identity and configuration](EDITOR_PROJECT_CONFIGURATION.md) · [Web SDK export](WEB_SDK_EXPORT.md) · [Update package modes](PACKAGE_UPDATE_MODES.md)
+- Consumer guides. [Toolchain requirements](NPM_TOOLCHAIN.md) · [Studio workflow](EDITOR_STUDIO.md) · [Editor project identity and configuration](EDITOR_PROJECT_CONFIGURATION.md) · [Web SDK export](WEB_SDK_EXPORT.md) · [Update package modes](PACKAGE_UPDATE_MODES.md) · [Cloudflare multi-account publishing](CLOUDFLARE_PUBLISH.md) · [Official package registry](PACKAGE_REGISTRY.md)
 - Machine-readable export inventory tracking package exports, recursive re-exports, Dart export filters, declaration locations, and source hashes. It catches missing coverage. Written behavior, defaults, and runtime semantics require review. [Public export inventory](API_SURFACE.json)
 
 ## Identifying Public APIs
@@ -41,7 +41,7 @@ Import through the published entry points. `@pocket/<package>/src/...` and SDK i
 
 ## JavaScript Workspace Coverage
 
-`sdk/package.json#workspaces` lists nine Guest/SDK JS workspaces plus the `@pocket/cos` publishing tools. See the API and machine inventory for exact paths, commands, and public declarations. [JS API](JS_API.md)
+`sdk/package.json#workspaces` lists nine Guest/SDK JS workspaces plus the `@pocket/cos` and `@pocket/cloudflare` publishing tools. See the API and machine inventory for exact paths, commands, and public declarations. [JS API](JS_API.md)
 
 | Package | Purpose and Interface | Reference and Status |
 | --- | --- | --- |
@@ -55,6 +55,7 @@ Import through the published entry points. `@pocket/<package>/src/...` and SDK i
 | [`@pocket/diagnostics`](../packages/pocket_diagnostics/package.json) | JS diagnostics records, normalization, collector, browser/Node storage adapters. `package.json` marks it private. | File writes are available only through the Node module entry. [Diagnostics package](DIAGNOSTICS_PACKAGE.md) |
 | [`@pocket/sync`](../packages/pocket_sync/package.json) | Multi-endpoint cross-subnet CRDT sync, HKDF-HMAC replay protection, embedded server/client, and Solid reactive state. `package.json` marks it private. | Host network transport requires optional `pocket_sync` registration and `network` permission. [JS API](JS_API.md) |
 | [`@pocket/cos`](../packages/pocket_cos/package.json) | COS signing, client, credential discovery, release/Studio publishing helpers, and CLI. | Keep credentials outside documentation. [COS publishing](COS_PUBLISH.md) |
+| [`@pocket/cloudflare`](../packages/pocket_cloudflare/package.json) | Multi-account × platform-matrix Cloudflare R2 SigV4 two-phase signed OTA publishing, native installer manifests, Zone Cache Purge, Pages/Workers Web deployment, and CLI. | Keep credentials in the local `0o600` vault or environment variables. [Cloudflare publishing](CLOUDFLARE_PUBLISH.md) |
 
 Workspace exports identify the source API. Check actual releases for npm publication and the host references for runtime support. [Published packages](EXTERNAL_PUBLISHED_PACKAGES.md)
 
@@ -124,4 +125,4 @@ Maintain this index and the companion references alongside the source. [JS API](
 
 Signature generation needs the bootstrapped pinned TypeScript compiler and Flutter/Dart analyzer dev dependencies. Standalone Web SDK installation and use need neither maintenance tool. With stale catalogs, `--write` writes the inventory first and then reports a validation failure. Run both generators and check again.
 
-6. See the [0.1.26 distribution notes](RELEASE_0.1.26.md), the [0.1.25 distribution notes](RELEASE_0.1.25.md), the [0.1.24 distribution notes](RELEASE_0.1.24.md), the [0.1.23 distribution notes](RELEASE_0.1.23.md), and the recorded API changes in the 0.1.22 notes and the 0.1.21 and 0.1.20 historical releases. Each `RELEASE_<version>.md` categorizes updates (`Added`, `Changed`, `Fixed`, `Compatibility`) with verified Git commit SHAs and is validated via `node sdk/scripts/release_notes.mjs --check`. GitHub Releases determines actual release status. Link only records that cover the API change. [0.1.22](RELEASE_0.1.22.md) · [0.1.21](RELEASE_0.1.21.md) · [0.1.20](RELEASE_0.1.20.md)
+6. See the [0.1.27 distribution notes](RELEASE_0.1.27.md), the [0.1.26 distribution notes](RELEASE_0.1.26.md), the [0.1.25 distribution notes](RELEASE_0.1.25.md), the [0.1.24 distribution notes](RELEASE_0.1.24.md), the [0.1.23 distribution notes](RELEASE_0.1.23.md), and the recorded API changes in the 0.1.22 notes and the 0.1.21 and 0.1.20 historical releases. Each `RELEASE_<version>.md` categorizes updates (`Added`, `Changed`, `Fixed`, `Compatibility`) with verified Git commit SHAs and is validated via `node sdk/scripts/release_notes.mjs --check`. GitHub Releases determines actual release status. Link only records that cover the API change. [0.1.22](RELEASE_0.1.22.md) · [0.1.21](RELEASE_0.1.21.md) · [0.1.20](RELEASE_0.1.20.md)

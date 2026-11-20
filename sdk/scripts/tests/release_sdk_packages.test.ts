@@ -31,6 +31,7 @@ test("compares packed payloads and cascades versions while retaining pending and
     for (const path of [
       "LICENSE", "sdk/package.json", "sdk/package-lock.json", "sdk/bun.lock", "sdk/packages",
       "sdk/editor/version_store.ts", "sdk/scripts/package_update.ts", "sdk/scripts/package_github_packages.mjs",
+      "sdk/scripts/standalone_publisher_files.mjs",
       "demo/js/package.json", "demo/js/bun.lock", "demo/js/apps/lantern/package.json", "demo/js/apps/lantern/bun.lock",
     ]) {
       const target = join(fixture, path);

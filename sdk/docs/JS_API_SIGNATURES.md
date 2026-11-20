@@ -6,7 +6,7 @@ Each import path lists every directly exported name and alias, linking to one sh
 
 Source-first reuse note: outside the retained parent `pocket_host/`, this work checked `README.md`, `docs/02_ARCHITECTURE_AND_MEMORY_DESIGN.md`, `docs/03_DUAL_HOST_UI_COMPONENTS_SPEC.md`, `docs/04_DEVELOPER_GUIDE_AND_VERIFICATION.md`, and `docs/04_BIDIRECTIONAL_FFI_WASM_AND_YOOASSET_HOTUPDATE.md` in `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo`. These preserve the earlier Flutter/WeChat host split, component-to-host projection notes, and run/regression scenarios. Their historical 38-component and QuickJS/WeChat-specific claims are not treated as this SDK API; the necessary adaptation is to enumerate current package exports, with UI policy and composition owned by JS. Validation uses TypeScript parser/checker exports, default-value examples, and source SHA markers.
 
-Coverage: 3647 importable export names, 1942 shared signature definitions, and 3724 listed members across 119 direct import paths. Source digests cover 178 inventoried files.
+Coverage: 3836 importable export names, 2037 shared signature definitions, and 4089 listed members across 127 direct import paths. Source digests cover 187 inventoried files.
 
 ## Packages and imports
 
@@ -678,6 +678,1372 @@ Exports:
 - `useArcTheme` — [signature](#api-sig-a43343956cf21103)
 
 Signatures:
+## @pocket/cloudflare
+
+### Import `@pocket/cloudflare`
+
+Entry: [packages/pocket_cloudflare/src/index.ts](../packages/pocket_cloudflare/src/index.ts)
+
+Exports:
+- `awsUriEncode` — [signature](#api-sig-84f978ea900cb99d)
+- `buildPlatformEndpointsDocument` — [signature](#api-sig-8032f485bcf3435e)
+- `CF_ACCOUNT_ID_PATTERN` — [signature](#api-sig-ef28400ec49fb536)
+- `CF_PROFILE_ID_PATTERN` — [signature](#api-sig-5f6d971ac25b0c4f)
+- `CF_PROJECT_NAME_PATTERN` — [signature](#api-sig-11b03e3b01c781e9)
+- `CF_ZONE_ID_PATTERN` — [signature](#api-sig-8b8147a48080f62f)
+- `CLOUDFLARE_CONCRETE_PLATFORMS` — [signature](#api-sig-1d240beaed6d3e3a)
+- `CloudflareAccountProfile` — [signature](#api-sig-14c422194a9d477d)
+- `CloudflareBucketSummary` — [signature](#api-sig-b16f6e03888d143f)
+- `CloudflareConcretePlatform` — [signature](#api-sig-28ba14a9e0068e1c)
+- `CloudflareCredentialProvider` — [signature](#api-sig-76a572bb5cbff662)
+- `CloudflareError` — [signature](#api-sig-8c604927f6098b27)
+- `CloudflareMatrixPublishResult` — [signature](#api-sig-a28e4880def42250)
+- `CloudflarePagesDeployOptions` — [signature](#api-sig-c6acf01efbbab66c)
+- `CloudflarePlatformSelector` — [signature](#api-sig-785ac9a49c4338f1)
+- `CloudflarePublishFileRecord` — [signature](#api-sig-b9e3959c9a435b96)
+- `CloudflarePurgeSummary` — [signature](#api-sig-ca5337858520f25d)
+- `CloudflareR2Credentials` — [signature](#api-sig-9f02800a0878cf9c)
+- `CloudflareRouteRole` — [signature](#api-sig-2884d550a30a8e07)
+- `CloudflareStudioPublishSummary` — [signature](#api-sig-ade19c5b41389b14)
+- `CloudflareStudioTargetSummary` — [signature](#api-sig-a12fb6c0fb369214)
+- `CloudflareTargetConfig` — [signature](#api-sig-8b04efc8a05bf5d9)
+- `CloudflareTargetPublishResult` — [signature](#api-sig-a8e0b522523d6b01)
+- `CloudflareUploadProgress` — [signature](#api-sig-ef6b06dc035ad83b)
+- `CloudflareWebDeployResult` — [signature](#api-sig-cc16c9cbdefa34be)
+- `CloudflareWorkersAssetsDeployOptions` — [signature](#api-sig-ad567d999a2c1ce1)
+- `CollectedWebAsset` — [signature](#api-sig-a83ebe9db38b9a0c)
+- `collectWebStaticAssets` — [signature](#api-sig-2f04cf40e24614a8)
+- `createR2Client` — [signature](#api-sig-2b840bda101d2d22)
+- `createR2PresignedUrl` — [signature](#api-sig-d39c471ebf0cfced)
+- `CreateR2PresignedUrlInput` — [signature](#api-sig-4d95ffc593ff8467)
+- `deployWebToCloudflarePages` — [signature](#api-sig-8e4c353eae4bd806)
+- `deployWebToCloudflareWorkersAssets` — [signature](#api-sig-733f2b4a64552261)
+- `deployWebToR2Site` — [signature](#api-sig-5fd26fb4c225e37a)
+- `EditorProjectCloudflareConfig` — [signature](#api-sig-2b22a7c470c10f42)
+- `encodeR2ObjectPath` — [signature](#api-sig-1aa4dedd51ed9915)
+- `formatAmzTimestamps` — [signature](#api-sig-d7e571b59b816864)
+- `hmacSha256Bytes` — [signature](#api-sig-dbef857d5405c76d)
+- `hmacSha256Hex` — [signature](#api-sig-b9a1c2fc81821ee7)
+- `IMMUTABLE_CACHE_CONTROL` — [signature](#api-sig-b977dd04b70227af)
+- `inferWebAssetContentType` — [signature](#api-sig-5066597f3856b3da)
+- `inspectLocalCloudflareEnvironment` — [signature](#api-sig-d87668463f6dde7c)
+- `LocalCloudflareInspection` — [signature](#api-sig-26afe45410203143)
+- `LocalCloudflareOptions` — [signature](#api-sig-d44bf4d71d4f900e)
+- `maskAccountId` — [signature](#api-sig-f16226759022f669)
+- `maskSecretValue` — [signature](#api-sig-723907f1dce8912d)
+- `MUTABLE_CACHE_CONTROL` — [signature](#api-sig-b9729cc365c48fb3)
+- `NativeDownloadManifestPayload` — [signature](#api-sig-cde4ab795681c82c)
+- `NativeInstallerInput` — [signature](#api-sig-8b76ac0ab5f3d4cf)
+- `NativeInstallerRecord` — [signature](#api-sig-b484610d33a8979b)
+- `normalizeCloudflarePlatforms` — [signature](#api-sig-7a16b1062e6dbdb1)
+- `normalizeR2KeyPrefix` — [signature](#api-sig-7a3033f537c8a6d8)
+- `PlatformEndpointRoute` — [signature](#api-sig-24505b99bc0fc9d9)
+- `PlatformEndpointsDocument` — [signature](#api-sig-c433a01f2a1d0ab4)
+- `ProjectCloudflareRouteConfig` — [signature](#api-sig-59cceed4f6c3cfce)
+- `PublishNativeInstallersOptions` — [signature](#api-sig-69fd0c8b60c0e531)
+- `PublishNativeInstallersResult` — [signature](#api-sig-d6a8ac04f90ab29a)
+- `publishNativeInstallersToCloudflare` — [signature](#api-sig-8a1a9495a6e03ac4)
+- `publishStudioVersionToCloudflareMatrix` — [signature](#api-sig-f6ba9be18819102c)
+- `PublishStudioVersionToCloudflareOptions` — [signature](#api-sig-f1d347a8fe65b8f4)
+- `publishToCloudflareMatrix` — [signature](#api-sig-e3d03aefb256273f)
+- `PublishToCloudflareMatrixOptions` — [signature](#api-sig-0b7e9570fa505225)
+- `purgeCloudflareZoneCache` — [signature](#api-sig-81fcfd8091baecf3)
+- `R2_BUCKET_PATTERN` — [signature](#api-sig-16a5e76170ea7a45)
+- `R2Client` — [signature](#api-sig-e1eec43354e5ae9b)
+- `R2ClientOptions` — [signature](#api-sig-544a58c92b089990)
+- `R2HeadObjectResult` — [signature](#api-sig-b15b617c4809359c)
+- `R2PutObjectOptions` — [signature](#api-sig-4f756bcc7747284d)
+- `R2UploadFileOptions` — [signature](#api-sig-0aabb774a7afbdf2)
+- `rebaseHostDescriptorForCloudflare` — [signature](#api-sig-16833a3973cf1283)
+- `redactCloudflareSecrets` — [signature](#api-sig-60556c88e9e94640)
+- `removeWorkspaceCloudflareProfile` — [signature](#api-sig-41a04cfa57906194)
+- `resolveCloudflareTarget` — [signature](#api-sig-d95bc2dadaf99c90)
+- `ResolvedCloudflareTarget` — [signature](#api-sig-e33cbde28f6c2d7a)
+- `resolveLocalCloudflareCredentials` — [signature](#api-sig-d705d57f4d11fe71)
+- `sha256Bytes` — [signature](#api-sig-2c2037992e44ea0e)
+- `sha256Hex` — [signature](#api-sig-56ca502e016cd6bd)
+- `SignedNativeDownloadManifest` — [signature](#api-sig-4466ef3de423966b)
+- `signR2Request` — [signature](#api-sig-93ee3528f9d1b729)
+- `SignR2RequestInput` — [signature](#api-sig-c4c22574778603c8)
+- `SignR2RequestResult` — [signature](#api-sig-8790aa5d26cdd802)
+- `StoredCloudflareAccountEntry` — [signature](#api-sig-4634a604fcb2782e)
+- `targetMatchesPlatform` — [signature](#api-sig-c4b66ead4643171f)
+- `upsertWorkspaceCloudflareProfile` — [signature](#api-sig-0702826fd491a02e)
+- `UpsertWorkspaceCloudflareProfileInput` — [signature](#api-sig-a52330bb42caab7f)
+- `validateCloudflareAccountId` — [signature](#api-sig-b3eaea2ee414e81f)
+- `validateCloudflareProfileId` — [signature](#api-sig-46cc8bb3fd0040f0)
+- `validateCloudflareRouteMatrix` — [signature](#api-sig-5d26be099f109aca)
+- `validateCloudflareZoneId` — [signature](#api-sig-64ec7efc35880bea)
+- `validateR2Bucket` — [signature](#api-sig-5b8435254f9283f7)
+- `validateRelativeR2ObjectPath` — [signature](#api-sig-63c6f9dfb6f5e597)
+- `VerifiedCloudflarePackage` — [signature](#api-sig-d9914273aaf94cca)
+- `verifyLocalPackageForCloudflare` — [signature](#api-sig-f0a7b32efa4ed511)
+- `WORKSPACE_CLOUDFLARE_CREDENTIALS_FILENAME` — [signature](#api-sig-e0e91f5507d98680)
+
+Signatures:
+<a id="api-sig-84f978ea900cb99d"></a>
+### `awsUriEncode`
+
+**Function** `awsUriEncode(value: string, encodeSlash: boolean = true): string`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L171)
+
+<a id="api-sig-8032f485bcf3435e"></a>
+### `buildPlatformEndpointsDocument`
+
+**Function** `buildPlatformEndpointsDocument(options: { targets: readonly ResolvedCloudflareTarget[]; appId: string; hostVersion: string; packageVersion?: string; slot?: "test" | "stable"; routeVersion?: string; keyId?: string; publicKey?: string; trustRootKeyId?: string; trustRootPublicKey?: string; trustPolicyUrl?: string; generatedAt?: string; }): PlatformEndpointsDocument`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L572)
+
+<a id="api-sig-ef28400ec49fb536"></a>
+### `CF_ACCOUNT_ID_PATTERN`
+
+**Value** `CF_ACCOUNT_ID_PATTERN: RegExp`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L232)
+
+<a id="api-sig-5f6d971ac25b0c4f"></a>
+### `CF_PROFILE_ID_PATTERN`
+
+**Value** `CF_PROFILE_ID_PATTERN: RegExp`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L233)
+
+<a id="api-sig-11b03e3b01c781e9"></a>
+### `CF_PROJECT_NAME_PATTERN`
+
+**Value** `CF_PROJECT_NAME_PATTERN: RegExp`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L236)
+
+<a id="api-sig-8b8147a48080f62f"></a>
+### `CF_ZONE_ID_PATTERN`
+
+**Value** `CF_ZONE_ID_PATTERN: RegExp`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L235)
+
+<a id="api-sig-1d240beaed6d3e3a"></a>
+### `CLOUDFLARE_CONCRETE_PLATFORMS`
+
+**Value** `CLOUDFLARE_CONCRETE_PLATFORMS: readonly ["ios", "android", "macos", "windows", "linux", "web", "wechat"]`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L1)
+
+<a id="api-sig-14c422194a9d477d"></a>
+### `CloudflareAccountProfile`
+
+**Type** `CloudflareAccountProfile = { profileId: string; accountId: string; label?: string; maskedAccountId: string; maskedAccessKeyId: string; hasSessionToken: boolean; hasApiToken: boolean; buckets: CloudflareBucketSummary[]; }`
+
+Members:
+- `accountId: string`
+- `buckets: CloudflareBucketSummary[]`
+- `hasApiToken: boolean`
+- `hasSessionToken: boolean`
+- `label?: string`
+- `maskedAccessKeyId: string`
+- `maskedAccountId: string`
+- `profileId: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L36)
+
+<a id="api-sig-b16f6e03888d143f"></a>
+### `CloudflareBucketSummary`
+
+**Type** `CloudflareBucketSummary = { bucket: string; publicBaseUrl?: string; alias?: string; }`
+
+Members:
+- `alias?: string`
+- `bucket: string`
+- `publicBaseUrl?: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L30)
+
+<a id="api-sig-28ba14a9e0068e1c"></a>
+### `CloudflareConcretePlatform`
+
+**Type** `CloudflareConcretePlatform = (typeof CLOUDFLARE_CONCRETE_PLATFORMS)[number]`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L11)
+
+<a id="api-sig-76a572bb5cbff662"></a>
+### `CloudflareCredentialProvider`
+
+**Type** `CloudflareCredentialProvider = | CloudflareR2Credentials | (() => CloudflareR2Credentials | Promise<CloudflareR2Credentials>)`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L26)
+
+<a id="api-sig-8c604927f6098b27"></a>
+### `CloudflareError`
+
+**Class** `CloudflareError`
+
+Members:
+- `cause?: unknown`
+- `constructor(message: string, options: { status?: number; code?: string; requestId?: string } = {})`
+- `message: string`
+- `name: string`
+- `readonly code: string`
+- `readonly requestId?: string`
+- `readonly status: number`
+- `stack?: string`
+
+Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L15)
+
+<a id="api-sig-a28e4880def42250"></a>
+### `CloudflareMatrixPublishResult`
+
+**Type** `CloudflareMatrixPublishResult = { dryRun: boolean; targets: CloudflareTargetPublishResult[]; platformEndpoints?: PlatformEndpointsDocument; publishedAt: string; }`
+
+Members:
+- `dryRun: boolean`
+- `platformEndpoints?: PlatformEndpointsDocument`
+- `publishedAt: string`
+- `targets: CloudflareTargetPublishResult[]`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L182)
+
+<a id="api-sig-c6acf01efbbab66c"></a>
+### `CloudflarePagesDeployOptions`
+
+**Type** `CloudflarePagesDeployOptions = { accountId: string; projectName: string; apiToken: string; webDir: string; branch?: string; commitHash?: string; commitMessage?: string; apiBaseOrigin?: string; fetchImpl?: typeof fetch; dryRun?: boolean; signal?: AbortSignal; }`
+
+Members:
+- `accountId: string`
+- `apiBaseOrigin?: string`
+- `apiToken: string`
+- `branch?: string`
+- `commitHash?: string`
+- `commitMessage?: string`
+- `dryRun?: boolean`
+- `fetchImpl?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>`
+- `projectName: string`
+- `signal?: AbortSignal`
+- `webDir: string`
+
+Source: [packages/pocket_cloudflare/src/pages.ts](../packages/pocket_cloudflare/src/pages.ts#L148)
+
+<a id="api-sig-785ac9a49c4338f1"></a>
+### `CloudflarePlatformSelector`
+
+**Type** `CloudflarePlatformSelector = CloudflareConcretePlatform | "*"`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L14)
+
+<a id="api-sig-b9e3959c9a435b96"></a>
+### `CloudflarePublishFileRecord`
+
+**Type** `CloudflarePublishFileRecord = { relativeKey: string; objectKey: string; size: number; sha256: string; cacheControl: string; contentType: string; phase: "phase1" | "phase2"; action: "uploaded" | "skipped"; }`
+
+Members:
+- `action: "uploaded" | "skipped"`
+- `cacheControl: string`
+- `contentType: string`
+- `objectKey: string`
+- `phase: "phase1" | "phase2"`
+- `relativeKey: string`
+- `sha256: string`
+- `size: number`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L124)
+
+<a id="api-sig-ca5337858520f25d"></a>
+### `CloudflarePurgeSummary`
+
+**Type** `CloudflarePurgeSummary = { zoneId: string; purgedUrls: string[]; batches: number; }`
+
+Members:
+- `batches: number`
+- `purgedUrls: string[]`
+- `zoneId: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L135)
+
+<a id="api-sig-9f02800a0878cf9c"></a>
+### `CloudflareR2Credentials`
+
+**Type** `CloudflareR2Credentials = { accountId: string; accessKeyId: string; secretAccessKey: string; sessionToken?: string; apiToken?: string; }`
+
+Members:
+- `accessKeyId: string`
+- `accountId: string`
+- `apiToken?: string`
+- `secretAccessKey: string`
+- `sessionToken?: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L18)
+
+<a id="api-sig-2884d550a30a8e07"></a>
+### `CloudflareRouteRole`
+
+**Type** `CloudflareRouteRole = "primary" | "fallback"`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L16)
+
+<a id="api-sig-ade19c5b41389b14"></a>
+### `CloudflareStudioPublishSummary`
+
+**Type** `CloudflareStudioPublishSummary = { appConfigUrl: string; hostConfigUrl: string; slot: "test" | "stable"; channel: string; releaseId: string; version: string; build: number; uploadedFiles: number; skippedFiles: number; uploadedBytes: number; skippedBytes: number; purgedZones: number; targets: CloudflareStudioTargetSummary[]; platformEndpoints: PlatformEndpointsDocument; publishedAt: string; }`
+
+Members:
+- `appConfigUrl: string`
+- `build: number`
+- `channel: string`
+- `hostConfigUrl: string`
+- `platformEndpoints: PlatformEndpointsDocument`
+- `publishedAt: string`
+- `purgedZones: number`
+- `releaseId: string`
+- `skippedBytes: number`
+- `skippedFiles: number`
+- `slot: "test" | "stable"`
+- `targets: CloudflareStudioTargetSummary[]`
+- `uploadedBytes: number`
+- `uploadedFiles: number`
+- `version: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L696)
+
+<a id="api-sig-a12fb6c0fb369214"></a>
+### `CloudflareStudioTargetSummary`
+
+**Type** `CloudflareStudioTargetSummary = { profileId?: string; accountId: string; bucket: string; keyPrefix: string; publicBaseUrl: string; platforms: CloudflarePlatformSelector[]; role: CloudflareRouteRole; appConfigUrl: string; hostConfigUrl: string; uploadedFiles: number; skippedFiles: number; uploadedBytes: number; skippedBytes: number; purgedUrls?: number; }`
+
+Members:
+- `accountId: string`
+- `appConfigUrl: string`
+- `bucket: string`
+- `hostConfigUrl: string`
+- `keyPrefix: string`
+- `platforms: CloudflarePlatformSelector[]`
+- `profileId?: string`
+- `publicBaseUrl: string`
+- `purgedUrls?: number`
+- `role: CloudflareRouteRole`
+- `skippedBytes: number`
+- `skippedFiles: number`
+- `uploadedBytes: number`
+- `uploadedFiles: number`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L679)
+
+<a id="api-sig-8b04efc8a05bf5d9"></a>
+### `CloudflareTargetConfig`
+
+**Type** `CloudflareTargetConfig = { profileId?: string; accountId: string; bucket: string; endpoint?: string; keyPrefix?: string; publicBaseUrl?: string; platforms?: readonly CloudflarePlatformSelector[]; role?: CloudflareRouteRole; zoneId?: string; pagesProjectName?: string; workerScriptName?: string; apiBaseOrigin?: string; allowInsecureHttpForTesting?: boolean; }`
+
+Members:
+- `accountId: string`
+- `allowInsecureHttpForTesting?: boolean`
+- `apiBaseOrigin?: string`
+- `bucket: string`
+- `endpoint?: string`
+- `keyPrefix?: string`
+- `pagesProjectName?: string`
+- `platforms?: readonly CloudflarePlatformSelector[]`
+- `profileId?: string`
+- `publicBaseUrl?: string`
+- `role?: CloudflareRouteRole`
+- `workerScriptName?: string`
+- `zoneId?: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L47)
+
+<a id="api-sig-a8e0b522523d6b01"></a>
+### `CloudflareTargetPublishResult`
+
+**Type** `CloudflareTargetPublishResult = { profileId?: string; accountId: string; bucket: string; keyPrefix: string; publicBaseUrl: string; platforms: CloudflarePlatformSelector[]; role: CloudflareRouteRole; dryRun: boolean; uploadedFiles: number; skippedFiles: number; uploadedBytes: number; skippedBytes: number; files: CloudflarePublishFileRecord[]; manifestUrls: string[]; mutablePublicUrls: string[]; cachePurge?: CloudflarePurgeSummary; publishedAt: string; }`
+
+Members:
+- `accountId: string`
+- `bucket: string`
+- `cachePurge?: CloudflarePurgeSummary`
+- `dryRun: boolean`
+- `files: CloudflarePublishFileRecord[]`
+- `keyPrefix: string`
+- `manifestUrls: string[]`
+- `mutablePublicUrls: string[]`
+- `platforms: CloudflarePlatformSelector[]`
+- `profileId?: string`
+- `publicBaseUrl: string`
+- `publishedAt: string`
+- `role: CloudflareRouteRole`
+- `skippedBytes: number`
+- `skippedFiles: number`
+- `uploadedBytes: number`
+- `uploadedFiles: number`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L141)
+
+<a id="api-sig-ef6b06dc035ad83b"></a>
+### `CloudflareUploadProgress`
+
+**Type** `CloudflareUploadProgress = { targetKey: string; profileId?: string; bucket: string; phase: "phase1" | "phase2" | "purge" | "installer" | "web"; relativeKey: string; objectKey: string; action: "uploaded" | "skipped" | "purged"; bytes: number; completedFiles: number; totalFiles: number; }`
+
+Members:
+- `action: "uploaded" | "skipped" | "purged"`
+- `bucket: string`
+- `bytes: number`
+- `completedFiles: number`
+- `objectKey: string`
+- `phase: "web" | "phase1" | "phase2" | "purge" | "installer"`
+- `profileId?: string`
+- `relativeKey: string`
+- `targetKey: string`
+- `totalFiles: number`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L111)
+
+<a id="api-sig-cc16c9cbdefa34be"></a>
+### `CloudflareWebDeployResult`
+
+**Type** `CloudflareWebDeployResult = { mode: "pages" | "workers-assets" | "r2-site"; accountId: string; targetName: string; url?: string; deploymentId?: string; totalFiles: number; uploadedFiles: number; skippedFiles: number; totalBytes: number; dryRun: boolean; deployedAt: string; }`
+
+Members:
+- `accountId: string`
+- `deployedAt: string`
+- `deploymentId?: string`
+- `dryRun: boolean`
+- `mode: "pages" | "workers-assets" | "r2-site"`
+- `skippedFiles: number`
+- `targetName: string`
+- `totalBytes: number`
+- `totalFiles: number`
+- `uploadedFiles: number`
+- `url?: string`
+
+Source: [packages/pocket_cloudflare/src/pages.ts](../packages/pocket_cloudflare/src/pages.ts#L162)
+
+<a id="api-sig-ad567d999a2c1ce1"></a>
+### `CloudflareWorkersAssetsDeployOptions`
+
+**Type** `CloudflareWorkersAssetsDeployOptions = { accountId: string; scriptName: string; apiToken: string; webDir: string; compatibilityDate?: string; apiBaseOrigin?: string; fetchImpl?: typeof fetch; dryRun?: boolean; signal?: AbortSignal; }`
+
+Members:
+- `accountId: string`
+- `apiBaseOrigin?: string`
+- `apiToken: string`
+- `compatibilityDate?: string`
+- `dryRun?: boolean`
+- `fetchImpl?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>`
+- `scriptName: string`
+- `signal?: AbortSignal`
+- `webDir: string`
+
+Source: [packages/pocket_cloudflare/src/pages.ts](../packages/pocket_cloudflare/src/pages.ts#L403)
+
+<a id="api-sig-a83ebe9db38b9a0c"></a>
+### `CollectedWebAsset`
+
+**Type** ``CollectedWebAsset = { /** Leading-slash POSIX path (e.g. `/index.html`, `/engine/pocketjs.wasm`). */ routePath: string; /** Relative POSIX path without leading slash. */ relativePath: string; bytes: Uint8Array; size: number; sha256: string; /** 32-hex asset hash used by Cloudflare Pages / Workers Static Assets manifests. */ assetHash32: string; contentType: string; immutable: boolean; }``
+
+Members:
+- `assetHash32: string`
+- `bytes: Uint8Array<ArrayBufferLike>`
+- `contentType: string`
+- `immutable: boolean`
+- `relativePath: string`
+- `routePath: string`
+- `sha256: string`
+- `size: number`
+
+Source: [packages/pocket_cloudflare/src/pages.ts](../packages/pocket_cloudflare/src/pages.ts#L15)
+
+<a id="api-sig-2f04cf40e24614a8"></a>
+### `collectWebStaticAssets`
+
+**Function** `collectWebStaticAssets(webDir: string): CollectedWebAsset[]`
+
+Source: [packages/pocket_cloudflare/src/pages.ts](../packages/pocket_cloudflare/src/pages.ts#L79)
+
+<a id="api-sig-2b840bda101d2d22"></a>
+### `createR2Client`
+
+**Function** `createR2Client(options: R2ClientOptions): R2Client`
+
+Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L301)
+
+<a id="api-sig-d39c471ebf0cfced"></a>
+### `createR2PresignedUrl`
+
+**Function** `createR2PresignedUrl(input: CreateR2PresignedUrlInput): string`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L409)
+
+<a id="api-sig-4d95ffc593ff8467"></a>
+### `CreateR2PresignedUrlInput`
+
+**Type** `CreateR2PresignedUrlInput = { endpointOrigin: string; bucket: string; objectKey: string; method?: string; expiresSeconds?: number; query?: Record<string, string | number | boolean | null | undefined>; credentials: Pick< CloudflareR2Credentials, "accessKeyId" | "secretAccessKey" | "sessionToken" >; region?: string; now?: Date; amzDate?: string; }`
+
+Members:
+- `amzDate?: string`
+- `bucket: string`
+- `credentials: Pick<CloudflareR2Credentials, "accessKeyId" | "secretAccessKey" | "sessionToken">`
+- `endpointOrigin: string`
+- `expiresSeconds?: number`
+- `method?: string`
+- `now?: Date`
+- `objectKey: string`
+- `query?: Record<string, string | number | boolean>`
+- `region?: string`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L393)
+
+<a id="api-sig-8e4c353eae4bd806"></a>
+### `deployWebToCloudflarePages`
+
+**Function** `deployWebToCloudflarePages(options: CloudflarePagesDeployOptions): Promise<CloudflareWebDeployResult>`
+
+Source: [packages/pocket_cloudflare/src/pages.ts](../packages/pocket_cloudflare/src/pages.ts#L242)
+
+<a id="api-sig-733f2b4a64552261"></a>
+### `deployWebToCloudflareWorkersAssets`
+
+**Function** `deployWebToCloudflareWorkersAssets(options: CloudflareWorkersAssetsDeployOptions): Promise<CloudflareWebDeployResult>`
+
+Source: [packages/pocket_cloudflare/src/pages.ts](../packages/pocket_cloudflare/src/pages.ts#L415)
+
+<a id="api-sig-5fd26fb4c225e37a"></a>
+### `deployWebToR2Site`
+
+**Function** `deployWebToR2Site(options: { client: R2Client; webDir: string; routePrefix?: string; apiToken?: string; purgeCache?: boolean; dryRun?: boolean; signal?: AbortSignal; }): Promise<CloudflareWebDeployResult>`
+
+Source: [packages/pocket_cloudflare/src/pages.ts](../packages/pocket_cloudflare/src/pages.ts#L554)
+
+<a id="api-sig-2b22a7c470c10f42"></a>
+### `EditorProjectCloudflareConfig`
+
+**Type** `EditorProjectCloudflareConfig = { enabled: boolean; syncOnPublish?: boolean; purgeCacheOnPublish?: boolean; targets: ProjectCloudflareRouteConfig[]; }`
+
+Members:
+- `enabled: boolean`
+- `purgeCacheOnPublish?: boolean`
+- `syncOnPublish?: boolean`
+- `targets: ProjectCloudflareRouteConfig[]`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L96)
+
+<a id="api-sig-1aa4dedd51ed9915"></a>
+### `encodeR2ObjectPath`
+
+**Function** `encodeR2ObjectPath(bucket: string, objectKey?: string): string`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L179)
+
+<a id="api-sig-d7e571b59b816864"></a>
+### `formatAmzTimestamps`
+
+**Function** `formatAmzTimestamps(now: Date = new Date()): { amzDate: string; dateStamp: string; }`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L192)
+
+<a id="api-sig-dbef857d5405c76d"></a>
+### `hmacSha256Bytes`
+
+**Function** `hmacSha256Bytes(key: string | Uint8Array, message: string | Uint8Array): Uint8Array`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L133)
+
+<a id="api-sig-b9a1c2fc81821ee7"></a>
+### `hmacSha256Hex`
+
+**Function** `hmacSha256Hex(key: string | Uint8Array, message: string | Uint8Array): string`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L164)
+
+<a id="api-sig-b977dd04b70227af"></a>
+### `IMMUTABLE_CACHE_CONTROL`
+
+**Value** `IMMUTABLE_CACHE_CONTROL: "public, max-age=31536000, immutable"`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L41)
+
+<a id="api-sig-5066597f3856b3da"></a>
+### `inferWebAssetContentType`
+
+**Function** `inferWebAssetContentType(filePath: string): string`
+
+Source: [packages/pocket_cloudflare/src/pages.ts](../packages/pocket_cloudflare/src/pages.ts#L29)
+
+<a id="api-sig-d87668463f6dde7c"></a>
+### `inspectLocalCloudflareEnvironment`
+
+**Function** `inspectLocalCloudflareEnvironment(options: LocalCloudflareOptions = {}): LocalCloudflareInspection`
+
+Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L424)
+
+<a id="api-sig-26afe45410203143"></a>
+### `LocalCloudflareInspection`
+
+**Type** `LocalCloudflareInspection = { available: boolean; source: "env" | "workspace" | "wrangler" | "none"; sourceDetail: string; defaultProfileId?: string; profiles: CloudflareAccountProfile[]; }`
+
+Members:
+- `available: boolean`
+- `defaultProfileId?: string`
+- `profiles: CloudflareAccountProfile[]`
+- `source: "env" | "workspace" | "wrangler" | "none"`
+- `sourceDetail: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L103)
+
+<a id="api-sig-d44bf4d71d4f900e"></a>
+### `LocalCloudflareOptions`
+
+**Type** `LocalCloudflareOptions = { env?: NodeJS.ProcessEnv; workspaceKeysDir?: string; homeDir?: string; wranglerConfigPath?: string; }`
+
+Members:
+- `env?: NodeJS.ProcessEnv`
+- `homeDir?: string`
+- `workspaceKeysDir?: string`
+- `wranglerConfigPath?: string`
+
+Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L82)
+
+<a id="api-sig-f16226759022f669"></a>
+### `maskAccountId`
+
+**Function** `maskAccountId(accountId: string): string`
+
+Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L40)
+
+<a id="api-sig-723907f1dce8912d"></a>
+### `maskSecretValue`
+
+**Function** `maskSecretValue(value: string): string`
+
+Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L31)
+
+<a id="api-sig-b9729cc365c48fb3"></a>
+### `MUTABLE_CACHE_CONTROL`
+
+**Value** `MUTABLE_CACHE_CONTROL: "no-cache, no-store, must-revalidate"`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L42)
+
+<a id="api-sig-cde4ab795681c82c"></a>
+### `NativeDownloadManifestPayload`
+
+**Type** `NativeDownloadManifestPayload = { schemaVersion: 1; kind: "pocket-native-download-manifest"; appId: string; channel: "test" | "stable"; publishedAt: string; platforms: Partial<Record<CloudflareConcretePlatform, NativeInstallerRecord>>; }`
+
+Members:
+- `appId: string`
+- `channel: "test" | "stable"`
+- `kind: "pocket-native-download-manifest"`
+- `platforms: Partial<Record<"ios" | "android" | "macos" | "windows" | "linux" | "web" | "wechat", NativeInstallerRecord>>`
+- `publishedAt: string`
+- `schemaVersion: 1`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L214)
+
+<a id="api-sig-8b76ac0ab5f3d4cf"></a>
+### `NativeInstallerInput`
+
+**Type** `NativeInstallerInput = { platform: CloudflareConcretePlatform; filePath: string; version: string; build: number; fileName?: string; releaseNotes?: string; minimumOsVersion?: string; }`
+
+Members:
+- `build: number`
+- `fileName?: string`
+- `filePath: string`
+- `minimumOsVersion?: string`
+- `platform: "ios" | "android" | "macos" | "windows" | "linux" | "web" | "wechat"`
+- `releaseNotes?: string`
+- `version: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L189)
+
+<a id="api-sig-b484610d33a8979b"></a>
+### `NativeInstallerRecord`
+
+**Type** `NativeInstallerRecord = { platform: CloudflareConcretePlatform; version: string; build: number; fileName: string; size: number; sha256: string; contentType: string; downloadUrl: string; fallbackDownloadUrls: string[]; releaseNotes?: string; minimumOsVersion?: string; publishedAt: string; }`
+
+Members:
+- `build: number`
+- `contentType: string`
+- `downloadUrl: string`
+- `fallbackDownloadUrls: string[]`
+- `fileName: string`
+- `minimumOsVersion?: string`
+- `platform: "ios" | "android" | "macos" | "windows" | "linux" | "web" | "wechat"`
+- `publishedAt: string`
+- `releaseNotes?: string`
+- `sha256: string`
+- `size: number`
+- `version: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L199)
+
+<a id="api-sig-7a16b1062e6dbdb1"></a>
+### `normalizeCloudflarePlatforms`
+
+**Function** `normalizeCloudflarePlatforms(platforms?: readonly string[] | string): CloudflarePlatformSelector[]`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L291)
+
+<a id="api-sig-7a3033f537c8a6d8"></a>
+### `normalizeR2KeyPrefix`
+
+**Function** `normalizeR2KeyPrefix(raw?: string): string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L323)
+
+<a id="api-sig-24505b99bc0fc9d9"></a>
+### `PlatformEndpointRoute`
+
+**Type** `PlatformEndpointRoute = { primaryUrl: string; fallbackUrls: string[]; }`
+
+Members:
+- `fallbackUrls: string[]`
+- `primaryUrl: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L161)
+
+<a id="api-sig-c433a01f2a1d0ab4"></a>
+### `PlatformEndpointsDocument`
+
+**Type** `PlatformEndpointsDocument = { schemaVersion: 1; kind: "pocket-platform-endpoints"; appId: string; hostVersion: string; packageVersion?: string; slot?: "test" | "stable"; keyId?: string; publicKey?: string; trustRootKeyId?: string; trustRootPublicKey?: string; trustPolicyUrl?: string; routes: Partial<Record<CloudflarePlatformSelector, PlatformEndpointRoute>>; generatedAt: string; }`
+
+Members:
+- `appId: string`
+- `generatedAt: string`
+- `hostVersion: string`
+- `keyId?: string`
+- `kind: "pocket-platform-endpoints"`
+- `packageVersion?: string`
+- `publicKey?: string`
+- `routes: Partial<Record<CloudflarePlatformSelector, PlatformEndpointRoute>>`
+- `schemaVersion: 1`
+- `slot?: "test" | "stable"`
+- `trustPolicyUrl?: string`
+- `trustRootKeyId?: string`
+- `trustRootPublicKey?: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L166)
+
+<a id="api-sig-59cceed4f6c3cfce"></a>
+### `ProjectCloudflareRouteConfig`
+
+**Type** `ProjectCloudflareRouteConfig = { profileId: string; accountId?: string; bucket: string; endpoint?: string; keyPrefix?: string; publicBaseUrl: string; platforms: CloudflarePlatformSelector[]; role?: CloudflareRouteRole; zoneId?: string; pagesProjectName?: string; workerScriptName?: string; allowInsecureHttpForTesting?: boolean; }`
+
+Members:
+- `accountId?: string`
+- `allowInsecureHttpForTesting?: boolean`
+- `bucket: string`
+- `endpoint?: string`
+- `keyPrefix?: string`
+- `pagesProjectName?: string`
+- `platforms: CloudflarePlatformSelector[]`
+- `profileId: string`
+- `publicBaseUrl: string`
+- `role?: CloudflareRouteRole`
+- `workerScriptName?: string`
+- `zoneId?: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L81)
+
+<a id="api-sig-69fd0c8b60c0e531"></a>
+### `PublishNativeInstallersOptions`
+
+**Type** `PublishNativeInstallersOptions = { clients: readonly R2Client[]; appId: string; channel?: "test" | "stable"; installers: readonly NativeInstallerInput[]; signingKeyFile?: string; purgeCache?: boolean; dryRun?: boolean; signal?: AbortSignal; }`
+
+Members:
+- `appId: string`
+- `channel?: "test" | "stable"`
+- `clients: readonly R2Client[]`
+- `dryRun?: boolean`
+- `installers: readonly NativeInstallerInput[]`
+- `purgeCache?: boolean`
+- `signal?: AbortSignal`
+- `signingKeyFile?: string`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1075)
+
+<a id="api-sig-d6a8ac04f90ab29a"></a>
+### `PublishNativeInstallersResult`
+
+**Type** `PublishNativeInstallersResult = { appId: string; channel: "test" | "stable"; dryRun: boolean; manifest: SignedNativeDownloadManifest; targetManifestUrls: Array<{ profileId?: string; bucket: string; role: "primary" | "fallback"; manifestUrl: string; cachePurge?: CloudflarePurgeSummary; }>; publishedAt: string; }`
+
+Members:
+- `appId: string`
+- `channel: "test" | "stable"`
+- `dryRun: boolean`
+- `manifest: SignedNativeDownloadManifest`
+- `publishedAt: string`
+- `targetManifestUrls: { profileId?: string; bucket: string; role: "primary" | "fallback"; manifestUrl: string; cachePurge?: CloudflarePurgeSummary; }[]`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1086)
+
+<a id="api-sig-8a1a9495a6e03ac4"></a>
+### `publishNativeInstallersToCloudflare`
+
+**Function** `publishNativeInstallersToCloudflare(options: PublishNativeInstallersOptions): Promise<PublishNativeInstallersResult>`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1101)
+
+<a id="api-sig-f6ba9be18819102c"></a>
+### `publishStudioVersionToCloudflareMatrix`
+
+**Function** `publishStudioVersionToCloudflareMatrix(options: PublishStudioVersionToCloudflareOptions): Promise<CloudflareStudioPublishSummary>`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1324)
+
+<a id="api-sig-f1d347a8fe65b8f4"></a>
+### `PublishStudioVersionToCloudflareOptions`
+
+**Type** `PublishStudioVersionToCloudflareOptions = { clients: readonly R2Client[]; updatesDir: string; projectId: string; rootAppId: string; entry: PublishedVersion; reusedEntries?: Array<{ ownerProjectId: string; entry: PublishedVersion }>; previouslyPublishedEntries?: PublishedVersion[]; publicKey?: string | Buffer; publicKeyBase64?: string; keyId?: string; purgeCache?: boolean; writeEndpointsPath?: string; concurrency?: number; signal?: AbortSignal; onProgress?: (progress: CloudflareUploadProgress) => void; }`
+
+Members:
+- `clients: readonly R2Client[]`
+- `concurrency?: number`
+- `entry: PublishedVersion`
+- `keyId?: string`
+- `onProgress?: (progress: CloudflareUploadProgress) => void`
+- `previouslyPublishedEntries?: PublishedVersion[]`
+- `projectId: string`
+- `publicKey?: any`
+- `publicKeyBase64?: string`
+- `purgeCache?: boolean`
+- `reusedEntries?: { ownerProjectId: string; entry: PublishedVersion; }[]`
+- `rootAppId: string`
+- `signal?: AbortSignal`
+- `updatesDir: string`
+- `writeEndpointsPath?: string`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L1306)
+
+<a id="api-sig-e3d03aefb256273f"></a>
+### `publishToCloudflareMatrix`
+
+**Function** `publishToCloudflareMatrix(options: PublishToCloudflareMatrixOptions): Promise<CloudflareMatrixPublishResult>`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L648)
+
+<a id="api-sig-0b7e9570fa505225"></a>
+### `PublishToCloudflareMatrixOptions`
+
+**Type** `PublishToCloudflareMatrixOptions = { clients: readonly R2Client[]; packageDir?: string; deployRoot?: string; routePrefix?: string; slot?: "test" | "stable"; hostVersion?: string; appId?: string; packageVersion?: string; publicKey?: string | Buffer; keyId?: string; publicKeyBase64?: string; filterPlatforms?: readonly CloudflareConcretePlatform[]; purgeCache?: boolean; apiTokensByProfile?: ReadonlyMap<string, string>; writeEndpointsPath?: string; dryRun?: boolean; concurrency?: number; signal?: AbortSignal; onProgress?: (progress: CloudflareUploadProgress) => void; }`
+
+Members:
+- `apiTokensByProfile?: ReadonlyMap<string, string>`
+- `appId?: string`
+- `clients: readonly R2Client[]`
+- `concurrency?: number`
+- `deployRoot?: string`
+- `dryRun?: boolean`
+- `filterPlatforms?: readonly ("ios" | "android" | "macos" | "windows" | "linux" | "web" | "wechat")[]`
+- `hostVersion?: string`
+- `keyId?: string`
+- `onProgress?: (progress: CloudflareUploadProgress) => void`
+- `packageDir?: string`
+- `packageVersion?: string`
+- `publicKey?: any`
+- `publicKeyBase64?: string`
+- `purgeCache?: boolean`
+- `routePrefix?: string`
+- `signal?: AbortSignal`
+- `slot?: "test" | "stable"`
+- `writeEndpointsPath?: string`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L614)
+
+<a id="api-sig-81fcfd8091baecf3"></a>
+### `purgeCloudflareZoneCache`
+
+**Function** `purgeCloudflareZoneCache(options: { zoneId: string; urls: readonly string[]; apiToken: string; apiBaseOrigin?: string; fetchImpl?: typeof fetch; signal?: AbortSignal; }): Promise<CloudflarePurgeSummary>`
+
+Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L210)
+
+<a id="api-sig-16a5e76170ea7a45"></a>
+### `R2_BUCKET_PATTERN`
+
+**Value** `R2_BUCKET_PATTERN: RegExp`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L234)
+
+<a id="api-sig-e1eec43354e5ae9b"></a>
+### `R2Client`
+
+**Type** `R2Client = { readonly target: ResolvedCloudflareTarget; resolveObjectKey(relativePath: string): string; resolvePublicUrl(relativePath: string): string; checkAccess(signal?: AbortSignal): Promise<{ ok: true; status: number }>; headObject(relativeKey: string, signal?: AbortSignal): Promise<R2HeadObjectResult>; putObject( relativeKey: string, bytes: Uint8Array, options?: R2PutObjectOptions, ): Promise<{ etag?: string; sha256: string; size: number }>; uploadFile( relativeKey: string, source: string | Uint8Array, options?: R2UploadFileOptions, ): Promise<{ etag?: string; sha256: string; size: number; multipart: boolean }>; purgeZoneCache( urls: readonly string[], options?: { apiToken?: string; signal?: AbortSignal }, ): Promise<CloudflarePurgeSummary | undefined>; }`
+
+Members:
+- `checkAccess(signal?: AbortSignal): Promise<{ ok: true; status: number }>`
+- `headObject(relativeKey: string, signal?: AbortSignal): Promise<R2HeadObjectResult>`
+- `purgeZoneCache(urls: readonly string[], options?: { apiToken?: string; signal?: AbortSignal }): Promise<CloudflarePurgeSummary | undefined>`
+- `putObject(relativeKey: string, bytes: Uint8Array, options?: R2PutObjectOptions): Promise<{ etag?: string; sha256: string; size: number }>`
+- `readonly target: ResolvedCloudflareTarget`
+- `resolveObjectKey(relativePath: string): string`
+- `resolvePublicUrl(relativePath: string): string`
+- `uploadFile(relativeKey: string, source: string | Uint8Array, options?: R2UploadFileOptions): Promise<{ etag?: string; sha256: string; size: number; multipart: boolean }>`
+
+Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L70)
+
+<a id="api-sig-544a58c92b089990"></a>
+### `R2ClientOptions`
+
+**Type** `R2ClientOptions = { target: CloudflareTargetConfig | ResolvedCloudflareTarget; credentials: CloudflareCredentialProvider; fetchImpl?: typeof fetch; multipartThresholdBytes?: number; partSizeBytes?: number; concurrency?: number; maxRetries?: number; retryBaseDelayMs?: number; }`
+
+Members:
+- `concurrency?: number`
+- `credentials: CloudflareCredentialProvider`
+- `fetchImpl?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>`
+- `maxRetries?: number`
+- `multipartThresholdBytes?: number`
+- `partSizeBytes?: number`
+- `retryBaseDelayMs?: number`
+- `target: CloudflareTargetConfig | ResolvedCloudflareTarget`
+
+Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L59)
+
+<a id="api-sig-b15b617c4809359c"></a>
+### `R2HeadObjectResult`
+
+**Type** `R2HeadObjectResult = | { exists: false } | { exists: true; size: number; etag?: string; sha256?: string; contentType?: string; cacheControl?: string; }`
+
+Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L32)
+
+<a id="api-sig-4f756bcc7747284d"></a>
+### `R2PutObjectOptions`
+
+**Type** `R2PutObjectOptions = { contentType?: string; cacheControl?: string; sha256?: string; metadata?: Record<string, string>; signal?: AbortSignal; }`
+
+Members:
+- `cacheControl?: string`
+- `contentType?: string`
+- `metadata?: Record<string, string>`
+- `sha256?: string`
+- `signal?: AbortSignal`
+
+Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L43)
+
+<a id="api-sig-0aabb774a7afbdf2"></a>
+### `R2UploadFileOptions`
+
+**Type** `R2UploadFileOptions = R2PutObjectOptions & { onPartUploaded?: (info: { partNumber: number; totalParts: number; bytes: number; }) => void; }`
+
+Members:
+- `cacheControl?: string`
+- `contentType?: string`
+- `metadata?: Record<string, string>`
+- `onPartUploaded?: (info: { partNumber: number; totalParts: number; bytes: number; }) => void`
+- `sha256?: string`
+- `signal?: AbortSignal`
+
+Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L51)
+
+<a id="api-sig-16833a3973cf1283"></a>
+### `rebaseHostDescriptorForCloudflare`
+
+**Function** `rebaseHostDescriptorForCloudflare(descriptor: Record<string, unknown>, publicBaseUrl: string, slot?: "test" | "stable"): Record<string, unknown>`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L447)
+
+<a id="api-sig-60556c88e9e94640"></a>
+### `redactCloudflareSecrets`
+
+**Function** `redactCloudflareSecrets(text: string, credentials?: Partial<CloudflareR2Credentials>): string`
+
+Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L141)
+
+<a id="api-sig-41a04cfa57906194"></a>
+### `removeWorkspaceCloudflareProfile`
+
+**Function** `removeWorkspaceCloudflareProfile(workspaceKeysDir: string, profileId: string): boolean`
+
+Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L605)
+
+<a id="api-sig-d95bc2dadaf99c90"></a>
+### `resolveCloudflareTarget`
+
+**Function** `resolveCloudflareTarget(config: CloudflareTargetConfig): ResolvedCloudflareTarget`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L366)
+
+<a id="api-sig-e33cbde28f6c2d7a"></a>
+### `ResolvedCloudflareTarget`
+
+**Type** `ResolvedCloudflareTarget = { profileId?: string; accountId: string; bucket: string; endpointOrigin: string; endpointHost: string; bucketPathPrefix: string; keyPrefix: string; publicBaseUrl: string; platforms: CloudflarePlatformSelector[]; role: CloudflareRouteRole; zoneId?: string; pagesProjectName?: string; workerScriptName?: string; apiBaseOrigin: string; allowInsecureHttpForTesting: boolean; }`
+
+Members:
+- `accountId: string`
+- `allowInsecureHttpForTesting: boolean`
+- `apiBaseOrigin: string`
+- `bucket: string`
+- `bucketPathPrefix: string`
+- `endpointHost: string`
+- `endpointOrigin: string`
+- `keyPrefix: string`
+- `pagesProjectName?: string`
+- `platforms: CloudflarePlatformSelector[]`
+- `profileId?: string`
+- `publicBaseUrl: string`
+- `role: CloudflareRouteRole`
+- `workerScriptName?: string`
+- `zoneId?: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L63)
+
+<a id="api-sig-d705d57f4d11fe71"></a>
+### `resolveLocalCloudflareCredentials`
+
+**Function** `resolveLocalCloudflareCredentials(selector: { profileId?: string; accountId?: string } = {}, options: LocalCloudflareOptions = {}): { profileId: string; credentials: CloudflareR2Credentials; inspection: LocalCloudflareInspection; }`
+
+Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L430)
+
+<a id="api-sig-2c2037992e44ea0e"></a>
+### `sha256Bytes`
+
+**Function** `sha256Bytes(input: string | Uint8Array): Uint8Array`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L32)
+
+<a id="api-sig-56ca502e016cd6bd"></a>
+### `sha256Hex`
+
+**Function** `sha256Hex(input: string | Uint8Array): string`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L129)
+
+<a id="api-sig-4466ef3de423966b"></a>
+### `SignedNativeDownloadManifest`
+
+**Type** `SignedNativeDownloadManifest = { schemaVersion: 1; kind: "pocket-signed-native-download-manifest"; keyId?: string; signature?: string; payload: string; decoded: NativeDownloadManifestPayload; }`
+
+Members:
+- `decoded: NativeDownloadManifestPayload`
+- `keyId?: string`
+- `kind: "pocket-signed-native-download-manifest"`
+- `payload: string`
+- `schemaVersion: 1`
+- `signature?: string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L223)
+
+<a id="api-sig-93ee3528f9d1b729"></a>
+### `signR2Request`
+
+**Function** `signR2Request(input: SignR2RequestInput): SignR2RequestResult`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L256)
+
+<a id="api-sig-c4c22574778603c8"></a>
+### `SignR2RequestInput`
+
+**Type** `SignR2RequestInput = { method: string; pathname: string; query?: Record<string, string | number | boolean | null | undefined> | URLSearchParams; headers?: Record<string, string | number | undefined>; payloadSha256?: string; body?: string | Uint8Array; credentials: Pick< CloudflareR2Credentials, "accessKeyId" | "secretAccessKey" | "sessionToken" >; region?: string; service?: string; now?: Date; amzDate?: string; }`
+
+Members:
+- `amzDate?: string`
+- `body?: string | Uint8Array<ArrayBufferLike>`
+- `credentials: Pick<CloudflareR2Credentials, "accessKeyId" | "secretAccessKey" | "sessionToken">`
+- `headers?: Record<string, string | number>`
+- `method: string`
+- `now?: Date`
+- `pathname: string`
+- `payloadSha256?: string`
+- `query?: Record<string, string | number | boolean> | URLSearchParams`
+- `region?: string`
+- `service?: string`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L226)
+
+<a id="api-sig-8790aa5d26cdd802"></a>
+### `SignR2RequestResult`
+
+**Type** `SignR2RequestResult = { authorization: string; headers: Record<string, string>; amzDate: string; dateStamp: string; credentialScope: string; signedHeaders: string; canonicalRequest: string; stringToSign: string; signature: string; payloadSha256: string; }`
+
+Members:
+- `amzDate: string`
+- `authorization: string`
+- `canonicalRequest: string`
+- `credentialScope: string`
+- `dateStamp: string`
+- `headers: Record<string, string>`
+- `payloadSha256: string`
+- `signature: string`
+- `signedHeaders: string`
+- `stringToSign: string`
+
+Source: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts#L243)
+
+<a id="api-sig-4634a604fcb2782e"></a>
+### `StoredCloudflareAccountEntry`
+
+**Type** `StoredCloudflareAccountEntry = { profileId: string; accountId: string; label?: string; accessKeyId: string; secretAccessKey: string; sessionToken?: string; apiToken?: string; buckets?: CloudflareBucketSummary[]; }`
+
+Members:
+- `accessKeyId: string`
+- `accountId: string`
+- `apiToken?: string`
+- `buckets?: CloudflareBucketSummary[]`
+- `label?: string`
+- `profileId: string`
+- `secretAccessKey: string`
+- `sessionToken?: string`
+
+Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L64)
+
+<a id="api-sig-c4b66ead4643171f"></a>
+### `targetMatchesPlatform`
+
+**Function** `targetMatchesPlatform(target: Pick<ResolvedCloudflareTarget, "platforms">, platform: CloudflareConcretePlatform): boolean`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L544)
+
+<a id="api-sig-0702826fd491a02e"></a>
+### `upsertWorkspaceCloudflareProfile`
+
+**Function** `upsertWorkspaceCloudflareProfile(workspaceKeysDir: string, input: UpsertWorkspaceCloudflareProfileInput): { path: string; profile: CloudflareAccountProfile }`
+
+Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L554)
+
+<a id="api-sig-a52330bb42caab7f"></a>
+### `UpsertWorkspaceCloudflareProfileInput`
+
+**Type** `UpsertWorkspaceCloudflareProfileInput = { profileId: string; accountId: string; label?: string; accessKeyId: string; secretAccessKey: string; sessionToken?: string; apiToken?: string; buckets?: CloudflareBucketSummary[]; setDefault?: boolean; }`
+
+Members:
+- `accessKeyId: string`
+- `accountId: string`
+- `apiToken?: string`
+- `buckets?: CloudflareBucketSummary[]`
+- `label?: string`
+- `profileId: string`
+- `secretAccessKey: string`
+- `sessionToken?: string`
+- `setDefault?: boolean`
+
+Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L493)
+
+<a id="api-sig-b3eaea2ee414e81f"></a>
+### `validateCloudflareAccountId`
+
+**Function** `validateCloudflareAccountId(accountId: string): string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L251)
+
+<a id="api-sig-46cc8bb3fd0040f0"></a>
+### `validateCloudflareProfileId`
+
+**Function** `validateCloudflareProfileId(profileId: string): string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L261)
+
+<a id="api-sig-5d26be099f109aca"></a>
+### `validateCloudflareRouteMatrix`
+
+**Function** `validateCloudflareRouteMatrix(targets: readonly ResolvedCloudflareTarget[]): void`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L492)
+
+<a id="api-sig-64ec7efc35880bea"></a>
+### `validateCloudflareZoneId`
+
+**Function** `validateCloudflareZoneId(zoneId: string): string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L281)
+
+<a id="api-sig-5b8435254f9283f7"></a>
+### `validateR2Bucket`
+
+**Function** `validateR2Bucket(bucket: string): string`
+
+Source: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts#L271)
+
+<a id="api-sig-63c6f9dfb6f5e597"></a>
+### `validateRelativeR2ObjectPath`
+
+**Function** `validateRelativeR2ObjectPath(relativePath: string): string`
+
+Source: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts#L106)
+
+<a id="api-sig-d9914273aaf94cca"></a>
+### `VerifiedCloudflarePackage`
+
+**Type** `VerifiedCloudflarePackage = { packageDir: string; envelope: SignedManifest; envelopeBytes: Uint8Array; payload: PocketUpdatePayload; payloadBytes: Uint8Array; payloadSha256: string; rawHostDescriptor?: Record<string, unknown>; immutableFiles: Array<{ relativePath: string; filePath: string; bytes: Uint8Array; size: number; sha256: string; contentType: string; deduplicate: boolean; }>; mutableFiles: Array<{ relativePath: string; filePath: string; bytes: Uint8Array; size: number; sha256: string; contentType: string; }>; }`
+
+Members:
+- `envelope: SignedManifest`
+- `envelopeBytes: Uint8Array<ArrayBufferLike>`
+- `immutableFiles: { relativePath: string; filePath: string; bytes: Uint8Array; size: number; sha256: string; contentType: string; deduplicate: boolean; }[]`
+- `mutableFiles: { relativePath: string; filePath: string; bytes: Uint8Array; size: number; sha256: string; contentType: string; }[]`
+- `packageDir: string`
+- `payload: PocketUpdatePayload`
+- `payloadBytes: Uint8Array<ArrayBufferLike>`
+- `payloadSha256: string`
+- `rawHostDescriptor?: Record<string, unknown>`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L148)
+
+<a id="api-sig-f0a7b32efa4ed511"></a>
+### `verifyLocalPackageForCloudflare`
+
+**Function** `verifyLocalPackageForCloudflare(packageDir: string, publicKey?: string | Buffer): VerifiedCloudflarePackage`
+
+Source: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts#L175)
+
+<a id="api-sig-e0e91f5507d98680"></a>
+### `WORKSPACE_CLOUDFLARE_CREDENTIALS_FILENAME`
+
+**Value** `WORKSPACE_CLOUDFLARE_CREDENTIALS_FILENAME: "cloudflare-credentials.json"`
+
+Source: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts#L28)
+
+
+### Import `@pocket/cloudflare/cli`
+
+Entry: [packages/pocket_cloudflare/src/cli.ts](../packages/pocket_cloudflare/src/cli.ts)
+
+Exports:
+- `runCloudflareCli` — [signature](#api-sig-50cf34219d4c3ab8)
+
+Signatures:
+<a id="api-sig-50cf34219d4c3ab8"></a>
+### `runCloudflareCli`
+
+**Function** `runCloudflareCli(argv: string[] = process.argv.slice(2)): Promise<unknown>`
+
+Source: [packages/pocket_cloudflare/src/cli.ts](../packages/pocket_cloudflare/src/cli.ts#L218)
+
+
+### Import `@pocket/cloudflare/client`
+
+Entry: [packages/pocket_cloudflare/src/client.ts](../packages/pocket_cloudflare/src/client.ts)
+
+Exports:
+- `CloudflareError` — [signature](#api-sig-8c604927f6098b27)
+- `createR2Client` — [signature](#api-sig-2b840bda101d2d22)
+- `purgeCloudflareZoneCache` — [signature](#api-sig-81fcfd8091baecf3)
+- `R2Client` — [signature](#api-sig-e1eec43354e5ae9b)
+- `R2ClientOptions` — [signature](#api-sig-544a58c92b089990)
+- `R2HeadObjectResult` — [signature](#api-sig-b15b617c4809359c)
+- `R2PutObjectOptions` — [signature](#api-sig-4f756bcc7747284d)
+- `R2UploadFileOptions` — [signature](#api-sig-0aabb774a7afbdf2)
+- `redactCloudflareSecrets` — [signature](#api-sig-60556c88e9e94640)
+- `validateRelativeR2ObjectPath` — [signature](#api-sig-63c6f9dfb6f5e597)
+
+Signatures:
+
+### Import `@pocket/cloudflare/local-config`
+
+Entry: [packages/pocket_cloudflare/src/local_config.ts](../packages/pocket_cloudflare/src/local_config.ts)
+
+Exports:
+- `inspectLocalCloudflareEnvironment` — [signature](#api-sig-d87668463f6dde7c)
+- `LocalCloudflareOptions` — [signature](#api-sig-d44bf4d71d4f900e)
+- `maskAccountId` — [signature](#api-sig-f16226759022f669)
+- `maskSecretValue` — [signature](#api-sig-723907f1dce8912d)
+- `removeWorkspaceCloudflareProfile` — [signature](#api-sig-41a04cfa57906194)
+- `resolveLocalCloudflareCredentials` — [signature](#api-sig-d705d57f4d11fe71)
+- `StoredCloudflareAccountEntry` — [signature](#api-sig-4634a604fcb2782e)
+- `upsertWorkspaceCloudflareProfile` — [signature](#api-sig-0702826fd491a02e)
+- `UpsertWorkspaceCloudflareProfileInput` — [signature](#api-sig-a52330bb42caab7f)
+- `WORKSPACE_CLOUDFLARE_CREDENTIALS_FILENAME` — [signature](#api-sig-e0e91f5507d98680)
+
+Signatures:
+
+### Import `@pocket/cloudflare/pages`
+
+Entry: [packages/pocket_cloudflare/src/pages.ts](../packages/pocket_cloudflare/src/pages.ts)
+
+Exports:
+- `CloudflarePagesDeployOptions` — [signature](#api-sig-c6acf01efbbab66c)
+- `CloudflareWebDeployResult` — [signature](#api-sig-cc16c9cbdefa34be)
+- `CloudflareWorkersAssetsDeployOptions` — [signature](#api-sig-ad567d999a2c1ce1)
+- `CollectedWebAsset` — [signature](#api-sig-a83ebe9db38b9a0c)
+- `collectWebStaticAssets` — [signature](#api-sig-2f04cf40e24614a8)
+- `deployWebToCloudflarePages` — [signature](#api-sig-8e4c353eae4bd806)
+- `deployWebToCloudflareWorkersAssets` — [signature](#api-sig-733f2b4a64552261)
+- `deployWebToR2Site` — [signature](#api-sig-5fd26fb4c225e37a)
+- `inferWebAssetContentType` — [signature](#api-sig-5066597f3856b3da)
+
+Signatures:
+
+### Import `@pocket/cloudflare/publisher`
+
+Entry: [packages/pocket_cloudflare/src/publisher.ts](../packages/pocket_cloudflare/src/publisher.ts)
+
+Exports:
+- `IMMUTABLE_CACHE_CONTROL` — [signature](#api-sig-b977dd04b70227af)
+- `MUTABLE_CACHE_CONTROL` — [signature](#api-sig-b9729cc365c48fb3)
+- `PublishNativeInstallersOptions` — [signature](#api-sig-69fd0c8b60c0e531)
+- `PublishNativeInstallersResult` — [signature](#api-sig-d6a8ac04f90ab29a)
+- `publishNativeInstallersToCloudflare` — [signature](#api-sig-8a1a9495a6e03ac4)
+- `publishStudioVersionToCloudflareMatrix` — [signature](#api-sig-f6ba9be18819102c)
+- `PublishStudioVersionToCloudflareOptions` — [signature](#api-sig-f1d347a8fe65b8f4)
+- `publishToCloudflareMatrix` — [signature](#api-sig-e3d03aefb256273f)
+- `PublishToCloudflareMatrixOptions` — [signature](#api-sig-0b7e9570fa505225)
+- `rebaseHostDescriptorForCloudflare` — [signature](#api-sig-16833a3973cf1283)
+- `VerifiedCloudflarePackage` — [signature](#api-sig-d9914273aaf94cca)
+- `verifyLocalPackageForCloudflare` — [signature](#api-sig-f0a7b32efa4ed511)
+
+Signatures:
+
+### Import `@pocket/cloudflare/sign`
+
+Entry: [packages/pocket_cloudflare/src/sign.ts](../packages/pocket_cloudflare/src/sign.ts)
+
+Exports:
+- `awsUriEncode` — [signature](#api-sig-84f978ea900cb99d)
+- `createR2PresignedUrl` — [signature](#api-sig-d39c471ebf0cfced)
+- `CreateR2PresignedUrlInput` — [signature](#api-sig-4d95ffc593ff8467)
+- `encodeR2ObjectPath` — [signature](#api-sig-1aa4dedd51ed9915)
+- `formatAmzTimestamps` — [signature](#api-sig-d7e571b59b816864)
+- `hmacSha256Bytes` — [signature](#api-sig-dbef857d5405c76d)
+- `hmacSha256Hex` — [signature](#api-sig-b9a1c2fc81821ee7)
+- `sha256Bytes` — [signature](#api-sig-2c2037992e44ea0e)
+- `sha256Hex` — [signature](#api-sig-56ca502e016cd6bd)
+- `signR2Request` — [signature](#api-sig-93ee3528f9d1b729)
+- `SignR2RequestInput` — [signature](#api-sig-c4c22574778603c8)
+- `SignR2RequestResult` — [signature](#api-sig-8790aa5d26cdd802)
+
+Signatures:
+
+### Import `@pocket/cloudflare/types`
+
+Entry: [packages/pocket_cloudflare/src/types.ts](../packages/pocket_cloudflare/src/types.ts)
+
+Exports:
+- `buildPlatformEndpointsDocument` — [signature](#api-sig-8032f485bcf3435e)
+- `CF_ACCOUNT_ID_PATTERN` — [signature](#api-sig-ef28400ec49fb536)
+- `CF_PROFILE_ID_PATTERN` — [signature](#api-sig-5f6d971ac25b0c4f)
+- `CF_PROJECT_NAME_PATTERN` — [signature](#api-sig-11b03e3b01c781e9)
+- `CF_ZONE_ID_PATTERN` — [signature](#api-sig-8b8147a48080f62f)
+- `CLOUDFLARE_CONCRETE_PLATFORMS` — [signature](#api-sig-1d240beaed6d3e3a)
+- `CloudflareAccountProfile` — [signature](#api-sig-14c422194a9d477d)
+- `CloudflareBucketSummary` — [signature](#api-sig-b16f6e03888d143f)
+- `CloudflareConcretePlatform` — [signature](#api-sig-28ba14a9e0068e1c)
+- `CloudflareCredentialProvider` — [signature](#api-sig-76a572bb5cbff662)
+- `CloudflareMatrixPublishResult` — [signature](#api-sig-a28e4880def42250)
+- `CloudflarePlatformSelector` — [signature](#api-sig-785ac9a49c4338f1)
+- `CloudflarePublishFileRecord` — [signature](#api-sig-b9e3959c9a435b96)
+- `CloudflarePurgeSummary` — [signature](#api-sig-ca5337858520f25d)
+- `CloudflareR2Credentials` — [signature](#api-sig-9f02800a0878cf9c)
+- `CloudflareRouteRole` — [signature](#api-sig-2884d550a30a8e07)
+- `CloudflareStudioPublishSummary` — [signature](#api-sig-ade19c5b41389b14)
+- `CloudflareStudioTargetSummary` — [signature](#api-sig-a12fb6c0fb369214)
+- `CloudflareTargetConfig` — [signature](#api-sig-8b04efc8a05bf5d9)
+- `CloudflareTargetPublishResult` — [signature](#api-sig-a8e0b522523d6b01)
+- `CloudflareUploadProgress` — [signature](#api-sig-ef6b06dc035ad83b)
+- `EditorProjectCloudflareConfig` — [signature](#api-sig-2b22a7c470c10f42)
+- `LocalCloudflareInspection` — [signature](#api-sig-26afe45410203143)
+- `NativeDownloadManifestPayload` — [signature](#api-sig-cde4ab795681c82c)
+- `NativeInstallerInput` — [signature](#api-sig-8b76ac0ab5f3d4cf)
+- `NativeInstallerRecord` — [signature](#api-sig-b484610d33a8979b)
+- `normalizeCloudflarePlatforms` — [signature](#api-sig-7a16b1062e6dbdb1)
+- `normalizeR2KeyPrefix` — [signature](#api-sig-7a3033f537c8a6d8)
+- `PlatformEndpointRoute` — [signature](#api-sig-24505b99bc0fc9d9)
+- `PlatformEndpointsDocument` — [signature](#api-sig-c433a01f2a1d0ab4)
+- `ProjectCloudflareRouteConfig` — [signature](#api-sig-59cceed4f6c3cfce)
+- `R2_BUCKET_PATTERN` — [signature](#api-sig-16a5e76170ea7a45)
+- `resolveCloudflareTarget` — [signature](#api-sig-d95bc2dadaf99c90)
+- `ResolvedCloudflareTarget` — [signature](#api-sig-e33cbde28f6c2d7a)
+- `SignedNativeDownloadManifest` — [signature](#api-sig-4466ef3de423966b)
+- `targetMatchesPlatform` — [signature](#api-sig-c4b66ead4643171f)
+- `validateCloudflareAccountId` — [signature](#api-sig-b3eaea2ee414e81f)
+- `validateCloudflareProfileId` — [signature](#api-sig-46cc8bb3fd0040f0)
+- `validateCloudflareRouteMatrix` — [signature](#api-sig-5d26be099f109aca)
+- `validateCloudflareZoneId` — [signature](#api-sig-64ec7efc35880bea)
+- `validateR2Bucket` — [signature](#api-sig-5b8435254f9283f7)
+
+Signatures:
 ## @pocket/cos
 
 ### Import `@pocket/cos`
@@ -1067,7 +2433,7 @@ Members:
 - `discoveredBuckets: CosBucketProfile[]`
 - `hasSecurityToken: boolean`
 - `maskedSecretId?: string`
-- `source: "env" | "workspace" | "coscli" | "coscmd" | "none"`
+- `source: "env" | "workspace" | "none" | "coscli" | "coscmd"`
 - `sourceDetail: string`
 
 Source: [packages/pocket_cos/src/types.ts](../packages/pocket_cos/src/types.ts#L47)
@@ -23169,6 +24535,15 @@ The following markers cover all inventoried declaration sources and package mani
 <!-- api-source: packages/pocket_arc/src/skins.tsx dcb7f37ec717b25c7d3bac9f4aabdc1a185210c63e728b21f5787c9b80c104c9 -->
 <!-- api-source: packages/pocket_arc/src/surfaces.tsx 419b5b0267a6c3987ec08aad9a0163aeb755d1e2aa62944e0295fc2d5fc9c946 -->
 <!-- api-source: packages/pocket_arc/src/tokens.ts 84dc1bb1fb33c5923c3b9ac6c15c9ce6453b221de53feeef087cbc2d6c8578ae -->
+<!-- api-source: packages/pocket_cloudflare/package.json e45251b197a9a5c1907a4950891a81c3511c676978afecc8028bb813159aa12b -->
+<!-- api-source: packages/pocket_cloudflare/src/cli.ts 7b05b9d29fef445934ac284d0653bada54295947ff0c02b17aacb7712e82f815 -->
+<!-- api-source: packages/pocket_cloudflare/src/client.ts f7d8838f2930114bfaee2c94b6172ca70ca5bc1ae59d76d707922717dcce533e -->
+<!-- api-source: packages/pocket_cloudflare/src/index.ts f08b2237d4e50688387edaf9e547455e3dcc0e0853e04fa08a4ae24b039c4b01 -->
+<!-- api-source: packages/pocket_cloudflare/src/local_config.ts 4353913a6ad023398e35decab20489254687b82a43adaeadd4fe5368c835f65b -->
+<!-- api-source: packages/pocket_cloudflare/src/pages.ts 4da6a46245e74f9ce4e31a930e6def5027e2c53af6f82528ec6374268cedf057 -->
+<!-- api-source: packages/pocket_cloudflare/src/publisher.ts 69d6ada6a9834508c38b649c51c189146eb390cb213072a57f45009821815fe4 -->
+<!-- api-source: packages/pocket_cloudflare/src/sign.ts cdc9f9524ae13faf8295b853924746abce9cc69b5e2b82aaf5f6f81a0c3dee21 -->
+<!-- api-source: packages/pocket_cloudflare/src/types.ts e6b41660c00f00609aed1653781fa937bff64f0e7dac5663f5f882738625335a -->
 <!-- api-source: packages/pocket_cos/package.json 2edd900ef0cee866cf39b5dd18c694766e47270fce75c1e2bf83273caae5d8f9 -->
 <!-- api-source: packages/pocket_cos/src/cli.ts 5491f099bc627434ad5cd9a9498a4374b821ed2835c1a3c22df2521070016a28 -->
 <!-- api-source: packages/pocket_cos/src/client.ts d561d4f84c49065a3447e33d0f634bffca6ec8f38d2577532e60f13e8b0cc429 -->

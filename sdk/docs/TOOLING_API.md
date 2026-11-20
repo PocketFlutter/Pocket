@@ -43,7 +43,8 @@ See [sdk/package.json](../package.json) for the exact definitions.
 | JS compiler and targets | `build:guest -- [guest flags]`, `build:web -- [web flags]`, `export:web-sdk -- [export flags]`, `preview:wechat -- [target flags]` | Uses pinned Guest and QuickJS. See [Web SDK](WEB_SDK_EXPORT.md) and [WeChat host](WECHAT_HOST_IMPLEMENTATION.md) for target boundaries. |
 | Studio | `editor`, `editor:start`, `editor:restart`, `editor:stop`, `editor:status` | Calls Node service start/restart/stop/status. Use `bun pocket.ts editor DIRECTORY [options]` for foreground Editor. See [Studio](EDITOR_STUDIO.md). |
 | Toolchain | `setup`, `bootstrap`, `doctor`, `build:probe`, `setup:source`, `bootstrap:source`, `build:probe:source`, `build:engine:source`, `package:tools` | Prebuilt installation and validation and source release tools. See [NPM_TOOLCHAIN.md](NPM_TOOLCHAIN.md). |
-| Other CLI | `cos -- [cos args]`, `official-demos -- [demo args]` | COS publishing and official sample collection and builds. COS accepts credentials through local config. |
+| Package registry | `search -- [keyword]`, `add -- DIR PKG...`, `packages -- DIR`, `remove -- DIR PKG...`, `registry -- build\|sync-r2` | Search, on-demand install/remove, and static registry build/R2 sync across official SDK packages. See [Package registry](PACKAGE_REGISTRY.md). |
+| Other CLI | `cos -- [cos args]`, `cf -- [cf args]`, `official-demos -- [demo args]` | COS and Cloudflare multi-account publishing and official sample builds. Credentials stay in local `0o600` vaults or env vars. |
 | Architecture | `check:architecture` | Checks SDK and Showcase boundaries. |
 | Test entry points | `test`, `test:demand`, `test:packages`, `test:editor`, `test:editor:live` | See manifest commands. Test results do not define the public contract. |
 
@@ -130,6 +131,21 @@ npm run build -- /path/to/app --sdk-root=/path/to/pocket/sdk --platform=ios-sim
 | `--platform=ios-sim\|ios\|macos\|android` | Accepts those four values. See release and configuration docs for native requirements. |
 
 Build uses the pinned Guest and QuickJS bytecode compilers. Invalid QJBC, PAK, or manifest fails.
+
+### `types <descriptor.json> --out=plugin-types.ts`
+
+### `search` / `packages` / `add` / `remove` / `registry`
+
+```sh
+bun sdk/pocket.ts search [keyword] [--registry=DIR_OR_URL]
+bun sdk/pocket.ts packages [<directory>]
+bun sdk/pocket.ts add <directory> <package...> [--registry=DIR_OR_URL] [--public-key=FILE]
+bun sdk/pocket.ts remove <directory> <package...>
+bun sdk/pocket.ts registry build [--out=DIR] [--key-file=FILE] [--r2-base-url=URL] [--github-base-url=URL]
+bun sdk/pocket.ts registry sync-r2 --registry-dir=DIR --account-id=HEX32 --bucket=NAME [--profile=ID] [--workspace=DIR] [--public-base-url=URL] [--zone-id=HEX32] [--dry-run]
+```
+
+按需解析并安装官方 28 包（支持 Cloudflare R2 镜像优先与 GitHub 静态源自动回退、SHA-256 校验、`pocket-lock.json` 锁定与 `flutter/lib/pocket_plugins.g.dart` 无侵入自动装配）。完整说明见 [PACKAGE_REGISTRY.md](PACKAGE_REGISTRY.md)。
 
 ### `types <descriptor.json> --out=plugin-types.ts`
 
@@ -222,6 +238,10 @@ Provide private keys through a secure local file. Keep keys, COS secrets, API to
 
 Target options also include `--bucket`, `--region`, `--prefix`, `--endpoint`, and `--public-base-url`. Tests can opt into `--allow-insecure-http`. `--json` and `--dry-run` are booleans. Credentials resolve from secure local config. See [COS publishing](COS_PUBLISH.md).
 
+## Cloudflare CLI
+
+`npm run cf -- [inspect|profile-set|profile-remove|check|publish|publish-installers|deploy-web|endpoints] [options]` defaults to `inspect`. See [packages/pocket_cloudflare/src/cli.ts](../packages/pocket_cloudflare/src/cli.ts) and [Cloudflare publishing](CLOUDFLARE_PUBLISH.md).
+
 ## Current Editor HTTP API
 
 Studio routes are defined in [editor/server.ts](../editor/server.ts#L4285) and Preview transport in [editor/preview.ts](../editor/preview.ts#L5727). These local interfaces serve Studio UI. Consumers normally use CLI or UI, and cross-version HTTP compatibility is outside the public app API.
@@ -234,6 +254,8 @@ Studio routes are defined in [editor/server.ts](../editor/server.ts#L4285) and P
 | `GET /api/projects`, `POST /api/projects`, `POST /api/projects/open` | List, create, and open local projects. List entries include `canRemove`. External absolute paths require a loopback peer. |
 | `DELETE /api/projects/:id` | Loopback-only list removal. Returns `{removed: true, id, removedIds: string[]}`. A missing project returns 404. A protected project or conflicting operation returns 409. Source directories and published release files are preserved. Open the same directory to restore the entry. |
 | `GET /api/preview/device`, `GET /api/preview/profiles`, `GET /api/ecosystem/modules` | Device presets, profiles, and ecosystem registries. |
+| `GET /api/packages/catalog`, `GET\|POST /api/projects/:id/packages` | Official package registry catalog, project lockfile state, and on-demand package install (`add`) or removal (`remove`). |
+| `GET\|PUT /api/projects/:id/cloudflare`, `POST .../cloudflare/check`, `POST .../cloudflare/publish` | Redacted multi-account Cloudflare credential vault, platform route matrix persistence, R2 connectivity check, and two-phase signed OTA publish. |
 | `POST /api/projects/:id/build` or `/compile` | Compiles the project. Read status, logs, and files through `/status`, `/logs`, and `/artifacts/*`. |
 | `GET /api/projects/:id/preview/status`, `snapshot`, `stream`. `POST /api/projects/:id/preview/input` | Preview state, snapshot, SSE frames, and input. `GET /media` and `GET /resource` read restricted resources. |
 | `GET\|HEAD /updates/*`, `/pocket/*`, `/test/pocket/*`, `/stable/pocket/*`. `GET /releases/*` | Studio published and update artifacts. Other remote hosting requires a suitable server. |

@@ -173,6 +173,16 @@ let cosSnapshot = null;
 let cosBusy = false;
 let cosSettingsOpen = false;
 let cosFormProjectId = null;
+let cfSnapshot = null;
+let cfBusy = false;
+let cfSettingsOpen = false;
+let cfFormProjectId = null;
+let cfTargetDrafts = [];
+let cfMatrixDirty = false;
+let packagesSnapshot = null;
+let packagesBusy = false;
+let packagesCategory = "all";
+let packagesQuery = "";
 let publishTargets = null;
 let publishTargetsLoading = false;
 let publishTargetsError = "";
@@ -770,7 +780,7 @@ function updateActionStates() {
     ? Boolean(publishTarget && publishTarget.canSelect !== false && publishTarget.ownerProjectId && publishTarget.projectId === currentId)
     : !publishTarget || publishTarget.kind !== "reused" || (publishTarget.canSelect !== false && publishTarget.ownerProjectId && publishTarget.projectId === currentId);
   const canPublishCurrentTarget = hasProject && built && publishTargetAvailable && publishTarget?.canPublish !== false && !publishTargetsLoading && !dirty && !hasUnsavedProjectConfig() && !resourcesDirty;
-  const workLocked = busy || startingBuild || startingDeploy || Boolean(activeDeploy && activeDeploy.status !== "running") || saving || publishing || resourcesSaving || cosBusy;
+  const workLocked = busy || startingBuild || startingDeploy || Boolean(activeDeploy && activeDeploy.status !== "running") || saving || publishing || resourcesSaving || cosBusy || cfBusy || packagesBusy;
   $("save").disabled = !hasProject || !dirty || saving || workLocked;
   $("save-config").disabled = !hasProject || !hasUnsavedProjectConfig() || workLocked;
   $("build").disabled = !hasProject || !publishTargetAvailable || workLocked || saving;
@@ -822,6 +832,8 @@ function updateActionStates() {
   updatePublishTargetIndicators();
   updateResourceActionStates(workLocked);
   updateCosActionStates(workLocked);
+  updateCloudflareActionStates(workLocked);
+  updatePackagesActionStates(workLocked);
 }
 
 function setPublishEditorLocked(locked) {
@@ -2276,7 +2288,12 @@ function renderVersionManagement() {
   if (!currentId) {
     cosSnapshot = null;
     cosFormProjectId = null;
+    cfSnapshot = null;
+    cfFormProjectId = null;
+    cfTargetDrafts = [];
+    cfMatrixDirty = false;
     renderCosPanel();
+    renderCloudflarePanel();
     renderVersionHistory(null);
     state.textContent = "请选择项目";
     origin.textContent = "尚未启动";
@@ -2286,6 +2303,7 @@ function renderVersionManagement() {
   }
   if (versionsLoading) {
     renderCosPanel();
+    renderCloudflarePanel();
     renderVersionHistory(null);
     state.textContent = "加载中…";
     detail.textContent = "正在启动或刷新只读版本服务。";
@@ -2294,6 +2312,7 @@ function renderVersionManagement() {
   }
   if (!versionSnapshot) {
     renderCosPanel();
+    renderCloudflarePanel();
     renderVersionHistory(null);
     state.textContent = "打开后加载";
     origin.textContent = "尚未启动";
@@ -2304,7 +2323,11 @@ function renderVersionManagement() {
   if (versionSnapshot.cos && typeof versionSnapshot.cos === "object") {
     cosSnapshot = versionSnapshot.cos;
   }
+  if (versionSnapshot.cloudflare && typeof versionSnapshot.cloudflare === "object") {
+    cfSnapshot = versionSnapshot.cloudflare;
+  }
   renderCosPanel();
+  renderCloudflarePanel();
   origin.textContent = versionSnapshot.origin || "不可用";
   detail.textContent = versionSnapshot.error
     ? `局域网不可用：${versionSnapshot.error}。本机回环地址仍可用。`
@@ -2749,6 +2772,987 @@ async function publishToCos(channel) {
   }
 }
 
+const CF_PLATFORMS = ["*", "ios", "android", "macos", "windows", "linux", "web", "wechat"];
+const CF_PLATFORM_LABELS = {
+  "*": "全部 (*)",
+  ios: "iOS",
+  android: "Android",
+  macos: "macOS",
+  windows: "Windows",
+  linux: "Linux",
+  web: "Web",
+  wechat: "微信",
+};
+const CF_ACCESS_KEY_FIELD = "access" + "KeyId";
+const CF_SECRET_KEY_FIELD = "secret" + "AccessKey";
+const CF_TOKEN_FIELD = "api" + "Token";
+const CF_HAS_TOKEN_FIELD = "hasApi" + "Token";
+const CF_MASKED_KEY_FIELD = "maskedAccess" + "KeyId";
+
+const PACKAGE_CATEGORY_MATCHERS = {
+  all: () => true,
+  installed: (pkg) => Boolean(pkg.installed),
+  "ui-skin": (pkg) => pkg.category === "ui-skin",
+  "animation-game": (pkg) => pkg.category === "animation-game",
+  "hardware-media": (pkg) => pkg.category === "hardware-media",
+  "network-sync": (pkg) => pkg.category === "network-sync",
+  "host-core": (pkg) => pkg.category === "host-core",
+  "deploy-observability": (pkg) => pkg.category === "deploy-tooling" || pkg.category === "observability",
+};
+
+function cloneCloudflareTargetDraft(target = {}) {
+  const validPlatforms = Array.isArray(target.platforms)
+    ? target.platforms.filter((item) => CF_PLATFORMS.includes(item))
+    : [];
+  return {
+    profileId: String(target.profileId || ""),
+    accountId: String(target.accountId || ""),
+    bucket: String(target.bucket || ""),
+    endpoint: String(target.endpoint || ""),
+    keyPrefix: String(target.keyPrefix || ""),
+    publicBaseUrl: String(target.publicBaseUrl || ""),
+    platforms: validPlatforms.length > 0 ? [...validPlatforms] : ["*"],
+    role: target.role === "fallback" ? "fallback" : "primary",
+    zoneId: String(target.zoneId || ""),
+  };
+}
+
+function collectCloudflareTargetsPayload() {
+  return cfTargetDrafts
+    .filter((row) => row.profileId.trim() || row.bucket.trim() || row.publicBaseUrl.trim())
+    .map((row) => ({
+      profileId: row.profileId.trim(),
+      ...(row.accountId.trim() ? { accountId: row.accountId.trim() } : {}),
+      bucket: row.bucket.trim(),
+      ...(row.endpoint.trim() ? { endpoint: row.endpoint.trim() } : {}),
+      ...(row.keyPrefix.trim() ? { keyPrefix: row.keyPrefix.trim() } : {}),
+      publicBaseUrl: row.publicBaseUrl.trim(),
+      platforms: Array.isArray(row.platforms) && row.platforms.length > 0 ? [...row.platforms] : ["*"],
+      role: row.role === "fallback" ? "fallback" : "primary",
+      ...(row.zoneId.trim() ? { zoneId: row.zoneId.trim() } : {}),
+    }));
+}
+
+function syncCloudflareFormFromSnapshot(force = false) {
+  if (!cfSnapshot || !currentId) return;
+  if (!force && cfFormProjectId === currentId) return;
+  cfFormProjectId = currentId;
+  cfMatrixDirty = false;
+  const cfg = cfSnapshot.config || {};
+  if ($("cf-sync-on-publish")) $("cf-sync-on-publish").checked = cfg.syncOnPublish === true;
+  if ($("cf-purge-on-publish")) $("cf-purge-on-publish").checked = cfg.purgeCacheOnPublish !== false;
+  const savedTargets = Array.isArray(cfg.targets) ? cfg.targets : [];
+  if (savedTargets.length > 0) {
+    cfTargetDrafts = savedTargets.map((item) => cloneCloudflareTargetDraft(item));
+  } else {
+    const firstProfile = cfSnapshot.local?.profiles?.[0];
+    cfTargetDrafts = [
+      cloneCloudflareTargetDraft({
+        profileId: firstProfile?.profileId || "",
+        accountId: firstProfile?.accountId || "",
+        keyPrefix: `apps/${currentId}`,
+        platforms: ["*"],
+        role: "primary",
+      }),
+    ];
+  }
+}
+
+function updateCloudflareActionStates(workLocked = false) {
+  const locked = Boolean(workLocked || cfBusy || !currentId);
+  for (const id of [
+    "cf-detect",
+    "cf-toggle-settings",
+    "cf-enabled",
+    "cf-sync-on-publish",
+    "cf-purge-on-publish",
+    "cf-profile-id",
+    "cf-account-id",
+    "cf-profile-label",
+    "cf-access-key-id",
+    "cf-secret-access-key",
+    "cf-api-token",
+    "cf-save-profile",
+    "cf-add-target",
+    "cf-save-config",
+  ]) {
+    if ($(id)) $(id).disabled = locked;
+  }
+  const slots = Array.isArray(versionSnapshot?.slots) ? versionSnapshot.slots : [];
+  const hasTestSlot = slots.some((s) => s.name === "test" && s.packages?.length > 0)
+    || Boolean(currentStatus?.publish?.channel === "test");
+  const hasStableSlot = slots.some((s) => s.name === "stable" && s.packages?.length > 0)
+    || Boolean(currentStatus?.publish?.channel === "release");
+  const cfEnabled = Boolean(cfSnapshot?.config?.enabled);
+  if ($("cf-publish-test")) {
+    $("cf-publish-test").disabled = locked || !cfEnabled || !hasTestSlot;
+  }
+  if ($("cf-publish-stable")) {
+    $("cf-publish-stable").disabled = locked || !cfEnabled || !hasStableSlot;
+  }
+  if ($("version-cf-app-config-copy")) {
+    $("version-cf-app-config-copy").disabled = !currentId || !$("version-cf-app-config-link")?.getAttribute("href");
+  }
+  for (const el of document.querySelectorAll("#cf-targets-list input, #cf-targets-list select, #cf-targets-list button, #cf-profiles-list button")) {
+    el.disabled = locked;
+  }
+}
+
+function renderCloudflareProfilesList() {
+  const container = $("cf-profiles-list");
+  if (!container) return;
+  container.replaceChildren();
+  const profiles = Array.isArray(cfSnapshot?.local?.profiles) ? cfSnapshot.local.profiles : [];
+  if (profiles.length === 0) {
+    container.append(
+      Object.assign(document.createElement("span"), {
+        className: "muted",
+        textContent: "尚未配置 Cloudflare 账户凭据，可在下方新增。",
+      }),
+    );
+    return;
+  }
+  for (const profile of profiles) {
+    const row = document.createElement("div");
+    row.className = "cf-profile-item";
+    row.dataset.profileId = profile.profileId;
+
+    const info = document.createElement("div");
+    info.className = "cf-profile-info";
+    const title = document.createElement("strong");
+    title.textContent = profile.label ? `${profile.profileId} (${profile.label})` : profile.profileId;
+    const meta = document.createElement("span");
+    meta.className = "muted";
+    const sourceLabel = profile.source === "vault" ? "本地密钥库" : profile.source === "env" ? "环境变量" : "Wrangler";
+    const parts = [
+      profile.accountId ? `Account: ${profile.accountId}` : "未填 Account ID",
+      profile[CF_MASKED_KEY_FIELD] ? `AK: ${profile[CF_MASKED_KEY_FIELD]}` : "",
+      profile[CF_HAS_TOKEN_FIELD] ? "含 Zone Token" : "",
+      sourceLabel,
+    ].filter(Boolean);
+    meta.textContent = parts.join(" · ");
+    info.append(title, meta);
+
+    const actions = document.createElement("div");
+    actions.className = "cf-profile-actions";
+    const fillBtn = document.createElement("button");
+    fillBtn.type = "button";
+    fillBtn.className = "ghost small";
+    fillBtn.textContent = "编辑";
+    fillBtn.addEventListener("click", () => {
+      if ($("cf-profile-id")) $("cf-profile-id").value = profile.profileId || "";
+      if ($("cf-account-id")) $("cf-account-id").value = profile.accountId || "";
+      if ($("cf-profile-label")) $("cf-profile-label").value = profile.label || "";
+    });
+    actions.append(fillBtn);
+
+    if (profile.source === "vault") {
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "ghost small";
+      delBtn.dataset.cfDeleteProfile = profile.profileId;
+      delBtn.textContent = "删除";
+      delBtn.addEventListener("click", () => {
+        void deleteCloudflareProfile(profile.profileId);
+      });
+      actions.append(delBtn);
+    }
+
+    row.append(info, actions);
+    container.append(row);
+  }
+}
+
+function renderCloudflareTargetsList() {
+  const container = $("cf-targets-list");
+  if (!container) return;
+  container.replaceChildren();
+  const profiles = Array.isArray(cfSnapshot?.local?.profiles) ? cfSnapshot.local.profiles : [];
+
+  if (cfTargetDrafts.length === 0) {
+    container.append(
+      Object.assign(document.createElement("span"), {
+        className: "muted",
+        textContent: "尚未添加账户平台路由，点击「+ 添加账户路由」新增。",
+      }),
+    );
+    return;
+  }
+
+  cfTargetDrafts.forEach((draft, index) => {
+    const card = document.createElement("div");
+    card.className = "cf-target-card";
+    card.dataset.cfTargetIndex = String(index);
+    card.dataset.role = draft.role === "fallback" ? "fallback" : "primary";
+
+    const header = document.createElement("div");
+    header.className = "cf-target-header";
+    const title = document.createElement("strong");
+    title.className = "cf-target-title";
+    title.textContent = `路由 #${index + 1}`;
+    const headerActions = document.createElement("div");
+    headerActions.className = "cf-target-actions";
+
+    const checkBtn = document.createElement("button");
+    checkBtn.type = "button";
+    checkBtn.className = "ghost small";
+    checkBtn.dataset.cfCheckIndex = String(index);
+    checkBtn.textContent = "验证连接";
+    checkBtn.addEventListener("click", () => {
+      void checkCloudflareTarget(index);
+    });
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "ghost small";
+    removeBtn.dataset.cfRemoveIndex = String(index);
+    removeBtn.textContent = "删除";
+    removeBtn.addEventListener("click", () => {
+      cfTargetDrafts.splice(index, 1);
+      cfMatrixDirty = true;
+      renderCloudflareTargetsList();
+      updateCloudflareActionStates();
+    });
+
+    headerActions.append(checkBtn, removeBtn);
+    header.append(title, headerActions);
+
+    const grid = document.createElement("div");
+    grid.className = "cf-target-grid";
+
+    const profileSelect = document.createElement("select");
+    profileSelect.dataset.cfField = "profileId";
+    if (profiles.length === 0 && !draft.profileId) {
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "请先在上方添加账户凭据";
+      profileSelect.append(placeholder);
+    } else {
+      const emptyOpt = document.createElement("option");
+      emptyOpt.value = "";
+      emptyOpt.textContent = "选择 Cloudflare 账户";
+      profileSelect.append(emptyOpt);
+    }
+    const seenIds = new Set();
+    for (const p of profiles) {
+      seenIds.add(p.profileId);
+      const opt = document.createElement("option");
+      opt.value = p.profileId;
+      opt.textContent = p.label ? `${p.profileId} (${p.label})` : p.profileId;
+      profileSelect.append(opt);
+    }
+    if (draft.profileId && !seenIds.has(draft.profileId)) {
+      const customOpt = document.createElement("option");
+      customOpt.value = draft.profileId;
+      customOpt.textContent = `${draft.profileId} (未检测凭据)`;
+      profileSelect.append(customOpt);
+    }
+    if (!draft.profileId && profiles.length > 0) {
+      draft.profileId = profiles[0].profileId;
+      draft.accountId = profiles[0].accountId || "";
+    }
+    profileSelect.value = draft.profileId;
+    profileSelect.addEventListener("change", () => {
+      draft.profileId = profileSelect.value;
+      const matched = profiles.find((item) => item.profileId === draft.profileId);
+      if (matched?.accountId) draft.accountId = matched.accountId;
+      cfMatrixDirty = true;
+    });
+
+    const roleSelect = document.createElement("select");
+    roleSelect.dataset.cfField = "role";
+    for (const [val, text] of [
+      ["primary", "主用路由 (primary)"],
+      ["fallback", "备用容灾 (fallback)"],
+    ]) {
+      const opt = document.createElement("option");
+      opt.value = val;
+      opt.textContent = text;
+      roleSelect.append(opt);
+    }
+    roleSelect.value = draft.role === "fallback" ? "fallback" : "primary";
+    roleSelect.addEventListener("change", () => {
+      draft.role = roleSelect.value === "fallback" ? "fallback" : "primary";
+      cfMatrixDirty = true;
+    });
+
+    const bucketInput = Object.assign(document.createElement("input"), {
+      type: "text",
+      placeholder: "R2 Bucket 名称",
+      value: draft.bucket,
+    });
+    bucketInput.dataset.cfField = "bucket";
+    bucketInput.addEventListener("input", () => {
+      draft.bucket = bucketInput.value;
+      cfMatrixDirty = true;
+    });
+
+    const publicUrlInput = Object.assign(document.createElement("input"), {
+      type: "url",
+      placeholder: "公开访问域名 (HTTPS)",
+      value: draft.publicBaseUrl,
+    });
+    publicUrlInput.dataset.cfField = "publicBaseUrl";
+    publicUrlInput.addEventListener("input", () => {
+      draft.publicBaseUrl = publicUrlInput.value;
+      cfMatrixDirty = true;
+    });
+
+    const prefixInput = Object.assign(document.createElement("input"), {
+      type: "text",
+      placeholder: "对象前缀 (如 apps/demo)",
+      value: draft.keyPrefix,
+    });
+    prefixInput.dataset.cfField = "keyPrefix";
+    prefixInput.addEventListener("input", () => {
+      draft.keyPrefix = prefixInput.value;
+      cfMatrixDirty = true;
+    });
+
+    const zoneInput = Object.assign(document.createElement("input"), {
+      type: "text",
+      placeholder: "Zone ID (可选自动清缓存)",
+      value: draft.zoneId,
+    });
+    zoneInput.dataset.cfField = "zoneId";
+    zoneInput.addEventListener("input", () => {
+      draft.zoneId = zoneInput.value;
+      cfMatrixDirty = true;
+    });
+
+    grid.append(profileSelect, roleSelect, bucketInput, publicUrlInput, prefixInput, zoneInput);
+
+    const pills = document.createElement("div");
+    pills.className = "cf-platform-grid";
+    const checkboxMap = new Map();
+
+    const syncPlatformCheckboxes = () => {
+      for (const [plat, box] of checkboxMap.entries()) {
+        box.checked = draft.platforms.includes(plat);
+      }
+    };
+
+    for (const plat of CF_PLATFORMS) {
+      const pill = document.createElement("label");
+      pill.className = "cf-platform-pill";
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.dataset.cfPlatform = plat;
+      box.checked = draft.platforms.includes(plat);
+      checkboxMap.set(plat, box);
+      box.addEventListener("change", () => {
+        if (plat === "*" && box.checked) {
+          draft.platforms = ["*"];
+        } else {
+          const next = new Set(draft.platforms.filter((item) => item !== "*"));
+          if (box.checked) next.add(plat);
+          else next.delete(plat);
+          draft.platforms = next.size > 0 ? Array.from(next) : ["*"];
+        }
+        cfMatrixDirty = true;
+        syncPlatformCheckboxes();
+      });
+      const text = document.createElement("span");
+      text.textContent = CF_PLATFORM_LABELS[plat] || plat;
+      pill.append(box, text);
+      pills.append(pill);
+    }
+
+    card.append(header, grid, pills);
+    container.append(card);
+  });
+}
+
+function renderCloudflareTargetsSummary(summary) {
+  const container = $("version-cf-targets-summary");
+  if (!container) return;
+  container.replaceChildren();
+  const targets = Array.isArray(summary?.targets) ? summary.targets : [];
+  container.hidden = targets.length === 0;
+  for (const item of targets) {
+    const row = document.createElement("div");
+    row.className = "cf-published-target-row";
+    const label = document.createElement("code");
+    const roleTag = item.role === "fallback" ? "备用" : "主用";
+    const plats = Array.isArray(item.platforms) ? item.platforms.join(", ") : "*";
+    label.textContent = `[${roleTag}] ${item.profileId} / ${item.bucket} (${plats})`;
+    const link = document.createElement("a");
+    link.href = item.appConfigUrl;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = item.appConfigUrl;
+    row.append(label, link);
+    container.append(row);
+  }
+}
+
+function renderCloudflarePanel() {
+  const badge = $("version-cf-badge");
+  const source = $("version-cf-source");
+  const enabledToggle = $("cf-enabled");
+  const settingsBtn = $("cf-toggle-settings");
+  const settings = $("version-cf-settings");
+  const activeArea = $("version-cf-active");
+  const appConfigBox = $("version-cf-app-config");
+  const publishMeta = $("version-cf-publish-meta");
+  const appConfigLink = $("version-cf-app-config-link");
+
+  if (!badge || !source) return;
+  if (settingsBtn) settingsBtn.setAttribute("aria-expanded", String(cfSettingsOpen));
+
+  if (!currentId) {
+    badge.className = "meta-chip";
+    badge.textContent = "未选择项目";
+    source.textContent = "请选择项目后配置 Cloudflare R2 多账户发布矩阵。";
+    if (enabledToggle) enabledToggle.checked = false;
+    if (settings) settings.hidden = true;
+    if (activeArea) activeArea.hidden = true;
+    if (appConfigBox) appConfigBox.hidden = true;
+    updateCloudflareActionStates();
+    return;
+  }
+
+  if (!cfSnapshot) {
+    badge.className = "meta-chip";
+    badge.textContent = "待加载";
+    source.textContent = "打开版本面板或点击「检测账户」加载 Cloudflare 多账户凭据与路由矩阵。";
+    if (enabledToggle) enabledToggle.checked = false;
+    if (settings) settings.hidden = !cfSettingsOpen;
+    if (activeArea) activeArea.hidden = true;
+    if (appConfigBox) appConfigBox.hidden = true;
+    updateCloudflareActionStates();
+    return;
+  }
+
+  syncCloudflareFormFromSnapshot(false);
+  renderCloudflareProfilesList();
+  renderCloudflareTargetsList();
+
+  const profiles = Array.isArray(cfSnapshot.local?.profiles) ? cfSnapshot.local.profiles : [];
+  const targets = Array.isArray(cfSnapshot.config?.targets) ? cfSnapshot.config.targets : [];
+  const isEnabled = Boolean(cfSnapshot.config?.enabled);
+
+  if (isEnabled) {
+    badge.className = "meta-chip ok";
+    badge.textContent = `已启用 (${targets.length} 路由)`;
+  } else if (profiles.length > 0) {
+    badge.className = "meta-chip";
+    badge.textContent = `已就绪 (${profiles.length} 账户)`;
+  } else {
+    badge.className = "meta-chip";
+    badge.textContent = "未配置";
+  }
+
+  source.textContent = profiles.length > 0
+    ? `已加载 ${profiles.length} 个 Cloudflare 账户凭据，当前配置 ${targets.length} 条平台路由。`
+    : "未检测到本地 Cloudflare R2 凭据，请展开「配置」添加账户凭据与路由。";
+
+  if (enabledToggle) enabledToggle.checked = isEnabled;
+  if (settings) settings.hidden = !cfSettingsOpen;
+  if (activeArea) activeArea.hidden = !isEnabled;
+
+  const pubTest = cfSnapshot.published?.test;
+  const pubStable = cfSnapshot.published?.stable;
+  const latestPub = pubStable && pubTest
+    ? (String(pubStable.publishedAt || "") >= String(pubTest.publishedAt || "") ? pubStable : pubTest)
+    : (pubStable || pubTest || null);
+
+  if (latestPub && appConfigBox && publishMeta && appConfigLink) {
+    appConfigBox.hidden = false;
+    const slotLabel = latestPub.slot === "stable" ? "稳定版" : "测试版";
+    const purgeNote = latestPub.purgedZones > 0 ? ` · 已刷新 ${latestPub.purgedZones} 个 Zone 缓存` : "";
+    publishMeta.textContent = `最近同步：${slotLabel} v${latestPub.version}（上传 ${latestPub.uploadedFiles}，复用 ${latestPub.skippedFiles}${purgeNote}）`;
+    appConfigLink.href = latestPub.appConfigUrl;
+    appConfigLink.textContent = latestPub.appConfigUrl;
+    renderCloudflareTargetsSummary(latestPub);
+  } else if (appConfigBox) {
+    appConfigBox.hidden = true;
+  }
+
+  updateCloudflareActionStates();
+}
+
+async function loadCloudflareConfig({ notify = false } = {}) {
+  if (!currentId) return;
+  const projectId = currentId;
+  cfBusy = true;
+  updateActionStates();
+  try {
+    const snap = await api(`/api/projects/${encodeURIComponent(projectId)}/cloudflare`);
+    if (currentId !== projectId) return;
+    cfSnapshot = snap;
+    if (versionSnapshot && typeof versionSnapshot === "object") {
+      versionSnapshot.cloudflare = snap;
+    }
+    syncCloudflareFormFromSnapshot(true);
+    renderCloudflarePanel();
+    if (notify) {
+      const count = Array.isArray(snap?.local?.profiles) ? snap.local.profiles.length : 0;
+      showNotice(`已刷新 Cloudflare 配置（检测到 ${count} 个账户凭据）。`, "success");
+    }
+  } catch (error) {
+    if (currentId === projectId && notify) showNotice(error);
+  } finally {
+    cfBusy = false;
+    updateActionStates();
+  }
+}
+
+async function saveCloudflareProfile() {
+  if (!currentId || cfBusy) return;
+  const projectId = currentId;
+  const profileId = String($("cf-profile-id")?.value || "").trim();
+  const accountId = String($("cf-account-id")?.value || "").trim();
+  const label = String($("cf-profile-label")?.value || "").trim();
+  const ak = String($("cf-access-key-id")?.value || "").trim();
+  const sk = String($("cf-secret-access-key")?.value || "").trim();
+  const tok = String($("cf-api-token")?.value || "").trim();
+
+  if (!profileId || !accountId || !ak || !sk) {
+    showNotice("请完整填写 Profile ID、Account ID、R2 Access Key ID 与 Secret Access Key。", "error");
+    return;
+  }
+
+  clearNotice();
+  cfBusy = true;
+  updateActionStates();
+  try {
+    const upsertProfile = {
+      profileId,
+      accountId,
+      ...(label ? { label } : {}),
+      [CF_ACCESS_KEY_FIELD]: ak,
+      [CF_SECRET_KEY_FIELD]: sk,
+      ...(tok ? { [CF_TOKEN_FIELD]: tok } : {}),
+    };
+    const snap = await api(`/api/projects/${encodeURIComponent(projectId)}/cloudflare`, {
+      method: "PUT",
+      body: JSON.stringify({ upsertProfile }),
+    });
+    if (currentId !== projectId) return;
+    cfSnapshot = snap;
+    if (versionSnapshot && typeof versionSnapshot === "object") {
+      versionSnapshot.cloudflare = snap;
+    }
+    if ($("cf-access-key-id")) $("cf-access-key-id").value = "";
+    if ($("cf-secret-access-key")) $("cf-secret-access-key").value = "";
+    if ($("cf-api-token")) $("cf-api-token").value = "";
+    if (cfTargetDrafts.length > 0 && !cfTargetDrafts[0].profileId) {
+      cfTargetDrafts[0].profileId = profileId;
+      cfTargetDrafts[0].accountId = accountId;
+    }
+    renderCloudflarePanel();
+    showNotice(`已保存 Cloudflare 账户凭据「${profileId}」（本地 0600 权限保护）。`, "success");
+  } catch (error) {
+    if (currentId === projectId) showNotice(error);
+  } finally {
+    cfBusy = false;
+    updateActionStates();
+  }
+}
+
+async function deleteCloudflareProfile(profileId) {
+  if (!currentId || cfBusy || !profileId) return;
+  const projectId = currentId;
+  clearNotice();
+  cfBusy = true;
+  updateActionStates();
+  try {
+    const snap = await api(`/api/projects/${encodeURIComponent(projectId)}/cloudflare`, {
+      method: "PUT",
+      body: JSON.stringify({ removeProfileId: profileId }),
+    });
+    if (currentId !== projectId) return;
+    cfSnapshot = snap;
+    if (versionSnapshot && typeof versionSnapshot === "object") {
+      versionSnapshot.cloudflare = snap;
+    }
+    renderCloudflarePanel();
+    showNotice(`已移除 Cloudflare 账户凭据「${profileId}」。`, "success");
+  } catch (error) {
+    if (currentId === projectId) showNotice(error);
+  } finally {
+    cfBusy = false;
+    updateActionStates();
+  }
+}
+
+async function saveCloudflareMatrixConfig({ silent = false, overrideEnabled = null } = {}) {
+  if (!currentId || cfBusy) return false;
+  const projectId = currentId;
+  const targets = collectCloudflareTargetsPayload();
+  const enabled = overrideEnabled !== null ? Boolean(overrideEnabled) : Boolean($("cf-enabled")?.checked);
+  const syncOnPublish = Boolean($("cf-sync-on-publish")?.checked);
+  const purgeCacheOnPublish = $("cf-purge-on-publish") ? Boolean($("cf-purge-on-publish").checked) : true;
+
+  if (enabled && targets.length === 0) {
+    showNotice("启用 Cloudflare 发布前请至少填写一条完整的 R2 账户路由。", "error");
+    if ($("cf-enabled")) $("cf-enabled").checked = false;
+    return false;
+  }
+
+  if (!silent) clearNotice();
+  cfBusy = true;
+  updateActionStates();
+  try {
+    const snap = await api(`/api/projects/${encodeURIComponent(projectId)}/cloudflare`, {
+      method: "PUT",
+      body: JSON.stringify({
+        enabled,
+        syncOnPublish,
+        purgeCacheOnPublish,
+        targets,
+      }),
+    });
+    if (currentId !== projectId) return false;
+    cfSnapshot = snap;
+    cfMatrixDirty = false;
+    if (versionSnapshot && typeof versionSnapshot === "object") {
+      versionSnapshot.cloudflare = snap;
+    }
+    syncCloudflareFormFromSnapshot(true);
+    renderCloudflarePanel();
+    if (!silent) {
+      showNotice(
+        `已保存 Cloudflare 多账户路由矩阵（共 ${targets.length} 条路由${enabled ? "，已启用发布" : ""}）。`,
+        "success",
+      );
+    }
+    return true;
+  } catch (error) {
+    if (currentId === projectId) {
+      renderCloudflarePanel();
+      showNotice(error);
+    }
+    return false;
+  } finally {
+    cfBusy = false;
+    updateActionStates();
+  }
+}
+
+async function checkCloudflareTarget(index) {
+  if (!currentId || cfBusy) return;
+  const projectId = currentId;
+  const draft = cfTargetDrafts[index];
+  if (!draft || !draft.profileId.trim() || !draft.bucket.trim()) {
+    showNotice("验证连接前请先为该路由选择账户并填写 R2 Bucket 名称。", "error");
+    return;
+  }
+  clearNotice();
+  cfBusy = true;
+  updateActionStates();
+  try {
+    const res = await api(`/api/projects/${encodeURIComponent(projectId)}/cloudflare/check`, {
+      method: "POST",
+      body: JSON.stringify({
+        profileId: draft.profileId.trim(),
+        ...(draft.accountId.trim() ? { accountId: draft.accountId.trim() } : {}),
+        bucket: draft.bucket.trim(),
+        ...(draft.keyPrefix.trim() ? { keyPrefix: draft.keyPrefix.trim() } : {}),
+        ...(draft.publicBaseUrl.trim() ? { publicBaseUrl: draft.publicBaseUrl.trim() } : {}),
+        ...(draft.endpoint.trim() ? { endpoint: draft.endpoint.trim() } : {}),
+      }),
+    });
+    if (currentId !== projectId) return;
+    showNotice(`Cloudflare R2 连接正常：${res.profileId} / ${res.bucket}`, "success");
+  } catch (error) {
+    if (currentId === projectId) showNotice(error);
+  } finally {
+    cfBusy = false;
+    updateActionStates();
+  }
+}
+
+async function publishToCloudflare(channel) {
+  if (!currentId || cfBusy || publishing) return;
+  const projectId = currentId;
+  clearNotice();
+  if (cfMatrixDirty) {
+    const saved = await saveCloudflareMatrixConfig({ silent: true });
+    if (!saved || currentId !== projectId) return;
+  }
+  cfBusy = true;
+  updateActionStates();
+  try {
+    const res = await api(`/api/projects/${encodeURIComponent(projectId)}/cloudflare/publish`, {
+      method: "POST",
+      body: JSON.stringify({ channel }),
+    });
+    if (currentId !== projectId) return;
+    if (res.status) renderStatus(res.status);
+    if (res.cloudflare) {
+      cfSnapshot = res.cloudflare;
+      if (versionSnapshot && typeof versionSnapshot === "object") {
+        versionSnapshot.cloudflare = res.cloudflare;
+      }
+    }
+    renderCloudflarePanel();
+    const sum = res.cloudflarePublish;
+    const label = channel === "release" ? "稳定版" : "测试版";
+    showNotice(
+      sum
+        ? `已同步${label} v${sum.version} 到 Cloudflare R2（${sum.targets?.length || 1} 条路由，上传 ${sum.uploadedFiles} 个文件，复用 ${sum.skippedFiles} 个文件）。`
+        : `已同步${label}到 Cloudflare R2。`,
+      "success",
+    );
+  } catch (error) {
+    if (currentId === projectId) showNotice(error);
+  } finally {
+    cfBusy = false;
+    updateActionStates();
+  }
+}
+
+function updatePackagesActionStates(workLocked = false) {
+  const locked = Boolean(workLocked || packagesBusy || !currentId);
+  for (const id of ["open-packages-manager", "packages-search", "packages-refresh"]) {
+    if ($(id)) $(id).disabled = locked;
+  }
+  for (const box of document.querySelectorAll("#packages-list input[data-package-toggle]")) {
+    const coreLocked = box.dataset.coreLocked === "1";
+    box.disabled = locked || coreLocked;
+  }
+}
+
+const PACKAGE_CATEGORY_LABELS = [
+  ["all", "全部"],
+  ["installed", "已安装"],
+  ["ui-skin", "UI 与皮肤"],
+  ["animation-game", "动画与游戏"],
+  ["hardware-media", "硬件与媒体"],
+  ["network-sync", "网络与同步"],
+  ["host-core", "宿主核心"],
+  ["deploy-observability", "发布与诊断"],
+];
+
+function renderPackagesPanel() {
+  const countBadge = $("packages-active-count");
+  const categoryBar = $("packages-category-bar");
+  const listEl = $("packages-list");
+  if (!listEl) return;
+
+  if (categoryBar) {
+    if (categoryBar.childElementCount === 0) {
+      for (const [catId, catLabel] of PACKAGE_CATEGORY_LABELS) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "packages-category-pill";
+        btn.dataset.pkgCat = catId;
+        btn.setAttribute("role", "tab");
+        btn.textContent = catLabel;
+        categoryBar.append(btn);
+      }
+    }
+    for (const pill of categoryBar.querySelectorAll("[data-pkg-cat]")) {
+      const isSelected = pill.getAttribute("data-pkg-cat") === packagesCategory;
+      pill.classList.toggle("active", isSelected);
+      pill.setAttribute("aria-selected", String(isSelected));
+    }
+  }
+
+  listEl.replaceChildren();
+
+  if (!currentId) {
+    if (countBadge) countBadge.textContent = "已安装 0 / 0";
+    listEl.append(
+      Object.assign(document.createElement("span"), {
+        className: "muted",
+        textContent: "请选择项目以管理 PocketFlutter 官方包。",
+      }),
+    );
+    updatePackagesActionStates();
+    return;
+  }
+
+  if (!packagesSnapshot) {
+    if (countBadge) countBadge.textContent = packagesBusy ? "加载中…" : "待加载";
+    listEl.append(
+      Object.assign(document.createElement("span"), {
+        className: "muted",
+        textContent: packagesBusy ? "正在读取官方包注册表与项目锁文件…" : "打开此面板以加载官方按需包。",
+      }),
+    );
+    updatePackagesActionStates();
+    return;
+  }
+
+  const allPackages = Array.isArray(packagesSnapshot.packages) ? packagesSnapshot.packages : [];
+  const totalCount = packagesSnapshot.totalPackages ?? allPackages.length;
+  const installedCount = packagesSnapshot.installedCount ?? allPackages.filter((pkg) => pkg.installed).length;
+  if (countBadge) {
+    countBadge.textContent = `已安装 ${installedCount} / ${totalCount}`;
+  }
+
+  const categoryMatch = PACKAGE_CATEGORY_MATCHERS[packagesCategory] || PACKAGE_CATEGORY_MATCHERS.all;
+  const q = packagesQuery;
+  const filtered = allPackages.filter((pkg) => {
+    if (!categoryMatch(pkg)) return false;
+    if (!q) return true;
+    const haystack = [
+      pkg.slug,
+      pkg.jsPackageName,
+      pkg.dartPackageName || "",
+      pkg.description || "",
+      ...(Array.isArray(pkg.shortAliases) ? pkg.shortAliases : []),
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(q);
+  });
+
+  if (filtered.length === 0) {
+    listEl.append(
+      Object.assign(document.createElement("span"), {
+        className: "muted",
+        textContent: "没有匹配当前筛选条件的官方包。",
+      }),
+    );
+    updatePackagesActionStates();
+    return;
+  }
+
+  for (const pkg of filtered) {
+    const card = document.createElement("div");
+    card.className = `package-card${pkg.installed ? " installed" : ""}${pkg.coreLocked ? " core-locked" : ""}`;
+    card.dataset.packageSlug = pkg.slug;
+    card.setAttribute("role", "listitem");
+
+    const main = document.createElement("div");
+    main.className = "package-card-main";
+
+    const header = document.createElement("div");
+    header.className = "package-card-head";
+    const title = document.createElement("strong");
+    title.textContent = pkg.jsPackageName || pkg.slug;
+    const versionTag = document.createElement("span");
+    versionTag.className = "package-version-tag";
+    versionTag.textContent = `v${pkg.version}`;
+
+    const modeTag = document.createElement("span");
+    modeTag.className = `package-mode-tag${pkg.requiresHostRebuild ? " native" : ""}`;
+    modeTag.textContent = pkg.coreLocked
+      ? "核心内置"
+      : pkg.requiresHostRebuild
+        ? "含原生宿主插件"
+        : "纯 JS 即时生效";
+
+    header.append(title, versionTag, modeTag);
+
+    const desc = document.createElement("div");
+    desc.className = "package-card-desc";
+    desc.textContent = pkg.description || "";
+
+    const meta = document.createElement("div");
+    meta.className = "package-card-meta";
+    const slugSpan = document.createElement("span");
+    slugSpan.textContent = pkg.slug;
+    meta.append(slugSpan);
+
+    if (Array.isArray(pkg.platforms) && pkg.platforms.length > 0) {
+      const platSpan = document.createElement("span");
+      platSpan.textContent = `平台: ${pkg.platforms.join("/")}`;
+      meta.append(platSpan);
+    }
+    if (Array.isArray(pkg.dependencies) && pkg.dependencies.length > 0) {
+      const depSpan = document.createElement("span");
+      depSpan.textContent = `依赖: ${pkg.dependencies.join(", ")}`;
+      meta.append(depSpan);
+    }
+
+    main.append(header, desc, meta);
+
+    const switchLabel = document.createElement("label");
+    switchLabel.className = `package-switch${pkg.installed ? " installed" : ""}`;
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.dataset.packageToggle = pkg.slug;
+    toggle.dataset.coreLocked = pkg.coreLocked ? "1" : "0";
+    toggle.checked = Boolean(pkg.installed);
+    toggle.disabled = Boolean(pkg.coreLocked || packagesBusy || !currentId);
+    toggle.addEventListener("change", () => {
+      void toggleProjectPackage(pkg.slug, toggle.checked);
+    });
+    const switchText = document.createElement("span");
+    switchText.textContent = pkg.coreLocked ? "内置" : pkg.installed ? "已装" : "开启";
+    switchLabel.append(toggle, switchText);
+
+    card.append(main, switchLabel);
+    listEl.append(card);
+  }
+
+  updatePackagesActionStates();
+}
+
+async function loadProjectPackages({ notify = false } = {}) {
+  if (!currentId || packagesBusy) return;
+  const projectId = currentId;
+  packagesBusy = true;
+  renderPackagesPanel();
+  updateActionStates();
+  try {
+    const snap = await api(`/api/projects/${encodeURIComponent(projectId)}/packages`);
+    if (currentId !== projectId) return;
+    packagesSnapshot = snap;
+    renderPackagesPanel();
+    if (notify) {
+      showNotice(`已同步官方包状态（已安装 ${snap.installedCount}/${snap.totalPackages}）。`, "success");
+    }
+  } catch (error) {
+    if (currentId === projectId && notify) showNotice(error);
+  } finally {
+    packagesBusy = false;
+    renderPackagesPanel();
+    updateActionStates();
+  }
+}
+
+async function toggleProjectPackage(slug, install) {
+  if (!currentId || packagesBusy) return;
+  const projectId = currentId;
+  clearNotice();
+  packagesBusy = true;
+  updateActionStates();
+  try {
+    const res = await api(`/api/projects/${encodeURIComponent(projectId)}/packages`, {
+      method: "POST",
+      body: JSON.stringify({
+        action: install ? "add" : "remove",
+        packages: [slug],
+      }),
+    });
+    if (currentId !== projectId) return;
+    if (res.packagesSnapshot) {
+      packagesSnapshot = res.packagesSnapshot;
+    }
+    if (res.status) {
+      renderStatus(res.status);
+    }
+    try {
+      const files = await api(`/api/projects/${encodeURIComponent(projectId)}/files`);
+      if (currentId === projectId) {
+        renderFilePicker(files.files || files);
+      }
+    } catch {
+      // Non-fatal file picker refresh
+    }
+    renderPackagesPanel();
+    const actionLabel = install ? "已安装" : "已卸载";
+    const rebuildHint = res.requiresHostRebuild
+      ? "（涉及原生 Flutter 插件变更，真机/模拟器运行前请重新构建宿主）"
+      : "（纯 JS 包，保存或热重载即可直接使用）";
+    showNotice(`${actionLabel}官方包「${slug}」${rebuildHint}`, "success");
+  } catch (error) {
+    if (currentId === projectId) {
+      renderPackagesPanel();
+      showNotice(error);
+    }
+  } finally {
+    packagesBusy = false;
+    updateActionStates();
+  }
+}
+
 async function loadVersions() {
   if (!currentId || versionsLoading) return;
   const projectId = currentId;
@@ -2984,9 +3988,15 @@ async function selectProject(id, options = {}) {
   versionSnapshot = null;
   cosSnapshot = null;
   cosFormProjectId = null;
+  cfSnapshot = null;
+  cfFormProjectId = null;
+  cfTargetDrafts = [];
+  cfMatrixDirty = false;
+  packagesSnapshot = null;
   versionsLoading = false;
   versionsGeneration += 1;
   renderVersionManagement();
+  renderPackagesPanel();
   resetResources();
   currentFile = "app.tsx";
   currentStatus = null;
@@ -3017,6 +4027,7 @@ async function selectProject(id, options = {}) {
     try { localStorage.setItem(projectSelectionStorageKey, id); } catch {}
     currentProjectConfig = config;
     syncProjectEcosystemUi(config);
+    void loadProjectPackages();
     updateProjectHeading(projects.find((project) => project.id === id), config);
     $("config-name").value = config.name || "";
     $("config-app-id").value = config.appId || "";
@@ -3064,6 +4075,9 @@ function setEnabled(enabled) {
   sourceEl.disabled = !enabled;
   $("file-picker").disabled = !enabled;
   for (const id of [...PROJECT_CONFIG_INPUTS, "config-build"]) $(id).disabled = !enabled;
+  for (const id of ["open-packages-manager", "packages-search", "packages-refresh"]) {
+    if ($(id)) $(id).disabled = !enabled || packagesBusy;
+  }
   for (const id of ["open-ecosystem-builder", "ecosystem-preset-apple", "ecosystem-preset-android", "ecosystem-preset-clear", "apply-ecosystem-modules"]) {
     if ($(id)) $(id).disabled = !enabled || ecosystemApplying;
   }
@@ -3308,12 +4322,24 @@ async function publishProject(channel = publishTargetChannel) {
       void loadResources(projectId).catch(showNotice);
     }
     void refreshPublishTargets();
-    if (result.cosError) {
-      showNotice(`${channel === "test" ? "测试" : "稳定版"}本地资源包已发布，但同步到 COS 失败：${result.cosError}`, "error");
-    } else if (result.cosPublish) {
-      showNotice(`${channel === "test" ? "测试" : "稳定版"}资源包已发布并同步到腾讯云 COS。`, "success");
+    if (result.cloudflarePublish) {
+      void loadCloudflareConfig();
+    }
+    const syncErrors = [
+      result.cosError ? `COS：${result.cosError}` : "",
+      result.cloudflareError ? `Cloudflare：${result.cloudflareError}` : "",
+    ].filter(Boolean);
+    const syncedTargets = [
+      result.cosPublish ? "腾讯云 COS" : "",
+      result.cloudflarePublish ? "Cloudflare R2" : "",
+    ].filter(Boolean);
+    const channelLabel = channel === "test" ? "测试" : "稳定版";
+    if (syncErrors.length > 0) {
+      showNotice(`${channelLabel}本地资源包已发布，但远端同步失败（${syncErrors.join("；")}）`, "error");
+    } else if (syncedTargets.length > 0) {
+      showNotice(`${channelLabel}资源包已发布并同步到 ${syncedTargets.join(" 与 ")}。`, "success");
     } else {
-      showNotice(`${channel === "test" ? "测试" : "稳定版"}资源包已发布。`, "success");
+      showNotice(`${channelLabel}资源包已发布。`, "success");
     }
   } catch (error) {
     if (currentId === projectId) {
@@ -4221,6 +5247,29 @@ $("create-form").addEventListener("submit", async (event) => {
   }
 });
 
+$("open-packages-manager")?.addEventListener("click", () => {
+  switchInspectorTab("settings");
+  const pkgPanel = $("packages-panel");
+  if (pkgPanel) {
+    pkgPanel.open = true;
+    pkgPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+  void loadProjectPackages();
+});
+$("packages-search")?.addEventListener("input", (event) => {
+  packagesQuery = String(event.target?.value || "").trim().toLowerCase();
+  renderPackagesPanel();
+});
+$("packages-refresh")?.addEventListener("click", () => {
+  void loadProjectPackages({ notify: true });
+});
+$("packages-category-bar")?.addEventListener("click", (event) => {
+  const pill = event.target?.closest?.("[data-pkg-cat]");
+  if (!pill) return;
+  const nextCat = pill.getAttribute("data-pkg-cat") || "all";
+  packagesCategory = nextCat;
+  renderPackagesPanel();
+});
 $("open-ecosystem-builder")?.addEventListener("click", () => {
   const tools = $("editor-tools");
   if (tools) tools.open = true;
@@ -4425,6 +5474,61 @@ $("version-cos-app-config-copy")?.addEventListener("click", () => {
   const url = $("version-cos-app-config-link")?.getAttribute("href");
   if (button && url) void copyVersionUrl(url, button, "COS 接入地址");
 });
+$("cf-detect")?.addEventListener("click", () => {
+  void loadCloudflareConfig({ notify: true });
+});
+$("cf-toggle-settings")?.addEventListener("click", () => {
+  cfSettingsOpen = !cfSettingsOpen;
+  renderCloudflarePanel();
+});
+$("cf-enabled")?.addEventListener("change", (event) => {
+  const enabled = Boolean(event.target?.checked);
+  if (enabled && collectCloudflareTargetsPayload().length === 0) {
+    cfSettingsOpen = true;
+    renderCloudflarePanel();
+    showNotice("请先配置至少一条 Cloudflare R2 账户路由并保存矩阵配置。", "error");
+    if ($("cf-enabled")) $("cf-enabled").checked = false;
+    return;
+  }
+  void saveCloudflareMatrixConfig({ overrideEnabled: enabled });
+});
+$("cf-save-profile")?.addEventListener("click", () => {
+  void saveCloudflareProfile();
+});
+$("cf-sync-on-publish")?.addEventListener("change", () => {
+  cfMatrixDirty = true;
+});
+$("cf-purge-on-publish")?.addEventListener("change", () => {
+  cfMatrixDirty = true;
+});
+$("cf-add-target")?.addEventListener("click", () => {
+  const defaultProfileId = cfSnapshot?.local?.profiles?.[0]?.profileId || "";
+  cfTargetDrafts.push(
+    cloneCloudflareTargetDraft({
+      profileId: defaultProfileId,
+      keyPrefix: currentId ? `apps/${currentId}` : "",
+      platforms: ["*"],
+      role: cfTargetDrafts.length === 0 ? "primary" : "fallback",
+    }),
+  );
+  cfMatrixDirty = true;
+  renderCloudflareTargetsList();
+  updateCloudflareActionStates();
+});
+$("cf-save-config")?.addEventListener("click", () => {
+  void saveCloudflareMatrixConfig();
+});
+$("cf-publish-test")?.addEventListener("click", () => {
+  void publishToCloudflare("test");
+});
+$("cf-publish-stable")?.addEventListener("click", () => {
+  void publishToCloudflare("release");
+});
+$("version-cf-app-config-copy")?.addEventListener("click", () => {
+  const button = $("version-cf-app-config-copy");
+  const url = $("version-cf-app-config-link")?.getAttribute("href");
+  if (button && url) void copyVersionUrl(url, button, "Cloudflare 接入地址");
+});
 $("versions-open").addEventListener("click", () => {
   switchInspectorTab("versions");
 });
@@ -4612,6 +5716,7 @@ function handleInspectorPanelToggle(tab, panel) {
   if (panel.open) {
     syncInspectorAccordion(tab);
     if (tab === "versions" && !versionSnapshot) void loadVersions();
+    if (tab === "settings" && !packagesSnapshot) void loadProjectPackages();
   } else if (!$("resources-panel")?.open && !$("version-manager")?.open && !$("editor-tools")?.open) {
     clearInspectorActiveUi();
   }
@@ -4640,6 +5745,7 @@ function switchInspectorTab(tab) {
     editorTools.open = true;
     syncInspectorAccordion("settings");
     editorTools.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (!packagesSnapshot) void loadProjectPackages();
   }
 }
 

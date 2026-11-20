@@ -32,6 +32,10 @@
       "name": "@pocket/cos",
       "version": "0.1.0",
     },
+    "packages/pocket_cloudflare": {
+      "name": "@pocket/cloudflare",
+      "version": "0.1.0",
+    },
     "packages/pocket_diagnostics": {
       "name": "@pocket/diagnostics",
       "version": "0.1.0",

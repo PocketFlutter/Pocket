@@ -255,6 +255,7 @@ function copySources(
   options: { registryPackages?: boolean; registryTarballsDir?: string } = {},
 ): RegistryPackageRecord[] | undefined {
   copyOptionalLantern(out);
+  copyFile(join(SDK_ROOT, "pocket.ts"), join(out, "pocket.ts"));
   copyTree(join(SDK_ROOT, "templates"), join(out, "templates"));
   copyTree(join(SDK_ROOT, "editor"), join(out, "editor"));
   rmSync(join(out, "editor/test"), { recursive: true, force: true });
@@ -276,6 +277,10 @@ function copySources(
     "studio_upgrade.mjs",
     "install_studio.mjs",
     "package_update.ts",
+    "registry_catalog.ts",
+    "registry_builder.ts",
+    "standalone_publisher_files.mjs",
+    "package_installer.ts",
     "platform_scaffold.ts",
     "ecosystem_scaffold.ts",
     "native_surface_scaffold.ts",
@@ -319,6 +324,9 @@ function copySources(
     copyFile(join(SDK_ROOT, "packages/pocket_cos/package.json"), join(out, "packages/pocket_cos/package.json"));
     copyFile(join(SDK_ROOT, "packages/pocket_cos/README.md"), join(out, "packages/pocket_cos/README.md"));
     copyTree(join(SDK_ROOT, "packages/pocket_cos/src"), join(out, "packages/pocket_cos/src"));
+    copyFile(join(SDK_ROOT, "packages/pocket_cloudflare/package.json"), join(out, "packages/pocket_cloudflare/package.json"));
+    copyFile(join(SDK_ROOT, "packages/pocket_cloudflare/README.md"), join(out, "packages/pocket_cloudflare/README.md"));
+    copyTree(join(SDK_ROOT, "packages/pocket_cloudflare/src"), join(out, "packages/pocket_cloudflare/src"));
     copyFile(join(SDK_ROOT, "packages/pocket_sync/package.json"), join(out, "packages/pocket_sync/package.json"));
     copyTree(join(SDK_ROOT, "packages/pocket_sync/src"), join(out, "packages/pocket_sync/src"));
   }
@@ -583,7 +591,12 @@ function writeRepositoryFiles(
       "build:probe": "node scripts/toolchain.mjs build:probe",
       "build:web": "node scripts/toolchain.mjs run scripts/build_web.ts",
       "build:wechat": "node scripts/toolchain.mjs run scripts/build_wechat.ts",
+      search: "node scripts/toolchain.mjs run pocket.ts search",
+      add: "node scripts/toolchain.mjs run pocket.ts add",
+      packages: "node scripts/toolchain.mjs run pocket.ts packages",
+      remove: "node scripts/toolchain.mjs run pocket.ts remove",
       cos: "node scripts/toolchain.mjs run packages/pocket_cos/src/cli.ts",
+      cf: "node scripts/toolchain.mjs run packages/pocket_cloudflare/src/cli.ts",
       start: "node scripts/editor_service.mjs start",
       stop: "node scripts/editor_service.mjs stop",
       status: "node scripts/editor_service.mjs status",

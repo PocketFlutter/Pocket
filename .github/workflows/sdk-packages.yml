@@ -14,6 +14,7 @@ on:
       - 'sdk/editor/version_store.ts'
       - 'sdk/scripts/package_update.ts'
       - 'sdk/scripts/package_github_packages.mjs'
+      - 'sdk/scripts/standalone_publisher_files.mjs'
       - 'sdk/scripts/release_sdk_packages.mjs'
       - 'sdk/scripts/tests/release_sdk_packages.test.ts'
       - 'sdk/scripts/verify_github_packages.ts'
@@ -49,6 +50,7 @@ jobs:
         run: |
           bun test sdk/scripts/tests/release_sdk_packages.test.ts \
             sdk/packages/pocket_diagnostics/test sdk/packages/pocket_cos/test \
+            sdk/packages/pocket_cloudflare/test \
             sdk/packages/pocket_vn/test/engine.test.ts \
             sdk/packages/pocket_live2d/test/live2d.test.ts sdk/packages/pocket_live2d/test/interaction.test.ts
 
