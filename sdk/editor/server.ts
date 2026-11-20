@@ -59,7 +59,7 @@ import { handleNovelRoute, serveNovelLive2dCore } from "./novel.ts";
 import { lanternExampleStatus, stageLanternExample } from "./optional-demo.ts";
 import { createNovelBackup } from "./novel-backups.ts";
 import { createLocalBluetoothProvider } from "./local_bluetooth.ts";
-import { previewDevice } from "./preview_device.ts";
+import { getSurfaceProfile, previewDevice } from "./preview_device.ts";
 import { createEditorDeviceManager, type DeploymentSnapshot } from "./devices.ts";
 import { createWechatPreviewManager } from "./wechat.ts";
 import { createStudioDiagnostics, handleDiagnosticsRequest } from "./diagnostics.ts";
@@ -464,7 +464,7 @@ function pathFailure(message: string, status = 400): never {
 }
 
 const editableFilePattern = /\.(?:ts|tsx|js|jsx|json|svg|css|md)$/i;
-const protectedFilePattern = /^(?:editor(?:-state)?|pocket|pocket\.system|pocket\.resources|host|payload|latest|signed-manifest|build|app\.bytecode|private|secret)\.json$|\.(?:pem|key|qjbc|pak|tar|gz)$/i;
+const protectedFilePattern = /^(?:editor(?:-state)?|pocket|pocket\.system|pocket\.resources|\.pocket-ecosystem-owner|host|payload|latest|signed-manifest|build|app\.bytecode|private|secret)\.json$|\.(?:pem|key|qjbc|pak|tar|gz)$/i;
 const protectedDirectoryNames = new Set(["assets", "builds", "updates", "keys", "node_modules", ".git", ".pocket-build", ".pocket-editor"]);
 // These directories are not consumer source inputs. In particular, a
 // package-manager SDK link under node_modules and a generated build cache may
@@ -1589,6 +1589,39 @@ function projectDirectory(workspace: Workspace, id: string): string {
   const source = workspace.projectSources?.get(id);
   if (source) return source.root;
   return safeChild(workspace.projects, id);
+}
+
+const ecosystemCompanionOwnerFile = ".pocket-ecosystem-owner.json";
+
+function ecosystemCompanionLocation(workspace: Workspace, parentId: string) {
+  const parentRoot = realpathSync(projectDirectory(workspace, parentId));
+  const binding = sha256Hex(Buffer.from(`${parentId}\0${parentRoot}`));
+  const projectId = `ecosystem-${binding.slice(0, 24)}`;
+  const directory = safeChild(workspace.projects, projectId);
+  return { binding, projectId, directory };
+}
+
+function isEcosystemCompanion(directory: string, binding: string): boolean {
+  const marker = join(directory, ecosystemCompanionOwnerFile);
+  if (!lstatIfExists(directory)?.isDirectory() || !lstatIfExists(marker)?.isFile()) return false;
+  try {
+    return JSON.parse(readFileSync(marker, "utf8")).parent === binding;
+  } catch {
+    return false;
+  }
+}
+
+function sameEcosystemModules(left: readonly EcosystemModuleId[], right: readonly EcosystemModuleId[]): boolean {
+  return left.length === right.length && left.every((module, index) => module === right[index]);
+}
+
+function ecosystemCompanionProfiles(modules: readonly EcosystemModuleId[]): string[] {
+  return ECOSYSTEM_MODULES.flatMap((module) => modules.includes(module.id)
+    ? module.profileIds.filter((id) => {
+      const profile = getSurfaceProfile(id);
+      return profile !== undefined && profile.kind !== "device";
+    })
+    : []);
 }
 
 async function writeOpenedProjects(workspace: Workspace, sources: ReadonlyMap<string, CatalogProjectSource>): Promise<void> {
@@ -5607,16 +5640,36 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
             }
           }
           if (parts[3] === "ecosystem" && parts.length === 4) {
+            const managedByParent = lstatIfExists(join(projectDir(id), ecosystemCompanionOwnerFile))?.isFile() === true;
+            const companionLocation = ecosystemCompanionLocation(workspace, id);
+            const childId = companionLocation.projectId;
+            const companionExists = () => !workspace.projectSources?.has(childId) && workspace.projectId !== childId &&
+              isEcosystemCompanion(companionLocation.directory, companionLocation.binding);
+            const readCompanion = async () => {
+              if (!companionExists()) return undefined;
+              const config = await loadConfig(companionLocation.directory, childId);
+              const modules = config.ecosystemModules ?? [];
+              return {
+                projectId: childId,
+                modules,
+                profileIds: ecosystemCompanionProfiles(modules),
+                status: publicStatus(childId, await getState(childId)),
+              };
+            };
             if (method === "GET") {
               const config = await loadConfig(projectDir(id), id);
-              const modules = config.ecosystemModules ?? [];
+              const companion = await readCompanion();
+              const modules = resolveEcosystemModules([...(config.ecosystemModules ?? []), ...(companion?.modules ?? [])]);
               return json({
                 modules,
                 enabledProfiles: enabledProfileIdsForModules(modules),
                 catalog: ECOSYSTEM_MODULES,
+                ...(managedByParent ? { managedByParent: true } : {}),
+                ...(companion ? { companion } : {}),
               });
             }
             if (method === "POST") {
+              if (managedByParent) return failure("manage ecosystem modules from the parent project", 409);
               if (state.busy) return failure("Build in progress; retry editing when the build completes", 409);
               await validateProjectInputTree(projectDir(id));
               const body = await parseJsonBody(request);
@@ -5634,7 +5687,100 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
                 return failure(error instanceof Error ? error.message : String(error), 400);
               }
               const currentConfig = await loadConfig(projectDir(id), id);
-              const result = scaffoldEcosystemModules(projectDir(id), requested, {
+              if (body.mode === "companion") {
+                if (hasAdd) return failure("companion mode requires a complete modules selection", 400);
+                const previousParentModules = currentConfig.ecosystemModules ?? [];
+                const previousCompanion = await readCompanion();
+                const childModules = requested.filter((moduleId) => {
+                  const entryFile = ECOSYSTEM_MODULES.find((item) => item.id === moduleId)?.entryFile;
+                  return entryFile !== undefined && !previousParentModules.includes(moduleId) &&
+                    (previousCompanion?.modules.includes(moduleId) || !lstatIfExists(join(projectDir(id), entryFile)));
+                });
+                const parentModules = requested.filter((moduleId) => !childModules.includes(moduleId));
+                const parentChanged = !sameEcosystemModules(previousParentModules, parentModules);
+                const childChanged = !sameEcosystemModules(previousCompanion?.modules ?? [], childModules);
+                let parentResult: ReturnType<typeof scaffoldEcosystemModules> | undefined;
+                let childResult: ReturnType<typeof scaffoldEcosystemModules> | undefined;
+                if (childChanged && (projectWrites.has(childId) || previousCompanion?.status.busy ||
+                    codex.isBusy(childId) || wechat.isBuilding(childId) || deploymentWriting(childId))) {
+                  return failure("Another extension project operation is in progress; retry when it completes", 409);
+                }
+                if (childChanged && !previousCompanion && (openingProject || workspace.projectSources?.has(childId) ||
+                    workspace.projectId === childId || lstatIfExists(companionLocation.directory))) {
+                  return failure("The extension project directory is unavailable", 409);
+                }
+                if (childChanged) projectWrites.add(childId);
+                if (childChanged && !previousCompanion) openingProject = true;
+                let staging: string | undefined;
+                try {
+                  if (childChanged && previousCompanion) {
+                    await validateProjectInputTree(companionLocation.directory);
+                    if (!loopback && await requiresLocalProjectWrite(workspace, childId, previewHostAdapter?.projectId)) {
+                      return failure("configured project changes are available only on the Studio computer", 403);
+                    }
+                  }
+                  if (childChanged && !previousCompanion) {
+                    staging = safeChild(workspace.projects, `.ecosystem-${randomUUID()}`);
+                    await createProject(workspace, childId, {
+                      appId: `dev.pocket.${childId}`,
+                      name: `${currentConfig.title.slice(0, 150)} 生态扩展`,
+                    }, staging);
+                    await writeFile(join(staging, "app.tsx"),
+                      'import { mount } from "@pocketjs/framework/solid";\n' +
+                      'import { ProjectSurfaceRoot } from "./surfaces/index.tsx";\n\n' +
+                      'mount(() => <ProjectSurfaceRoot>{null}</ProjectSurfaceRoot>);\n');
+                    await writeFile(join(staging, ecosystemCompanionOwnerFile), JSON.stringify({ parent: companionLocation.binding }) + "\n");
+                    childResult = scaffoldEcosystemModules(staging, childModules, {
+                      appTitle: currentConfig.title, wireEntry: false, syncNative: false,
+                    });
+                  }
+                  if (parentChanged) {
+                    parentResult = scaffoldEcosystemModules(projectDir(id), parentModules, { appTitle: currentConfig.title });
+                    state.revision += 1;
+                    state.error = undefined;
+                    state.publish = undefined;
+                    pushLog(state, `ecosystem modules (${parentModules.join(", ") || "none"}): revision ${state.revision}`);
+                    await persistProjectState(id, state);
+                  }
+                  if (staging) {
+                    await rename(staging, companionLocation.directory);
+                    staging = undefined;
+                  } else if (childChanged) {
+                    const childState = await getState(childId);
+                    childResult = scaffoldEcosystemModules(companionLocation.directory, childModules, {
+                      appTitle: currentConfig.title, wireEntry: false, syncNative: false,
+                    });
+                    childState.revision += 1;
+                    childState.error = undefined;
+                    childState.publish = undefined;
+                    pushLog(childState, `ecosystem modules (${childModules.join(", ") || "none"}): revision ${childState.revision}`);
+                    await persistProjectState(childId, childState);
+                  }
+                  const companion = await readCompanion();
+                  const config = parentChanged ? await loadConfig(projectDir(id), id) : currentConfig;
+                  return json({
+                    config,
+                    modules: requested,
+                    enabledProfiles: enabledProfileIdsForModules(requested),
+                    status: publicStatus(id, state),
+                    parentChanged,
+                    createdFiles: parentResult?.createdFiles ?? [],
+                    updatedFiles: parentResult?.updatedFiles ?? [],
+                    ...(companion ? { companion: {
+                      ...companion,
+                      createdFiles: childResult?.createdFiles ?? [],
+                      updatedFiles: childResult?.updatedFiles ?? [],
+                    } } : {}),
+                  });
+                } finally {
+                  if (childChanged) projectWrites.delete(childId);
+                  if (childChanged && !previousCompanion) openingProject = false;
+                  if (staging) await rm(staging, { recursive: true, force: true });
+                }
+              }
+              const companion = await readCompanion();
+              const parentRequested = requested.filter((moduleId) => !companion?.modules.includes(moduleId));
+              const result = scaffoldEcosystemModules(projectDir(id), parentRequested, {
                 mode: hasAdd ? "add" : "set",
                 appTitle: currentConfig.title,
               });
@@ -5647,7 +5793,13 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
                 `ecosystem modules (${result.modules.join(", ") || "none"}): revision ${state.revision}`,
               );
               await persistProjectState(id, state);
-              return json({ config, ...result, status: publicStatus(id, state) });
+              return json({
+                config, ...result, status: publicStatus(id, state),
+                ...(companion ? {
+                  companion,
+                  modules: resolveEcosystemModules([...result.modules, ...companion.modules]),
+                } : {}),
+              });
             }
             return failure("method not allowed", 405);
           }

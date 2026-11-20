@@ -5252,7 +5252,7 @@
         },
         {
           "file": "editor/server.ts",
-          "sourceSha256": "10a0ed44cc436ad38dc7d8518551f1fe9b6fdfecca885f665a9405e7dcdb3182"
+          "sourceSha256": "fad78138d86f2ab33ab1b8b79cb39c1559a6dcac8563b20507c5bb67f3d5201e"
         },
         {
           "file": "editor/test/editor_live_probe.ts",

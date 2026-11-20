@@ -171,8 +171,7 @@
               <div class="preview-actions" role="group" aria-label="预览工具">
                 <label class="viewport-select-label"><span class="sr-only">预览尺寸</span><select id="viewport-picker" aria-label="预览视口"><option value="mobile">手机</option><option value="tablet">平板 · 768 × 1023</option><option value="desktop">桌面 · 1023 × 768</option><option value="custom" hidden disabled>自定义</option></select></label>
                 <button id="edit-custom-viewport" class="button secondary small-button" type="button" aria-haspopup="dialog">自定义视口…</button>
-                <label id="surface-render-mode-wrap" class="viewport-select-label surface-mode-label" hidden><span class="sr-only">渲染模式</span><select id="surface-render-mode" aria-label="表面渲染模式"></select></label>
-                <button id="widget-companion-jump" class="button secondary small-button" type="button" title="模拟点击小组件/磁贴并跳转打开宿主主应用" hidden>打开宿主 App ↗</button>
+                <label id="main-render-mode-wrap" class="viewport-select-label surface-mode-label" hidden><span class="sr-only">主应用渲染模式</span><select id="main-render-mode" aria-label="主应用渲染模式"></select></label>
                 <button id="open-packages-manager" class="button secondary small-button" type="button" title="按需安装或卸载 PocketFlutter 官方包" disabled>📦 官方包</button>
                 <button id="open-ecosystem-builder" class="button secondary small-button" type="button" title="按需创建或管理 Apple / Android 全家桶与微件扩展" disabled>＋ 生态/微件</button>
                 <button id="preview-bezel-toggle" class="button secondary small-button" type="button" aria-pressed="false" title="为支持的预览显示设备边框">设备边框</button>
@@ -226,13 +225,23 @@
                     <div class="preview-fold-hinge" hidden></div>
                     <div class="preview-watch-crown" hidden></div>
                     <div class="preview-phone-home-indicator"></div>
-                    <div id="preview-surface-badge" class="preview-surface-badge" hidden></div>
                   </div>
                   <div id="preview-empty" class="preview-empty"><div class="empty-icon">⌁</div><strong>预览会显示在这里</strong><span>构建后刷新预览。</span></div>
-                  <iframe id="preview-frame" title="Pocket JS 预览" src="about:blank" hidden></iframe>
+                  <iframe id="preview-frame" class="preview-canvas-frame" title="Pocket JS 预览" src="about:blank" hidden></iframe>
                   </div>
                   <div class="preview-surface-label" aria-hidden="true"><strong id="preview-surface-renderer">Flutter</strong><span><span id="preview-surface-engine">原生画布</span> · <em id="preview-device-label">—</em></span></div>
                 </div>
+                <section id="ecosystem-preview-pane" class="preview-surface-slot" aria-label="生态扩展预览" hidden>
+                  <div id="ecosystem-preview-stage" class="preview-stage">
+                    <div id="ecosystem-preview-empty" class="preview-empty" role="status">构建项目后加载扩展预览。</div>
+                    <iframe id="ecosystem-preview-frame" class="preview-canvas-frame" title="Pocket 生态扩展预览" src="about:blank" hidden></iframe>
+                  </div>
+                  <div class="ecosystem-preview-controls">
+                    <label><span class="sr-only">生态扩展</span><select id="ecosystem-preview-picker" aria-label="生态扩展"></select></label>
+                    <label id="surface-render-mode-wrap" class="viewport-select-label surface-mode-label" hidden><span class="sr-only">渲染模式</span><select id="surface-render-mode" aria-label="表面渲染模式"></select></label>
+                    <button id="widget-companion-jump" class="button secondary small-button" type="button" title="模拟点击小组件/磁贴并跳转打开宿主主应用" hidden>打开宿主 App ↗</button>
+                  </div>
+                </section>
                 <section id="wechat-preview-pane" class="wechat-preview-pane" hidden>
                   <div id="wechat-preview-shell" class="wechat-preview-device-shell">
                     <div class="wechat-preview-viewport">
@@ -597,7 +606,7 @@
                     <div><div class="eyebrow">按需创建 · 零冗余</div><h2 id="ecosystem-title">生态设备与微件扩展</h2></div>
                     <span id="ecosystem-active-count" class="meta-chip">未启用</span>
                   </div>
-                  <p class="ecosystem-hint">勾选需要的 Apple / Android 设备形态或小组件、灵动岛、磁贴后，自动在项目中生成对应 <code>surfaces/*.tsx</code> 并解锁实时预览。</p>
+                  <p id="ecosystem-hint" class="ecosystem-hint">选中需要的设备形态或生态扩展。新的小组件、灵动岛和磁贴会生成到独立组件项目。</p>
                   <div class="ecosystem-presets" role="group" aria-label="生态预设">
                     <button id="ecosystem-preset-apple" class="button secondary small-button" type="button" disabled>全选 Apple</button>
                     <button id="ecosystem-preset-android" class="button secondary small-button" type="button" disabled>全选 Android</button>
@@ -606,6 +615,7 @@
                   <div id="ecosystem-module-list" class="ecosystem-module-grid" role="group" aria-label="生态模块列表"></div>
                   <div class="ecosystem-actions">
                     <button id="apply-ecosystem-modules" class="button primary small-button" type="button" disabled>按需生成并预览</button>
+                    <button id="open-ecosystem-companion" class="button secondary small-button" type="button" hidden>打开组件项目</button>
                   </div>
                 </section>
               </div>

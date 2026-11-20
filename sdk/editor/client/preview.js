@@ -1592,6 +1592,12 @@ void main() {
 
   function client(root, options) {
     const projectId = String(options.projectId || root.dataset.projectId || "");
+    const lane = root.dataset.previewLane;
+    const basePath = String(options.basePath || `/api/projects/${encodeURIComponent(projectId)}/preview`).replace(/\/+$/, "");
+    function endpointFor(route, params = new URLSearchParams()) {
+      if (lane) params.set("lane", lane);
+      return `${basePath}/${route}${params.size ? `?${params}` : ""}`;
+    }
     const canvas = root.querySelector("canvas") || document.createElement("canvas");
     const onOpticalReady = () => { if (!closed) renderCurrentFrame(); };
     canvas.addEventListener("pocket-optical-ready", onOpticalReady);
@@ -1734,8 +1740,7 @@ void main() {
     }
 
     function mediaUrl(asset) {
-      const base = String(options.basePath || `/api/projects/${encodeURIComponent(projectId)}/preview`).replace(/\/+$/, "");
-      return `${base}/media?asset=${encodeURIComponent(asset)}`;
+      return endpointFor("media", new URLSearchParams({ asset }));
     }
 
     function scopeForAsset(asset) {
@@ -2098,7 +2103,7 @@ void main() {
     }
 
     async function sendInputPayload(payload) {
-      const response = await fetch(`${options.basePath || `/api/projects/${encodeURIComponent(projectId)}/preview`}/input`, {
+      const response = await fetch(endpointFor("input"), {
         method: "POST",
         headers: { "content-type": "application/json", "x-pocket-editor": "1" },
         body: JSON.stringify(payload),
@@ -3281,7 +3286,6 @@ void main() {
     function connect() {
       const generation = ++connectionGeneration;
       meshWireDecoder?.reset();
-      const endpoint = `${options.basePath || `/api/projects/${encodeURIComponent(projectId)}/preview`}/stream`;
       const params = new URLSearchParams({
         presentation: "browser",
         resources: "http",
@@ -3292,7 +3296,7 @@ void main() {
         params.set("meshSlots", String(PREVIEW_MESH_WIRE_SLOTS));
       }
       if (webBluetoothEnabled) { params.set("webBluetooth", "1"); params.set("bluetoothProvider", bluetoothProvider); }
-      const current = new EventSource(`${endpoint}?${params.toString()}`);
+      const current = new EventSource(endpointFor("stream", params));
       stream = current;
       current.onopen = () => {
         if (generation !== connectionGeneration || stream !== current || closed) return;

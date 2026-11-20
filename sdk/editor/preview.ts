@@ -2007,7 +2007,12 @@ class PreviewSession {
   /** Latest font table observed during a recording, committed after its captures stop. */
   private pendingHostFontMetrics?: PreviewHostFontMetrics;
 
-  constructor(manager: PreviewManagerImpl, id: string, readonly host: ProjectPreviewHost) {
+  constructor(
+    manager: PreviewManagerImpl,
+    id: string,
+    readonly host: ProjectPreviewHost,
+    readonly lane: "ecosystem" | null,
+  ) {
     this.manager = manager;
     this.id = id;
     this.width = manager.options.width ?? 390;
@@ -2018,6 +2023,10 @@ class PreviewSession {
       this.height,
     );
     this.tickHz = manager.options.tickHz ?? 60;
+  }
+
+  get key(): string {
+    return previewSessionKey(this.id, this.lane);
   }
 
   private async replayAccessibilityPreferences(runtime: PreviewRuntime): Promise<void> {
@@ -2462,6 +2471,7 @@ class PreviewSession {
       const { pixels, palette, ...metadata } = resource;
       const url = (part: string) => {
         const query = new URLSearchParams({ asset: String(resource.asset), revision: this.resourceWireVersion(resource), scope: this.resourceScope, part });
+        if (this.lane) query.set("lane", this.lane);
         return `/api/projects/${encodeURIComponent(this.id)}/preview/resource?${query}`;
       };
       const byteLength = (value: unknown) => encoded && typeof value === "string"
@@ -2535,7 +2545,7 @@ class PreviewSession {
     const delay = this.manager.options.idleDisposeMs ?? 5_000;
     this.idleTimer = setTimeout(() => {
       this.idleTimer = undefined;
-      if (this.isIdle()) void this.manager.evict(this.id).catch((error) => this.reportError(error));
+      if (this.isIdle()) void this.manager.evict(this).catch((error) => this.reportError(error));
     }, Math.max(1000, delay));
   }
 
@@ -5626,6 +5636,10 @@ export interface PreviewManager {
   dispose(): Promise<void>;
 }
 
+function previewSessionKey(projectId: string, lane: "ecosystem" | null): string {
+  return lane ? `${projectId}:${lane}` : projectId;
+}
+
 class PreviewManagerImpl implements PreviewManager {
   readonly options: PreviewManagerOptions;
   private readonly sessions = new Map<string, PreviewSession>();
@@ -5637,22 +5651,23 @@ class PreviewManagerImpl implements PreviewManager {
     this.options = options;
     if (options.projectPreviewHost) {
       this.hostRefresh = setInterval(() => {
-        for (const [id, session] of this.sessions) {
-          if (!session.isIdle()) this.refreshProjectHost(id);
+        for (const session of this.sessions.values()) {
+          if (!session.isIdle()) this.refreshProjectHost(session.id, session.lane);
         }
       }, 400);
       this.hostRefresh.unref?.();
     }
   }
 
-  private refreshProjectHost(id: string): ProjectPreviewHost {
+  private refreshProjectHost(id: string, lane: "ecosystem" | null = null): ProjectPreviewHost {
     const explicit = this.options.previewHostAdapter;
     const host = explicit?.projectId === id
       ? { status: "ready" as const, adapter: explicit }
       : this.options.projectPreviewHost?.(id) ?? { status: "disabled" as const };
-    const previous = this.sessions.get(id);
+    const key = previewSessionKey(id, lane);
+    const previous = this.sessions.get(key);
     if (previous && (previous.host.status !== host.status || previous.host.identity !== host.identity)) {
-      this.sessions.delete(id);
+      this.sessions.delete(key);
       void previous.dispose(true).catch((error) => previous.reportError(error));
     }
     return host;
@@ -5680,9 +5695,9 @@ class PreviewManagerImpl implements PreviewManager {
     return this.probePathPromise;
   }
 
-  private session(projectId: string, host = this.refreshProjectHost(projectId)): PreviewSession {
-    const id = String(projectId);
-    let value = this.sessions.get(id);
+  private session(projectId: string, lane: "ecosystem" | null = null, host = this.refreshProjectHost(projectId, lane)): PreviewSession {
+    const key = previewSessionKey(projectId, lane);
+    let value = this.sessions.get(key);
     if (!value) {
       const maxSessions = Math.max(1, Math.min(64, this.options.maxSessions ?? 8));
       if (this.sessions.size >= maxSessions) {
@@ -5690,23 +5705,22 @@ class PreviewManagerImpl implements PreviewManager {
           .filter((candidate) => candidate.isIdle())
           .sort((left, right) => left.idleSince() - right.idleSince())[0];
         if (idle) {
-          this.sessions.delete(idle.id);
+          this.sessions.delete(idle.key);
           void idle.dispose().catch((error) => idle.reportError(error));
         } else {
           throw new Error(`preview session limit reached (${maxSessions}); close an existing preview first`);
         }
       }
-      value = new PreviewSession(this, id, host);
-      this.sessions.set(id, value);
+      value = new PreviewSession(this, projectId, host, lane);
+      this.sessions.set(key, value);
     }
     value.touch();
     return value;
   }
 
-  async evict(projectId: string): Promise<void> {
-    const session = this.sessions.get(projectId);
-    if (!session || !session.isIdle()) return;
-    this.sessions.delete(projectId);
+  async evict(session: PreviewSession): Promise<void> {
+    if (this.sessions.get(session.key) !== session || !session.isIdle()) return;
+    this.sessions.delete(session.key);
     await session.dispose();
   }
 
@@ -5724,11 +5738,11 @@ class PreviewManagerImpl implements PreviewManager {
     return `${projection}\n${previewMeshWireDecoderSource()}\n${source}`;
   }
 
-  private async document(projectId: string): Promise<Response> {
+  private async document(projectId: string, lane: "ecosystem" | null): Promise<Response> {
     const source = (await this.clientSource()).replace(/<\/script/gi, "<\\/script");
     const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PocketJS Preview</title></head>
-<body data-pocket-preview data-project-id=${JSON.stringify(projectId)}><script>${source}</script></body></html>`;
+<body data-pocket-preview data-project-id=${JSON.stringify(projectId)}${lane ? ' data-preview-lane="ecosystem"' : ""}><script>${source}</script></body></html>`;
     return new Response(html, {
       headers: {
         "content-type": "text/html; charset=utf-8",
@@ -5742,30 +5756,40 @@ class PreviewManagerImpl implements PreviewManager {
   async handle(request: Request, projectId: string, endpoint?: string, loopback = true): Promise<Response> {
     if (!/^[a-z][a-z0-9-]{0,47}$/.test(projectId)) return failure("invalid preview project id", 400);
     const route = routeName(request, endpoint);
+    const url = new URL(request.url);
+    const lane = url.searchParams.get("lane");
+    if ((lane !== null && lane !== "ecosystem") || url.searchParams.getAll("lane").length > 1) {
+      return failure("invalid preview lane", 400);
+    }
     let session: PreviewSession | undefined;
     try {
-      const host = this.refreshProjectHost(projectId);
-      const gpuRoute = /^\/api\/projects\/[^/]+\/preview\/gpu(?:\/(.*))?$/.exec(new URL(request.url).pathname);
+      const host = this.refreshProjectHost(projectId, lane);
+      if (lane && host.status !== "disabled") {
+        return failure("The ecosystem preview requires a project without a configured native preview host", 409);
+      }
+      const gpuRoute = /^\/api\/projects\/[^/]+\/preview\/gpu(?:\/(.*))?$/.exec(url.pathname);
       if (gpuRoute) {
+        if (lane) return failure("The ecosystem preview is available through the native probe renderer", 400);
         return await this.gpuPreview.handle(request, gpuRoute[1] ?? "", () => this.resolveArtifacts(projectId),
           loopback, host.status !== "disabled");
       }
       if (!loopback && host.status !== "disabled") return failure("configured project preview is available only on the Studio computer", 403);
-      session = this.session(projectId, host);
+      session = this.session(projectId, lane, host);
       if (route === "resource" && (request.method === "GET" || request.method === "HEAD")) return session.serveResource(request);
       if (route === "media" && (request.method === "GET" || request.method === "HEAD")) {
         // Media is an ordinary loose project asset. It must not start a
         // native runtime merely because a browser decoder asks for bytes.
-        return await session.serveMedia(request, new URL(request.url).searchParams.get("asset"));
+        return await session.serveMedia(request, url.searchParams.get("asset"));
       }
       if (route === "page" && request.method === "GET") {
-        const page = await this.document(projectId);
+        const page = await this.document(projectId, lane);
         session.armIdleCleanup();
         return page;
       }
       if (route === "stream" && request.method === "GET") {
-        const query = new URL(request.url).searchParams;
+        const query = url.searchParams;
         const webBluetooth = query.get("webBluetooth") === "1" || query.get("bluetooth") === "1";
+        if (lane && webBluetooth) return failure("Bluetooth is available in the primary preview", 400);
         const clientId = query.get("clientId") ?? "";
         // The legacy `bluetoothProvider` query is ignored deliberately. Noble
         // is the only supported editor transport.

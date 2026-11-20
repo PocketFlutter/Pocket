@@ -98,6 +98,14 @@ Choose **自定义视口…** next to the Canvas viewport picker to enter the lo
 
 The retained Flutter host in `pocketjs_flutter_demo/lib/ui/mini_app_host_page.dart` ties the guest viewport to its layout constraints and layers its diagnostics above the guest. Studio follows the same separation between guest layout and presentation. The custom entry uses the existing Canvas resize and safe-area transport. Chromium tests exercise real guest display facts, clicks on the scaled canvas, and wheel input at logical y=1120. Preview regression coverage also exercises pointer recovery after resize. The Flutter viewport bridge suite passed all 16 tests.
 
+### Ecosystem components beside the app
+
+Open **＋ 生态/微件** and apply the components you want to add. The ecosystem preview opens beside the main app and has its own profile selector. Its guest runs in a separate preview session, so changing a widget family or its render mode leaves the main app's viewport and input state intact. Device presets for the main app are still available in its viewport picker.
+
+New extension modules created through this panel share a companion Pocket project with its own entry, package identity, editable `surfaces/*.tsx`, and QJBC/PAK build. Use **打开组件项目** to open the sources and normal build controls. Existing modules authored inside the app stay in that project. Changing the companion alone uses its build lifecycle and leaves the main app's build in use. This Studio workflow covers component authoring and preview. Native extension targets, signing, and deployment use their platform-specific workflow.
+
+The retained parent's `pocketjs_flutter_demo/web_wasm_preview/index.html` provides the browser canvas and DPR handling. The existing Studio WeChat pane supplies the in-page layout precedent. The ecosystem pane reuses Studio's probe, Canvas renderer, and surface protocol. Generated components use the existing SDK ecosystem templates and normal project build pipeline.
+
 Display name and machine name are separate. Settings **Display name** updates `pocket.title` and preserves the existing valid `pocket.name` slug. Saves preserve custom entry points, output names, and other app fields. `editor.json` holds Editor build identity, including version and build, according to SDK precedence.
 
 Web preview runs SDK `pocket_probe` through `preview.ts` to load built QJBC/PAK and execute PocketJS layout, Guest events, and frame logic. `client/preview.js` projects actual FrameResult DrawOps and resources into Canvas2D. The runtime's demand schedule selects the next wakeup and SSE pushes frames. No continuous idle drawing probe runs. Idle probes are released after the final browser subscriber disconnects, and active sessions are capped.

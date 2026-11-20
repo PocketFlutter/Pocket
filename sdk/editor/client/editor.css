@@ -793,7 +793,24 @@ select:focus, input:focus, textarea:focus {
   justify-items: center;
   gap: 18px;
 }
-.preview-surfaces.wechat-visible { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.preview-surfaces:is(.wechat-visible, .ecosystem-visible) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.preview-surfaces.wechat-visible.ecosystem-visible { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ecosystem-preview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+  padding-top: 8px;
+}
+.ecosystem-preview-controls select, .ecosystem-preview-controls .button {
+  max-width: 100%;
+  min-height: 24px;
+  font-size: 10px;
+}
+.ecosystem-preview-controls label { max-width: 100%; }
+#ecosystem-preview-stage { aspect-ratio: 1; border: 0; }
+#ecosystem-preview-empty { z-index: 3; padding: 4px; overflow: auto; font-size: 11px; }
 .preview-surface-slot { position: relative; display: grid; justify-items: center; width: 100%; min-width: 0; }
 .preview-surface-label {
   position: absolute;
@@ -836,7 +853,7 @@ select:focus, input:focus, textarea:focus {
 .preview-stage.viewport-mobile { width: 290px; aspect-ratio: 390 / 844; }
 .preview-stage.viewport-tablet { width: min(420px, 100%); aspect-ratio: 768 / 1023; }
 .preview-stage.viewport-desktop { width: 100%; aspect-ratio: 1023 / 768; }
-#preview-frame { position: absolute; top: 0; left: 0; z-index: 2; width: 100%; height: 100%; border: 0; display: block; background: #fff; transform-origin: top left; }
+.preview-canvas-frame { position: absolute; top: 0; left: 0; z-index: 2; width: 100%; height: 100%; border: 0; display: block; background: #fff; transform-origin: top left; }
 .preview-stage.preview-phone-frame { border: 0; border-radius: var(--preview-phone-radius, 40px); background: #fff; box-shadow: none; }
 .preview-stage.preview-phone-frame.preview-bezel-enabled {
   box-shadow:
@@ -1669,12 +1686,12 @@ dialog label input { padding: 7px 9px; }
 #widget-companion-jump:hover { border-color: #60a5fa; background: rgba(30, 64, 175, .34); }
 
 .preview-stage.surface-shape-round,
-.preview-stage.surface-shape-round #preview-frame {
+.preview-stage.surface-shape-round .preview-canvas-frame {
   border-radius: 999px !important;
   clip-path: circle(50% at 50% 50%);
 }
 .preview-stage.surface-shape-capsule,
-.preview-stage.surface-shape-capsule #preview-frame {
+.preview-stage.surface-shape-capsule .preview-canvas-frame {
   border-radius: 999px !important;
 }
 .preview-stage.surface-shell-phone-punch .preview-phone-notch {
@@ -1764,21 +1781,6 @@ dialog label input { padding: 7px 9px; }
 .preview-stage.surface-backdrop-watch-face {
   background: #020617;
 }
-.preview-surface-badge {
-  position: absolute;
-  right: 8px;
-  bottom: 6px;
-  z-index: 4;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: rgba(2, 6, 23, .72);
-  border: 1px solid rgba(148, 163, 184, .28);
-  color: #e2e8f0;
-  font: 600 9px/1.3 var(--font-mono);
-  letter-spacing: .02em;
-}
-.preview-surface-badge[hidden] { display: none; }
-
 /* Responsive Breakpoints */
 @media (max-width: 1200px) {
   .inspector-column { width: 340px; flex-basis: 340px; }
@@ -1821,7 +1823,8 @@ dialog label input { padding: 7px 9px; }
   .preview-target { width: 100%; flex: 1 1 100%; }
   .preview-target.preview-device-controls { margin-left: 0; flex: 1 1 100%; }
   .preview-stage-wrap { padding: 12px 12px 54px; overflow-x: auto; overflow-y: hidden; place-items: start; justify-items: start; }
-  .preview-surfaces.wechat-visible { grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 12px; min-width: 492px; align-content: start; }
+  .preview-surfaces:is(.wechat-visible, .ecosystem-visible) { grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 12px; min-width: 492px; align-content: start; }
+  .preview-surfaces.wechat-visible.ecosystem-visible { grid-template-columns: repeat(3, minmax(240px, 1fr)); min-width: 744px; }
   .preview-stage.viewport-mobile, .wechat-preview-pane { width: 240px; }
   .resource-grid { grid-template-columns: 1fr; }
 }

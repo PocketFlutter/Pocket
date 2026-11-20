@@ -28,6 +28,11 @@ const previewStage = $("preview-stage");
 const previewStageWrap = $("preview-stage-wrap") || document.querySelector(".preview-stage-wrap");
 const previewSurfaces = $("preview-surfaces");
 const previewPhoneShell = $("preview-phone-shell");
+const ecosystemPreviewPane = $("ecosystem-preview-pane");
+const ecosystemPreviewStage = $("ecosystem-preview-stage");
+const ecosystemPreviewFrame = $("ecosystem-preview-frame");
+const ecosystemPreviewEmpty = $("ecosystem-preview-empty");
+const ecosystemPreviewPicker = $("ecosystem-preview-picker");
 const wechatPreviewPane = $("wechat-preview-pane");
 const wechatPreviewShell = $("wechat-preview-shell");
 const wechatPreviewFrame = $("wechat-preview-frame");
@@ -73,7 +78,10 @@ let previewDeviceProfile = null;
 let previewDevicePromise = null;
 let allSurfaceProfiles = [];
 const surfaceProfilesById = new Map();
-let currentSurfaceRenderMode = "";
+let ecosystemCompanion = null;
+let ecosystemManagedByParent = false;
+let ecosystemPreviewKey = "";
+let pendingEcosystemProfile = "";
 let currentProjectConfig = null;
 let ecosystemApplying = false;
 
@@ -378,6 +386,10 @@ function isSystemWidgetProfile(profile) {
   return Boolean(profile && (profile.isSystemSurface === true || (profile.kind && profile.kind !== "device" && profile.kind !== "clip")));
 }
 
+function isEcosystemExtensionProfile(profile) {
+  return isSystemWidgetProfile(profile) || profile?.kind === "clip";
+}
+
 function enabledProfileSetForModules(moduleIds) {
   const enabled = new Set();
   if (!Array.isArray(moduleIds) || moduleIds.length === 0) return enabled;
@@ -420,6 +432,7 @@ function populateSurfaceViewportOptions(profiles = allSurfaceProfiles, enabledMo
       const height = Number(raw.height);
       if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) continue;
       surfaceProfilesById.set(raw.id, raw);
+      if (isEcosystemExtensionProfile(raw)) continue;
       const groupKey = typeof raw.group === "string" && SURFACE_GROUP_LABELS[raw.group] ? raw.group : "apple-device";
       if (!grouped.has(groupKey)) grouped.set(groupKey, []);
       grouped.get(groupKey).push(raw);
@@ -439,14 +452,13 @@ function populateSurfaceViewportOptions(profiles = allSurfaceProfiles, enabledMo
       picker.appendChild(optgroup);
     }
   }
-  const hasPrevious = Object.hasOwn(VIEWPORTS, previousValue) || surfaceProfilesById.has(previousValue);
+  const hasPrevious = Object.hasOwn(VIEWPORTS, previousValue) || (surfaceProfilesById.has(previousValue) && !isEcosystemExtensionProfile(surfaceProfilesById.get(previousValue)));
   picker.value = hasPrevious ? previousValue : "mobile";
   if (!hasPrevious) {
-    currentSurfaceRenderMode = "";
-    syncSurfaceToolbarControls("mobile");
     updatePreviewPhoneShell("mobile");
     updatePreviewBezelPresentation("mobile");
     layoutPreviewFrame();
+    if (previewStarted) resizePreviewRuntime();
   }
 }
 
@@ -477,81 +489,109 @@ function renderEcosystemModuleCheckboxes(containerId, inputName, selectedIds = [
   }
 }
 
+function enabledEcosystemModules(config = currentProjectConfig) {
+  return [...new Set([...(config?.ecosystemModules || []), ...(ecosystemCompanion?.modules || [])])];
+}
+
 function syncProjectEcosystemUi(config = currentProjectConfig) {
-  const enabledModules = Array.isArray(config?.ecosystemModules) ? config.ecosystemModules : [];
+  const enabledModules = enabledEcosystemModules(config);
   populateSurfaceViewportOptions(allSurfaceProfiles, enabledModules);
-  renderEcosystemModuleCheckboxes("ecosystem-module-list", "projectEcosystemModule", enabledModules, !currentId || ecosystemApplying);
+  syncEcosystemPreviewOptions();
+  renderEcosystemModuleCheckboxes("ecosystem-module-list", "projectEcosystemModule", enabledModules, !currentId || ecosystemApplying || ecosystemManagedByParent);
   const countChip = $("ecosystem-active-count");
   if (countChip) {
     countChip.textContent = enabledModules.length > 0 ? `已启用 ${enabledModules.length} 项` : "未启用";
   }
+  $("open-ecosystem-companion").hidden = !ecosystemCompanion;
+  setText("ecosystem-hint", ecosystemManagedByParent
+    ? "在关联的主项目中管理扩展。可在此编辑和构建扩展源码。"
+    : "选中需要的设备形态或生态扩展。新的小组件、灵动岛和磁贴会生成到独立组件项目。");
   const openBtn = $("open-ecosystem-builder");
   if (openBtn) {
     openBtn.textContent = enabledModules.length > 0 ? `生态/微件 (${enabledModules.length})` : "＋ 生态/微件";
   }
 }
 
-function syncSurfaceToolbarControls(viewportKey = $("viewport-picker")?.value || "mobile") {
-  const profile = activeSurfaceProfile(viewportKey);
-  const modeWrap = $("surface-render-mode-wrap");
-  const modeSelect = $("surface-render-mode");
+function syncEcosystemPreviewOptions() {
+  const previous = ecosystemPreviewPicker.value;
+  const profiles = [...surfaceProfilesById.values()].filter(isEcosystemExtensionProfile);
+  ecosystemPreviewPicker.replaceChildren(...profiles.map((profile) =>
+    new Option(`${profile.label} · ${profile.width} × ${profile.height}`, profile.id)));
+  if (profiles.some((profile) => profile.id === previous)) ecosystemPreviewPicker.value = previous;
+  const visible = Boolean(currentId && profiles.length);
+  ecosystemPreviewPane.hidden = !visible;
+  previewSurfaces.classList.toggle("ecosystem-visible", visible);
+  if (!visible) resetEcosystemPreview();
+}
+
+function ecosystemPreviewStatus(profileId) {
+  const companionOwnsProfile = ecosystemCompanion?.profileIds.includes(profileId);
+  return companionOwnsProfile
+    ? { projectId: ecosystemCompanion.projectId, status: ecosystemCompanion.status }
+    : { projectId: currentId, status: currentStatus };
+}
+
+function statusHasCurrentBuild(status) {
+  return Boolean(status && !status.busy && !status.error && status.builtRevision === status.revision);
+}
+
+function syncSurfaceRenderMode(controlId, profile) {
+  const modeSelect = $(controlId);
+  const modes = profile?.supportedRenderModes || [];
+  const profileId = profile?.id || "";
+  if (modeSelect.dataset.profile !== profileId) {
+    modeSelect.dataset.profile = profileId;
+    modeSelect.replaceChildren(...modes.map((mode) => new Option(RENDER_MODE_LABELS[mode] || mode, mode)));
+    modeSelect.value = profile?.defaultRenderMode || modes[0] || "";
+  }
+  $(controlId + "-wrap").hidden = modes.length < 2;
+}
+
+function syncEcosystemPreviewControls(profile) {
+  syncSurfaceRenderMode("surface-render-mode", profile);
   const jumpButton = $("widget-companion-jump");
-  const badge = $("preview-surface-badge");
+  const hotspot = latestWidgetSnapshot?.hotspots?.[0];
+  jumpButton.hidden = !profile.companionDeviceId;
+  jumpButton.disabled = !previewReady || !hotspot?.href || !ecosystemPreviewEmpty.hidden;
+  jumpButton.title = hotspot?.label ? `触发深链「${hotspot.label}」` : "在主应用中打开扩展的深链";
+}
 
-  if (modeWrap && modeSelect) {
-    const modes = Array.isArray(profile?.supportedRenderModes) && profile.supportedRenderModes.length > 0
-      ? profile.supportedRenderModes
-      : [];
-    if (profile && (modes.length > 1 || isSystemWidgetProfile(profile))) {
-      modeSelect.innerHTML = "";
-      for (const mode of modes) {
-        const opt = document.createElement("option");
-        opt.value = mode;
-        opt.textContent = RENDER_MODE_LABELS[mode] || mode;
-        modeSelect.appendChild(opt);
-      }
-      if (!currentSurfaceRenderMode || !modes.includes(currentSurfaceRenderMode)) {
-        currentSurfaceRenderMode = profile.defaultRenderMode || modes[0] || "fullColor";
-      }
-      modeSelect.value = currentSurfaceRenderMode;
-      modeWrap.hidden = false;
-    } else {
-      modeWrap.hidden = true;
-      modeSelect.innerHTML = "";
-    }
-  }
+function resetEcosystemPreview() {
+  ecosystemPreviewKey = "";
+  latestWidgetSnapshot = null;
+  if (ecosystemPreviewFrame.getAttribute("src") !== "about:blank") ecosystemPreviewFrame.src = "about:blank";
+  ecosystemPreviewFrame.hidden = true;
+  ecosystemPreviewEmpty.hidden = false;
+}
 
-  if (jumpButton) {
-    const companionId = profile?.companionDeviceId;
-    const companionProfile = companionId ? surfaceProfilesById.get(companionId) : null;
-    if (profile && companionProfile) {
-      const hotspotCount = Array.isArray(latestWidgetSnapshot?.hotspots) ? latestWidgetSnapshot.hotspots.length : 0;
-      const primaryLabel = latestWidgetSnapshot?.hotspots?.[0]?.label || "";
-      jumpButton.hidden = false;
-      jumpButton.textContent = hotspotCount > 0
-        ? `打开 ${companionProfile.shortLabel || "宿主 App"} · ${hotspotCount} 热区 ↗`
-        : `打开 ${companionProfile.shortLabel || "宿主 App"} ↗`;
-      jumpButton.title = primaryLabel
-        ? `触发首选深链「${primaryLabel}」并在 ${companionProfile.label} 中打开`
-        : `在关联主设备 ${companionProfile.label} 中打开深链预览`;
-    } else {
-      jumpButton.hidden = true;
-    }
+function refreshEcosystemPreview({ reload = false } = {}) {
+  if (ecosystemPreviewPane.hidden) return;
+  if (pendingEcosystemProfile && statusHasCurrentBuild(ecosystemPreviewStatus(pendingEcosystemProfile).status)) {
+    if (surfaceProfilesById.has(pendingEcosystemProfile)) ecosystemPreviewPicker.value = pendingEcosystemProfile;
+    pendingEcosystemProfile = "";
   }
-
-  if (badge) {
-    if (profile && (isSystemWidgetProfile(profile) || profile.kind === "clip")) {
-      const hotspotCount = Array.isArray(latestWidgetSnapshot?.hotspots) ? latestWidgetSnapshot.hotspots.length : 0;
-      const modeLabel = currentSurfaceRenderMode || profile.defaultRenderMode || "fullColor";
-      badge.textContent = hotspotCount > 0
-        ? `${profile.shortLabel || profile.label} · ${modeLabel} · ${hotspotCount} Deep Links`
-        : `${profile.shortLabel || profile.label} · ${modeLabel}`;
-      badge.hidden = false;
-    } else {
-      badge.hidden = true;
-      badge.textContent = "";
-    }
+  const profile = activeSurfaceProfile(ecosystemPreviewPicker.value);
+  if (!profile) return;
+  const { projectId, status } = ecosystemPreviewStatus(profile.id);
+  const available = statusHasCurrentBuild(status);
+  const key = available ? JSON.stringify([projectId, profile.id, status.builtRevision, status.artifacts?.generation ?? status.finishedAt]) : "";
+  if (!key) {
+    resetEcosystemPreview();
+    ecosystemPreviewEmpty.textContent = status?.error ? "扩展构建失败。" : status?.busy ? "正在构建扩展…" : "构建项目后加载扩展预览。";
+  } else if (reload || key !== ecosystemPreviewKey) {
+    ecosystemPreviewKey = key;
+    latestWidgetSnapshot = null;
+    ecosystemPreviewEmpty.hidden = false;
+    ecosystemPreviewEmpty.textContent = "正在加载扩展预览…";
+    const url = new URL(`/api/projects/${encodeURIComponent(projectId)}/preview`, window.location.origin);
+    url.searchParams.set("lane", "ecosystem");
+    url.searchParams.set("t", String(Date.now()));
+    ecosystemPreviewFrame.src = url.href;
+    ecosystemPreviewFrame.hidden = false;
   }
+  syncEcosystemPreviewControls(profile);
+  $("surface-render-mode").disabled = !available || !ecosystemPreviewEmpty.hidden;
+  layoutPreviewFrame();
 }
 
 async function loadPreviewDevice() {
@@ -565,7 +605,6 @@ async function loadPreviewDevice() {
     }
     const profile = normalizePreviewDeviceProfile(payload);
     applyPreviewDeviceProfile(profile);
-    syncSurfaceToolbarControls();
     return profile;
   });
   return previewDevicePromise;
@@ -806,6 +845,17 @@ function updateActionStates() {
   if ($("source-toggle")) $("source-toggle").disabled = !hasProject;
   if ($("source-split-toggle")) $("source-split-toggle").disabled = !hasProject;
   $("capture-preview").disabled = !previewReady;
+  const ecosystemProfile = activeSurfaceProfile(ecosystemPreviewPicker.value);
+  if (ecosystemProfile) syncEcosystemPreviewControls(ecosystemProfile);
+  const ecosystemAvailable = hasProject && !sourceEl.disabled;
+  const ecosystemLocked = !ecosystemAvailable || ecosystemApplying || ecosystemManagedByParent || busy || startingBuild;
+  $("open-ecosystem-builder").disabled = !ecosystemAvailable;
+  for (const id of ["ecosystem-preset-apple", "ecosystem-preset-android", "ecosystem-preset-clear", "apply-ecosystem-modules"]) {
+    $(id).disabled = ecosystemLocked;
+  }
+  for (const box of $("ecosystem-module-list").querySelectorAll('input[type="checkbox"]')) {
+    box.disabled = ecosystemLocked;
+  }
   const gpuToggle = $("preview-gpu-toggle");
   if (gpuToggle) {
     gpuToggle.hidden = !previewGpuAvailable;
@@ -3929,6 +3979,7 @@ function renderStatus(status) {
   if (!dirty) markDirty(false);
   else updateActionStates();
   maybeRefreshPreview(status);
+  refreshEcosystemPreview();
 }
 
 async function refreshStatus(projectId = currentId) {
@@ -4028,7 +4079,7 @@ async function selectProject(id, options = {}) {
   resourcesLoading = true;
   renderResourceState();
   try {
-    const [config, files, status, resources, targetResult] = await Promise.all([
+    const [config, files, status, resources, targetResult, ecosystem] = await Promise.all([
       api(`/api/projects/${encodeURIComponent(id)}/config`),
       api(`/api/projects/${encodeURIComponent(id)}/files`),
       api(`/api/projects/${encodeURIComponent(id)}/status`),
@@ -4036,10 +4087,13 @@ async function selectProject(id, options = {}) {
       api(`/api/projects/${encodeURIComponent(targetsProjectId)}/publish-targets?channel=${encodeURIComponent(publishTargetChannel)}`)
         .then((payload) => ({ payload }))
         .catch((error) => ({ error })),
+      api(`/api/projects/${encodeURIComponent(id)}/ecosystem`).catch(() => null),
     ]);
     if (currentId !== id || selectionGeneration !== wechatGeneration) return;
     try { localStorage.setItem(projectSelectionStorageKey, id); } catch {}
     currentProjectConfig = config;
+    ecosystemCompanion = ecosystem?.companion || null;
+    ecosystemManagedByParent = ecosystem?.managedByParent === true;
     syncProjectEcosystemUi(config);
     void loadProjectPackages();
     updateProjectHeading(projects.find((project) => project.id === id), config);
@@ -4068,6 +4122,9 @@ async function selectProject(id, options = {}) {
       updateActionStates();
     }
     if (status?.busy) buildPollTimer = setTimeout(() => void pollBuild(), POLL_DELAY_MS);
+    if (ecosystemCompanion?.status?.busy) {
+      void updateEcosystemCompanionBuild(id).catch((error) => { if (currentId === id) showNotice(error); });
+    }
     await loadWechat(id, selectionGeneration);
     if (currentId !== id || selectionGeneration !== wechatGeneration) return;
     await resumeDeployment(id);
@@ -4091,12 +4148,6 @@ function setEnabled(enabled) {
   for (const id of [...PROJECT_CONFIG_INPUTS, "config-build"]) $(id).disabled = !enabled;
   for (const id of ["open-packages-manager", "packages-search", "packages-refresh"]) {
     if ($(id)) $(id).disabled = !enabled || packagesBusy;
-  }
-  for (const id of ["open-ecosystem-builder", "ecosystem-preset-apple", "ecosystem-preset-android", "ecosystem-preset-clear", "apply-ecosystem-modules"]) {
-    if ($(id)) $(id).disabled = !enabled || ecosystemApplying;
-  }
-  for (const box of document.querySelectorAll('#ecosystem-module-list input[type="checkbox"]')) {
-    box.disabled = !enabled || ecosystemApplying;
   }
   if ($("source-toggle")) $("source-toggle").disabled = !enabled;
   if ($("source-split-toggle")) $("source-split-toggle").disabled = !enabled;
@@ -4163,6 +4214,7 @@ function applyProjectConfig(config, { preserveDraft = false } = {}) {
   }
   $("config-build").value = config.build ?? 0;
   syncProjectEcosystemUi(config);
+  refreshEcosystemPreview();
   const headingConfig = preserveDraft ? {
     ...config,
     name: $("config-name").value,
@@ -4383,6 +4435,15 @@ function resetPreviewSurface() {
   previewRegionsEnabled = false;
   $("preview-empty").hidden = false;
   setPreviewState("等待中");
+  ecosystemCompanion = null;
+  ecosystemManagedByParent = false;
+  $("open-ecosystem-companion").hidden = true;
+  pendingEcosystemProfile = "";
+  ecosystemPreviewPane.hidden = true;
+  previewSurfaces.classList.remove("ecosystem-visible");
+  ecosystemPreviewPicker.replaceChildren();
+  delete $("surface-render-mode").dataset.profile;
+  resetEcosystemPreview();
   updateActionStates();
 }
 
@@ -4641,16 +4702,9 @@ function clearDynamicViewportClasses(element) {
 function setViewport(value, options = {}) {
   storeCustomViewport(value === "custom");
   const profile = activeSurfaceProfile(value);
-  if (!options.preserveRenderMode) {
-    currentSurfaceRenderMode = profile?.defaultRenderMode || "";
-  }
-  if (!options.keepWidgetSnapshot) {
-    latestWidgetSnapshot = null;
-  }
   clearDynamicViewportClasses(previewStage);
   previewStage.classList.add(`viewport-${value}`);
   if (profile) previewStage.classList.add("viewport-surface-profile");
-  syncSurfaceToolbarControls(value);
   updatePreviewPhoneShell(value);
   layoutPreviewFrame();
   if (previewGpuActive && (options.openUri || !gpuPreviewSupportsViewport(value))) {
@@ -4744,10 +4798,33 @@ function updatePreviewBezelPresentation(viewportKey = $("viewport-picker")?.valu
   wechatPreviewShell?.classList.toggle("preview-bezel-enabled", previewBezelEnabled);
 }
 
+function sizePreviewFrame(stage, frame, viewport, scale) {
+  stage.style.width = `${Math.round(viewport.width * scale)}px`;
+  stage.style.height = `${Math.round(viewport.height * scale)}px`;
+  frame.style.width = `${viewport.width}px`;
+  frame.style.height = `${viewport.height}px`;
+  frame.style.transform = `scale(${scale})`;
+}
+
+function layoutEcosystemPreview(columnWidth, availableHeight) {
+  if (ecosystemPreviewPane.hidden) return;
+  const profile = activeSurfaceProfile(ecosystemPreviewPicker.value);
+  if (!profile) return;
+  const controlsHeight = ecosystemPreviewPane.querySelector(".ecosystem-preview-controls").offsetHeight;
+  const scale = Math.min(1, columnWidth / profile.width, Math.max(1, availableHeight - controlsHeight) / profile.height);
+  sizePreviewFrame(ecosystemPreviewStage, ecosystemPreviewFrame, profile, scale);
+  const { shell, screenShape } = profile;
+  ecosystemPreviewStage.style.borderRadius = `${(shell?.borderRadius || 12) * scale}px`;
+  const shape = screenShape || "rect";
+  const wallpaper = shell?.wallpaper || "none";
+  ecosystemPreviewStage.className = `preview-stage surface-shape-${shape} surface-backdrop-${wallpaper} surface-system-widget preview-bezel-enabled`;
+}
+
 function layoutPreviewFrame() {
   const viewportKey = $("viewport-picker").value;
   const viewport = viewportEntryFor(viewportKey);
   if (!viewport || !Number.isFinite(viewport.width) || viewport.width <= 0 || !Number.isFinite(viewport.height) || viewport.height <= 0) return;
+  syncSurfaceRenderMode("main-render-mode", viewport.profile);
   updatePreviewPhoneShell(viewportKey);
   updatePreviewBezelPresentation(viewportKey);
   setText("preview-device-label", `${viewport.label} · ${viewport.width} × ${viewport.height}`);
@@ -4767,15 +4844,9 @@ function layoutPreviewFrame() {
   // cap it at 1 so a tall pane never invents a larger logical viewport.
   const scale = Math.min(stageWidth / viewport.width, availableHeight / viewport.height, 1);
   if (!Number.isFinite(scale) || scale <= 0) return;
-  const targetStageWidth = Math.round(viewport.width * scale);
-  const targetStageHeight = Math.round(viewport.height * scale);
   previewStage.style.transition = "none";
-  previewStage.style.width = `${targetStageWidth}px`;
-  previewStage.style.height = `${targetStageHeight}px`;
   previewStage.style.aspectRatio = "auto";
-  previewFrame.style.width = `${viewport.width}px`;
-  previewFrame.style.height = `${viewport.height}px`;
-  previewFrame.style.transform = `scale(${scale})`;
+  sizePreviewFrame(previewStage, previewFrame, viewport, scale);
   const activeProfile = viewport.profile || null;
   const shellSource = activeProfile
     ? { screenWidth: activeProfile.width, screenHeight: activeProfile.height, statusBarHeight: activeProfile.shell?.statusBarHeight || 0, shell: activeProfile.shell }
@@ -4807,6 +4878,7 @@ function layoutPreviewFrame() {
     previewStage.style.removeProperty("--preview-phone-radius");
     previewStage.style.removeProperty("--preview-phone-bezel");
   }
+  layoutEcosystemPreview(gridColumns[1] || availableWidth, availableHeight);
   layoutWechatPreview();
 }
 
@@ -4851,6 +4923,25 @@ function layoutWechatFrame() {
   }
 }
 
+function sendSurfaceToPreview(frame, viewport, renderMode, openUri) {
+  frame.contentWindow?.postMessage({
+    source: "pocket-editor", type: "preview.surface",
+    profileId: viewport.profile.id,
+    width: viewport.width, height: viewport.height,
+    safeArea: viewport.safeArea,
+    reservedRegions: viewport.reservedRegions,
+    renderMode: renderMode || viewport.profile.defaultRenderMode || "fullColor",
+    ...(openUri ? { openUri } : {}),
+  }, window.location.origin);
+}
+
+function resizeEcosystemPreviewRuntime() {
+  const viewport = viewportEntryFor(ecosystemPreviewPicker.value);
+  if (ecosystemPreviewKey && viewport.profile) {
+    sendSurfaceToPreview(ecosystemPreviewFrame, viewport, $("surface-render-mode").value);
+  }
+}
+
 function resizePreviewRuntime(options = {}) {
   const viewportKey = $("viewport-picker").value;
   const viewport = viewportEntryFor(viewportKey);
@@ -4863,17 +4954,7 @@ function resizePreviewRuntime(options = {}) {
     return;
   }
   if (viewport.profile) {
-    previewFrame.contentWindow?.postMessage({
-      source: "pocket-editor",
-      type: "preview.surface",
-      profileId: viewport.profile.id,
-      width: viewport.width,
-      height: viewport.height,
-      safeArea: safeAreaForViewport(viewportKey),
-      reservedRegions: viewport.reservedRegions || [],
-      renderMode: currentSurfaceRenderMode || viewport.profile.defaultRenderMode || "fullColor",
-      ...(options.openUri ? { openUri: options.openUri } : {}),
-    }, window.location.origin);
+    sendSurfaceToPreview(previewFrame, viewport, $("main-render-mode").value, options.openUri);
     return;
   }
   previewFrame.contentWindow?.postMessage({
@@ -5093,6 +5174,35 @@ function refreshSourceFromServer() {
   void refreshFiles({ preserveDraft: false }).catch(showNotice);
 }
 
+ecosystemPreviewFrame.addEventListener("load", () => {
+  const doc = ecosystemPreviewFrame.contentDocument;
+  if (!ecosystemPreviewKey || doc?.URL !== ecosystemPreviewFrame.src || doc.body?.dataset.previewLane === "ecosystem") return;
+  ecosystemPreviewEmpty.textContent = "扩展预览无法加载。";
+});
+
+window.addEventListener("message", (event) => {
+  if (event.origin !== window.location.origin || event.source !== ecosystemPreviewFrame.contentWindow || !ecosystemPreviewKey) return;
+  if (ecosystemPreviewFrame.contentDocument?.URL !== ecosystemPreviewFrame.src) return;
+  const data = event.data;
+  if (data?.source !== "pocket-editor-preview" || data.version !== 1) return;
+  const profile = activeSurfaceProfile(ecosystemPreviewPicker.value);
+  if (!profile) return;
+  if (data.type === "preview.ready") {
+    resizeEcosystemPreviewRuntime();
+  } else if (data.type === "preview.frame" && data.frame?.width === profile.width && data.frame?.height === profile.height) {
+    ecosystemPreviewEmpty.hidden = true;
+    $("surface-render-mode").disabled = false;
+  } else if (data.type === "preview.widget-snapshot" && data.snapshot?.profileId === profile.id) {
+    latestWidgetSnapshot = data.snapshot;
+    syncEcosystemPreviewControls(profile);
+  } else if (data.type === "preview.error" || (data.type === "preview.status" && (data.status === "error" || data.status?.state === "error"))) {
+    ecosystemPreviewEmpty.hidden = false;
+    ecosystemPreviewEmpty.textContent = data.error || data.status?.error || "扩展预览无法加载。";
+    $("surface-render-mode").disabled = true;
+    $("widget-companion-jump").disabled = true;
+  }
+});
+
 window.addEventListener("message", (event) => {
   if (event.origin !== window.location.origin || event.source !== previewFrame.contentWindow) return;
   const data = event.data;
@@ -5116,10 +5226,6 @@ window.addEventListener("message", (event) => {
     sendPreviewRegions();
     setPreviewState("就绪", "ready");
     updateActionStates();
-  }
-  if (!previewGpuActive && data.type === "preview.widget-snapshot" && data.snapshot && typeof data.snapshot === "object") {
-    latestWidgetSnapshot = data.snapshot;
-    syncSurfaceToolbarControls();
   }
   if (data.type === "preview.status") {
     const status = typeof data.status === "string" ? data.status : data.status?.state;
@@ -5389,7 +5495,6 @@ $("create-form").addEventListener("submit", async (event) => {
       appId: form.get("appId"),
       template: form.get("template") || "app",
       version: form.get("version"),
-      ...(selectedModules.length > 0 ? { ecosystemModules: selectedModules } : {}),
     };
     const result = await api("/api/projects", {
       method: "POST",
@@ -5397,6 +5502,7 @@ $("create-form").addEventListener("submit", async (event) => {
     });
     createDialog.close();
     await loadProjects(result.id);
+    if (currentId === result.id && selectedModules.length > 0) await applyProjectEcosystemModules(selectedModules);
   } catch (error) {
     showNotice(error);
   }
@@ -5447,49 +5553,79 @@ $("ecosystem-preset-clear")?.addEventListener("click", () => {
   setInspectorEcosystemSelection(() => false);
 });
 
-async function applyProjectEcosystemModules() {
-  if (!currentId || ecosystemApplying) return;
-  const previousModules = new Set(currentProjectConfig?.ecosystemModules || []);
-  const selectedModules = Array.from(
-    document.querySelectorAll('#ecosystem-module-list input[type="checkbox"]:checked'),
-    (input) => input.value,
-  );
+async function updateEcosystemCompanionBuild(parentId, { build = false } = {}) {
+  const companion = ecosystemCompanion;
+  if (!companion?.modules.length) return;
+  const projectPath = `/api/projects/${encodeURIComponent(companion.projectId)}`;
+  const isCurrent = () => currentId === parentId && ecosystemCompanion === companion;
+  if (build && !companion.status?.busy && !statusHasCurrentBuild(companion.status)) {
+    const result = await api(projectPath + "/build", { method: "POST", body: "{}" });
+    if (!isCurrent()) return;
+    companion.status = result.status || result;
+    refreshEcosystemPreview();
+  }
+  for (let attempt = 0; isCurrent() && companion.status?.busy && attempt < MAX_BUILD_POLL_ATTEMPTS; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, POLL_DELAY_MS));
+    if (!isCurrent()) return;
+    const status = await api(projectPath + "/status");
+    if (!isCurrent()) return;
+    companion.status = status;
+    refreshEcosystemPreview();
+  }
+  if (isCurrent() && companion.status?.error) throw new Error(companion.status.error);
+  if (isCurrent() && companion.status?.busy) throw new Error("扩展构建超时。");
+}
+
+async function applyProjectEcosystemModules(selectedModules = Array.from(
+  document.querySelectorAll('#ecosystem-module-list input[type="checkbox"]:checked'),
+  (input) => input.value,
+)) {
+  const parentId = currentId;
+  if (!parentId || ecosystemApplying || ecosystemManagedByParent || currentStatus?.busy || startingBuild) return;
+  const previousModules = new Set(enabledEcosystemModules());
   ecosystemApplying = true;
   setEnabled(true);
   try {
     clearNotice();
     if (dirty) await saveProject();
-    const result = await api(`/api/projects/${encodeURIComponent(currentId)}/ecosystem`, {
+    if (currentId !== parentId) return;
+    const projectPath = `/api/projects/${encodeURIComponent(parentId)}`;
+    const result = await api(projectPath + "/ecosystem", {
       method: "POST",
-      body: JSON.stringify({ modules: selectedModules }),
+      body: JSON.stringify({ modules: selectedModules, mode: "companion" }),
     });
-    currentProjectConfig = result.config || { ...(currentProjectConfig || {}), ecosystemModules: result.modules || selectedModules };
-    syncProjectEcosystemUi(currentProjectConfig);
-    const filesResponse = await api(`/api/projects/${encodeURIComponent(currentId)}/files`);
-    renderFilePicker(filesResponse.files || filesResponse);
-    if (currentFile && projectFiles.includes(currentFile)) {
-      await loadFile(currentFile);
-    }
+    if (currentId !== parentId) return;
+    currentProjectConfig = result.config || currentProjectConfig;
+    ecosystemCompanion = result.companion || null;
+    syncProjectEcosystemUi();
+    if (ecosystemCompanion) void refreshProjectList();
+    const newlyEnabled = ecosystemModuleCatalog
+      .filter((mod) => result.modules.includes(mod.id) && !previousModules.has(mod.id))
+      .flatMap((mod) => mod.profileIds);
+    pendingEcosystemProfile = newlyEnabled.find((id) => isEcosystemExtensionProfile(activeSurfaceProfile(id))) || "";
     if (result.status) renderStatus(result.status);
-    const newlyAddedModule = ecosystemModuleCatalog.find(
-      (mod) => selectedModules.includes(mod.id) && !previousModules.has(mod.id),
-    );
-    const picker = $("viewport-picker");
-    if (picker && newlyAddedModule && Array.isArray(newlyAddedModule.profileIds) && newlyAddedModule.profileIds[0]) {
-      const targetProfile = newlyAddedModule.profileIds[0];
-      if (surfaceProfilesById.has(targetProfile) && picker.value === "mobile") {
-        picker.value = targetProfile;
-        picker.dispatchEvent(new Event("change"));
-      }
+    else refreshEcosystemPreview();
+    if (result.parentChanged) {
+      const filesResponse = await api(projectPath + "/files");
+      if (currentId !== parentId) return;
+      renderFilePicker(filesResponse.files || filesResponse);
+      if (currentFile && projectFiles.includes(currentFile)) await loadFile(currentFile);
     }
-    await buildProject();
+    if (currentId !== parentId) return;
+    if (result.parentChanged || currentStatus?.builtRevision == null) await buildProject();
+    if (currentId === parentId) await updateEcosystemCompanionBuild(parentId, { build: true });
   } catch (error) {
-    showNotice(error);
+    if (currentId === parentId) showNotice(error);
   } finally {
     ecosystemApplying = false;
-    setEnabled(Boolean(currentId));
+    setEnabled(Boolean(currentId && currentProjectConfig));
   }
 }
+
+$("open-ecosystem-companion").addEventListener("click", () => {
+  const projectId = ecosystemCompanion?.projectId;
+  if (projectId) void selectProject(projectId);
+});
 
 $("apply-ecosystem-modules")?.addEventListener("click", () => {
   void applyProjectEcosystemModules();
@@ -5718,7 +5854,10 @@ $("resources-panel")?.addEventListener("toggle", (event) => {
 $("editor-tools")?.addEventListener("toggle", (event) => {
   handleInspectorPanelToggle("settings", event.currentTarget);
 });
-$("refresh-preview").addEventListener("click", () => { void refreshPreview(); });
+$("refresh-preview").addEventListener("click", () => {
+  void refreshPreview();
+  refreshEcosystemPreview({ reload: true });
+});
 $("preview-open").addEventListener("click", () => { if (previewPath) window.open(previewBrowserUrl().href, "_blank", "noopener"); });
 $("clear-log").addEventListener("click", () => { logEl.textContent = ""; });
 $("refresh-source").addEventListener("click", refreshSourceFromServer);
@@ -5744,19 +5883,16 @@ for (const id of PROJECT_CONFIG_INPUTS) {
 }
 $("viewport-picker").addEventListener("change", (event) => setViewport(event.currentTarget.value));
 setupCustomViewport();
-$("surface-render-mode")?.addEventListener("change", (event) => {
-  currentSurfaceRenderMode = event.currentTarget.value;
-  syncSurfaceToolbarControls();
-  resizePreviewRuntime();
+ecosystemPreviewPicker.addEventListener("change", () => {
+  pendingEcosystemProfile = "";
+  refreshEcosystemPreview();
 });
-$("widget-companion-jump")?.addEventListener("click", () => {
-  const profile = activeSurfaceProfile();
-  const companionId = profile?.companionDeviceId;
-  const picker = $("viewport-picker");
-  if (!profile || !companionId || !picker || !surfaceProfilesById.has(companionId)) return;
-  const primaryHref = latestWidgetSnapshot?.hotspots?.[0]?.href || `pocket://showcase/ecosystem?from=${encodeURIComponent(profile.id)}`;
-  picker.value = companionId;
-  setViewport(companionId, { openUri: primaryHref });
+$("main-render-mode").addEventListener("change", () => resizePreviewRuntime());
+$("surface-render-mode").addEventListener("change", resizeEcosystemPreviewRuntime);
+$("widget-companion-jump").addEventListener("click", () => {
+  const openUri = latestWidgetSnapshot?.hotspots?.[0]?.href;
+  if (!openUri || !previewReady) return;
+  setViewport($("viewport-picker").value, { openUri });
 });
 const previewBezelToggle = $("preview-bezel-toggle");
 if (previewBezelToggle) {
