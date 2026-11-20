@@ -90,6 +90,8 @@ npm run init -- /absolute/path/to/app --sdk-root="$PWD" --template=app
 
 Choose an initializable destination. The scaffold creates a JS app, Pocket config and manifest, Flutter host, dependencies, and platform config according to selected modules. `pocket.json`, `manifest.json`, and host declarations are authoritative. See [SDK integration](SDK_INTEGRATION.md) and [templates](PROJECT_TEMPLATES.md).
 
+New Flutter hosts set `PocketApp(viewportReferenceWidth: 375, ...)` in `flutter/lib/main.dart`.
+
 ### `surfaces [directory]`
 
 ```sh

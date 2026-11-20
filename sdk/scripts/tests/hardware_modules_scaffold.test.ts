@@ -28,6 +28,7 @@ test("source-only init selects feature packages without the aggregate hardware p
     expect(scaffold.pubspec).toContain("pocket_permissions:");
     expect(scaffold.pubspec).not.toContain("pocket_hardware:");
     expect(scaffold.dart).toContain("package:pocket_camera/pocket_camera.dart");
+    expect(scaffold.dart.match(/viewportReferenceWidth: 375/g)).toEqual(["viewportReferenceWidth: 375"]);
     expect(scaffold.dart).toContain("package:pocket_bluetooth/pocket_bluetooth.dart");
     expect(scaffold.dart).toContain("createCameraPlugin, createBluetoothPlugin, createPermissionsPlugin");
     expect(scaffold.dart).toContain("authorizePlatformTexture");

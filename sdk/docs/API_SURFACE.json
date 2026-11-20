@@ -1278,7 +1278,7 @@
                 "PocketGuestSession",
                 "PocketGuestSessionState"
               ],
-              "sourceSha256": "940b96a0113c304f134d7c62286019dc339b7281d6181de1db1826a580c3ce4d"
+              "sourceSha256": "5d84aa3040fbe6afe0cf807495fb1bd600c86f630e3fdcfd77a7d01ffe995820"
             },
             {
               "from": "lib/pocket_sdk.dart",
@@ -5257,7 +5257,7 @@
         },
         {
           "file": "pocket.ts",
-          "sourceSha256": "c46a987a02fcfb27ca40dacee29eecdfd40828e6dcc4898946620c3d1b193c8c"
+          "sourceSha256": "aba63f8de202a955ae839de1a5c7f0109769d5937b55d827485a23ca62547a88"
         },
         {
           "file": "scripts/build_guest.ts",

@@ -16,10 +16,14 @@ final class PocketApp extends StatelessWidget {
     this.active = true,
     this.backgroundColor = const Color(0xFF000000),
     this.loadingBuilder,
+    this.viewportReferenceWidth,
   });
   final PocketAppConfig config;
   final bool active;
   final Color backgroundColor;
+
+  /// See [PocketGuest.viewportReferenceWidth].
+  final double? viewportReferenceWidth;
 
   /// Replaces Pocket's startup presentation with host-owned rendering of the
   /// observed package/runtime progress. The default UI shows a loader only
@@ -40,6 +44,7 @@ final class PocketApp extends StatelessWidget {
         active: active,
         backgroundColor: backgroundColor,
         loadingBuilder: loadingBuilder,
+        viewportReferenceWidth: viewportReferenceWidth,
       ),
     ),
   );
@@ -56,10 +61,16 @@ final class PocketGuest extends StatelessWidget {
     this.active = true,
     this.backgroundColor,
     this.loadingBuilder,
+    this.viewportReferenceWidth,
   });
   final PocketAppConfig config;
   final bool active;
   final Color? backgroundColor;
+
+  /// A positive, finite guest layout width in logical pixels. The host aspect
+  /// ratio determines the guest height. By default, layout follows the host
+  /// constraints directly.
+  final double? viewportReferenceWidth;
 
   /// Replaces Pocket's startup presentation with host-owned rendering of the
   /// observed package/runtime progress. The default UI shows a loader only
@@ -74,6 +85,7 @@ final class PocketGuest extends StatelessWidget {
     active: active,
     backgroundColor: backgroundColor,
     loadingBuilder: loadingBuilder,
+    viewportReferenceWidth: viewportReferenceWidth,
   );
 }
 

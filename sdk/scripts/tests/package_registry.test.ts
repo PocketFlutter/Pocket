@@ -43,7 +43,7 @@ function makeTempDir(): string {
   return dir;
 }
 
-function createMinimalScaffold(root: string): void {
+function createMinimalScaffold(root: string, referenceWidth?: number): void {
   mkdirSync(join(root, "flutter/lib"), { recursive: true });
   mkdirSync(join(root, "flutter/assets"), { recursive: true });
   mkdirSync(join(root, "flutter/android/app/src/main"), { recursive: true });
@@ -107,9 +107,20 @@ function createMinimalScaffold(root: string): void {
       "",
       "void main() {",
       "  WidgetsFlutterBinding.ensureInitialized();",
-      "  runApp(PocketApp(config: PocketAppConfig(",
-      "    appId: 'dev.pocketjs.sample',",
-      "  )));",
+      ...(referenceWidth === undefined
+        ? [
+            "  runApp(PocketApp(config: PocketAppConfig(",
+            "    appId: 'dev.pocketjs.sample',",
+            "  )));",
+          ]
+        : [
+            "  runApp(PocketApp(",
+            `    viewportReferenceWidth: ${referenceWidth},`,
+            "    config: PocketAppConfig(",
+            "      appId: 'dev.pocketjs.sample',",
+            "    ),",
+            "  ));",
+          ]),
       "}",
       "",
     ].join("\n"),
@@ -245,7 +256,7 @@ test("falls back from R2 mirror to GitHub mirror on HTTP 503 and installs + wire
     process.env.POCKET_REGISTRY_GITHUB_URL = ghOrigin;
 
     const projectDir = join(temp, "app");
-    createMinimalScaffold(projectDir);
+    createMinimalScaffold(projectDir, 375);
 
     try {
       const installRes = await installProjectPackages({
@@ -285,7 +296,13 @@ test("falls back from R2 mirror to GitHub mirror on HTTP 503 and installs + wire
 
       const mainDart = readFileSync(join(projectDir, "flutter/lib/main.dart"), "utf8");
       expect(mainDart).toContain("import 'pocket_plugins.g.dart';");
-      expect(mainDart).toContain("applyGeneratedPocketPlugins(PocketAppConfig(");
+      expect(mainDart).toContain([
+        "    viewportReferenceWidth: 375,",
+        "    config: applyGeneratedPocketPlugins(PocketAppConfig(",
+        "      appId: 'dev.pocketjs.sample',",
+        "    )),",
+        "  ));",
+      ].join("\n"));
 
       const androidXml = readFileSync(
         join(projectDir, "flutter/android/app/src/main/AndroidManifest.xml"),
@@ -316,6 +333,7 @@ test("falls back from R2 mirror to GitHub mirror on HTTP 503 and installs + wire
         "utf8",
       );
       expect(generatedAfter).not.toContain("PocketCameraPlugin");
+      expect(readFileSync(join(projectDir, "flutter/lib/main.dart"), "utf8")).toBe(mainDart);
     } finally {
       if (prevR2 === undefined) delete process.env.POCKET_REGISTRY_R2_URL;
       else process.env.POCKET_REGISTRY_R2_URL = prevR2;
@@ -542,6 +560,9 @@ test("enforces remote signed-index.json verification by default and prunes trans
     expect(lockBefore.packages.pocket_permissions?.direct).toBe(false);
     expect(lockBefore.packages.pocket_hardware_core?.direct).toBe(false);
     expect(lockBefore.packages.pocket_dio?.hostWiring?.factoryExpression).toContain("PocketDioPlugin");
+    const legacyMainDart = readFileSync(join(projectDir, "flutter/lib/main.dart"), "utf8");
+    expect(legacyMainDart).toContain("runApp(PocketApp(config: applyGeneratedPocketPlugins(PocketAppConfig(");
+    expect(legacyMainDart).not.toContain("viewportReferenceWidth");
 
     // Simulate missing pocket-plugin.json on disk during offline removal
     rmSync(join(projectDir, "vendor_packages/pocket_dio/pocket-plugin.json"), { force: true });

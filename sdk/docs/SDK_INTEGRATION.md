@@ -25,8 +25,14 @@ uses the SDK root you supply and contains only public SDK code. It generates the
 - `app.tsx`, `pocket.json`, `manifest.json`, and `editor.json`.
 - An independently editable `vendor/pocket-ui` and precompiled `node_modules/@pocket/ui`.
 - A standalone `flutter/` app for iOS, Android, and macOS.
+- A `PocketApp` entry in `flutter/lib/main.dart` with `viewportReferenceWidth: 375`.
 - A local `pocket_sdk` path dependency in `flutter/pubspec.yaml` and four runtime assets.
 - An iOS 15.0 deployment target, Apple Silicon `arm64` settings, and SwiftPM plugin integration enabled by default.
+
+The reference width sets the guest viewport width to 375 units while the Flutter
+surface fills the available host area. To use the available Flutter logical width
+instead, remove `viewportReferenceWidth` from the generated entry. Existing hosts
+can opt in by adding the argument to their `PocketApp`.
 
 Opt into hardware with `--hardware`. It adds the separate `pocket_hardware` dependency, an
 explicit plugin factory, an optional hardware permission and capability manifest, iOS usage

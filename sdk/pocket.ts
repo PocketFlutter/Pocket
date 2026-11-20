@@ -843,11 +843,11 @@ function createFlutterHost(
   const featurePermissionLiteral = `const {${featurePermissionValues.map((permission) => `'${permission}'`).join(", ")}}`;
   const extraPermissions = [...(dio ? ["network"] : []), ...(clipboard ? clipboardPermissions : [])];
   const allowedPermissions = hardware && extraPermissions.length > 0
-    ? `allowedPermissions: {...HardwarePermissions.all, ${extraPermissions.map((permission) => `'${permission}'`).join(", ")}},\n    `
+    ? `\n      allowedPermissions: {...HardwarePermissions.all, ${extraPermissions.map((permission) => `'${permission}'`).join(", ")}},`
     : hardware
-      ? "allowedPermissions: HardwarePermissions.all,\n    "
-      : (featurePermissionValues.length > 0 ? `allowedPermissions: ${featurePermissionLiteral},\n    ` : "");
-  const hardwareConfig = (factories.length ? `pluginFactories: [${factories.join(", ")}],\n    ` : "") + allowedPermissions;
+      ? "\n      allowedPermissions: HardwarePermissions.all,"
+      : (featurePermissionValues.length > 0 ? `\n      allowedPermissions: ${featurePermissionLiteral},` : "");
+  const hardwareConfig = (factories.length ? `\n      pluginFactories: [${factories.join(", ")}],` : "") + allowedPermissions;
   const hardwareFactory = hardware
     ? "\nPocketPlugin createHardwarePlugin(PocketViewController controller) => HardwarePlugin(\n  onTextureRegistered: controller.authorizePlatformTexture,\n  onTextureReleased: controller.revokePlatformTexture,\n);\n"
     : "";
@@ -872,7 +872,7 @@ function createFlutterHost(
     : "") + (platform.deepLinkScheme
     ? `\nPocketPlugin createDeepLinkPlugin(PocketViewController controller) => PocketDeepLinkPlugin(deepLinkScheme: '${platform.deepLinkScheme}');\n`
     : "");
-  writeFileSync(join(flutterDirectory, "lib/main.dart"), `${hardwareImport}import 'package:flutter/material.dart';\nimport 'package:pocket_sdk/pocket_sdk.dart';\n\nvoid main() {\n  WidgetsFlutterBinding.ensureInitialized();\n  runApp(PocketApp(config: PocketAppConfig(\n    appId: '${appId.replaceAll("'", "\\'")}',\n    ${hardwareConfig})));\n}\n${hardwareFactory}${moduleFactories}${dioFactory}${clipboardFactory}${permissionFactory}${platformFactory}`);
+  writeFileSync(join(flutterDirectory, "lib/main.dart"), `${hardwareImport}import 'package:flutter/material.dart';\nimport 'package:pocket_sdk/pocket_sdk.dart';\n\nvoid main() {\n  WidgetsFlutterBinding.ensureInitialized();\n  runApp(PocketApp(\n    viewportReferenceWidth: 375,\n    config: PocketAppConfig(\n      appId: '${appId.replaceAll("'", "\\'")}',${hardwareConfig}\n    ),\n  ));\n}\n${hardwareFactory}${moduleFactories}${dioFactory}${clipboardFactory}${permissionFactory}${platformFactory}`);
   scaffoldTest(flutterDirectory, appId);
   const iosDirectory = join(flutterDirectory, "ios");
   const androidDirectory = join(flutterDirectory, "android");

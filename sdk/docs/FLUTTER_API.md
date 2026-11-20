@@ -16,12 +16,17 @@ types of named parameters. Use public exports and respect `show` and `hide` filt
 
 | API | Required or primary properties | Defaults and use |
 | --- | --- | --- |
-| `PocketApp` | `config: PocketAppConfig`, `active`, `backgroundColor`, `loadingBuilder` | Standalone MaterialApp and Scaffold. Active by default with a black root background. |
+| `PocketApp` | `config: PocketAppConfig`, `active`, `backgroundColor`, `loadingBuilder`, `viewportReferenceWidth` | Standalone MaterialApp and Scaffold. Active by default with a black root background. |
 | `PocketGuest` | Same properties. Nullable backgroundColor. | Embeds in an existing Flutter page, sharing the SDK frame loop and leaving application routing to the host. |
 | `PocketSystemHost` | `systemUI`, `applications`, controller, initialLaunch, active, catalogLoader, onCloseWithResult, viewportReferenceWidth, and related properties | Multi-guest SystemUI container for an existing Flutter app's tab or route. |
 | `PocketSystemHostApplication` | Direct constructor or `fromBundledAssets`, both with optional `viewportReferenceWidth` | Includes an app shell and Navigator, catalog loading, and remote bootstrap. |
 
-`PocketApp` and `PocketGuest` take `key, config, active, backgroundColor, loadingBuilder`.
+`PocketApp` and `PocketGuest` both accept the optional `double? viewportReferenceWidth`.
+The default is `null`, so layout follows the host constraints. A positive, finite
+value fixes the guest layout width in logical pixels and derives its height from
+the host aspect ratio. New standalone Flutter projects scaffolded by the SDK set
+`viewportReferenceWidth: 375` on `PocketApp`.
+
 `PocketGuestSession` is visible in source. The umbrella library exports App and Guest
 as the public application entry points. Mount creates the session, and unmount releases
 the runtime and resources. `active` combines with ancestor `TickerMode` and AppLifecycle.

@@ -73,6 +73,25 @@ void main() {
     expect(customHost.backgroundColor, custom);
   });
 
+  testWidgets('PocketApp forwards the optional reference width to its guest', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const PocketApp(config: _config));
+    final guest = find.byType(PocketGuestSession);
+    expect(
+      tester.widget<PocketGuestSession>(guest).viewportReferenceWidth,
+      isNull,
+    );
+
+    await tester.pumpWidget(
+      const PocketApp(config: _config, viewportReferenceWidth: 375),
+    );
+    expect(
+      tester.widget<PocketGuestSession>(guest).viewportReferenceWidth,
+      375,
+    );
+  });
+
   testWidgets('PocketGuestSession keeps startup and failure states opaque', (
     tester,
   ) async {

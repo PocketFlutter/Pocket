@@ -110,6 +110,13 @@ Android per-page build. The login CTA starts at row 487 on both. The
 actual Android build also passed welcome → login → native keyboard text
 entry → return to welcome. [Flutter System Host API](HYBRID_HOST_API.md)
 
+The Flutter project generator enables the same 375-wide projection in the
+new host entry point. `PocketApp` and `PocketGuest` forward that option to
+the existing PocketView projection, with host-sized layout for callers that
+omit it. The retained parent's `lib/render/pocket_ui_components.dart` reads
+the host width for route transitions. That behavior continues for
+non-projected hosts. [Flutter API](FLUTTER_API.md)
+
 An Android capture on the same date revealed a host geometry issue. The entering child RenderBox moved from bottom to top without parent constraints or OS window metrics changing. Initial `safeArea.top=0` could persist. Measuring on initialization or OS metric changes alone missed this movement.
 
 `PocketSystemHost` compares compositor slot bounds, visibleClip, and logicalViewport. It increments `geometryRevision` on actual geometry changes and passes it through existing `PocketGuestSession` to `PocketView`. After layout, the child reuses `_safeAreaForHost` to measure its intersection with physical system safe area and reports through existing display.viewport. No root inset copying, polling, or native ABI was added. Existing reporting cache deduplicates unchanged values.

@@ -6,7 +6,7 @@ This catalog lists declarations importable from each package library after apply
 
 Source-first reuse note: outside the retained parent `pocket_host/`, this work checked `README.md`, `docs/02_ARCHITECTURE_AND_MEMORY_DESIGN.md`, `docs/03_DUAL_HOST_UI_COMPONENTS_SPEC.md`, `docs/04_DEVELOPER_GUIDE_AND_VERIFICATION.md`, and `docs/04_BIDIRECTIONAL_FFI_WASM_AND_YOOASSET_HOTUPDATE.md` in `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo`. These preserve the earlier Flutter/WeChat host split, component-to-host projections, and run/regression scenarios. The necessary adaptation is to use only current SDK library exports and apply every Dart `show`/`hide`, keeping app UI policy and composition in JS and Dart at the rendering/input/lifecycle/native boundary. Validation checks the biometrics and root SDK facade filters, default parameter signatures, and current source SHA markers.
 
-Coverage: 617 public declarations and 3126 declared members across 22 library entrances; 110 inventoried source digests.
+Coverage: 617 public declarations and 3128 declared members across 22 library entrances; 110 inventoried source digests.
 
 ## Packages and imports
 
@@ -6213,10 +6213,11 @@ Source: [lib/src/performance_history.dart](../lib/src/performance_history.dart#L
 **Class** `final class PocketApp extends StatelessWidget`
 
 Members:
-- `const PocketApp({ super.key, required this.config, this.active = true, this.backgroundColor = const Color(0xFF000000), this.loadingBuilder, })`
+- `const PocketApp({ super.key, required this.config, this.active = true, this.backgroundColor = const Color(0xFF000000), this.loadingBuilder, this.viewportReferenceWidth, })`
 - `final PocketAppConfig config`
 - `final bool active`
 - `final Color backgroundColor`
+- `final double? viewportReferenceWidth`
 - `final PocketLoadingBuilder? loadingBuilder`
 - `Widget build(BuildContext context)`
 
@@ -6466,14 +6467,15 @@ Source: [packages/pocket_flutter/lib/src/pocket_model.dart](../packages/pocket_f
 **Class** `final class PocketGuest extends StatelessWidget`
 
 Members:
-- `const PocketGuest({ super.key, required this.config, this.active = true, this.backgroundColor, this.loadingBuilder, })`
+- `const PocketGuest({ super.key, required this.config, this.active = true, this.backgroundColor, this.loadingBuilder, this.viewportReferenceWidth, })`
 - `final PocketAppConfig config`
 - `final bool active`
 - `final Color? backgroundColor`
+- `final double? viewportReferenceWidth`
 - `final PocketLoadingBuilder? loadingBuilder`
 - `Widget build(BuildContext context)`
 
-Source: [lib/src/pocket_app.dart](../lib/src/pocket_app.dart#L52)
+Source: [lib/src/pocket_app.dart](../lib/src/pocket_app.dart#L57)
 
 ### `PocketHostCatalogEntry`
 
@@ -7808,7 +7810,7 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: lib/pocket_sdk.dart 10520b79c6451a77363b1ca8e83af90b03f43e6b8b7d2c26ef898a261c89b227 -->
 <!-- api-source: lib/src/package_info_plugin.dart dd2b8837f117d798568fb575f8c3d640a2dac5b6934644d546cedc4d6eb43b66 -->
 <!-- api-source: lib/src/performance_history.dart 8e329f064d64bc89a3571f1ff3887c776031badd05a375d9ecefdc483487b150 -->
-<!-- api-source: lib/src/pocket_app.dart 940b96a0113c304f134d7c62286019dc339b7281d6181de1db1826a580c3ce4d -->
+<!-- api-source: lib/src/pocket_app.dart 5d84aa3040fbe6afe0cf807495fb1bd600c86f630e3fdcfd77a7d01ffe995820 -->
 <!-- api-source: lib/src/pocket_bundled_application_catalog.dart 6435fe06ef162cd0af60c68f574dd44926e27576f45638637fa2c5d0d41a7ec4 -->
 <!-- api-source: lib/src/pocket_config.dart ec24fb4afed296175e8f7b36620d3be8c83f12a495c801f9de7c3a66eee44a69 -->
 <!-- api-source: lib/src/pocket_diagnostics.dart 09d9344ecb870d45200bf562e9339888547c76abfb297002402a6705187bfb17 -->

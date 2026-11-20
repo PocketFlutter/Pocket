@@ -760,17 +760,16 @@ function syncFlutterHostFromInstalledPackages(
 
   const mainDartPath = checkedPath(projectDir, "flutter/lib/main.dart", "file");
   if (existsSync(mainDartPath)) {
-    let mainDart = readFileSync(mainDartPath, "utf8");
-    if (
-      !mainDart.includes("pocket_plugins.g.dart") &&
-      mainDart.includes("runApp(PocketApp(config: PocketAppConfig(")
-    ) {
-      mainDart = `import 'pocket_plugins.g.dart';\n${mainDart}`.replace(
-        /runApp\(PocketApp\(config:\s*PocketAppConfig\(([\s\S]*?)\)\)\);/,
-        "runApp(PocketApp(config: applyGeneratedPocketPlugins(PocketAppConfig($1))));",
+    const mainDart = readFileSync(mainDartPath, "utf8");
+    if (!mainDart.includes("pocket_plugins.g.dart")) {
+      const updatedMainDart = mainDart.replace(
+        /(runApp\(\s*PocketApp\(\s*(?:viewportReferenceWidth:\s*[^,\r\n]+,\s*)?config:\s*)(PocketAppConfig\([\s\S]*?\))(,?\s*\),?\s*\);)/,
+        "$1applyGeneratedPocketPlugins($2)$3",
       );
-      change.write(mainDartPath, mainDart);
-      updatedHostFiles.push("flutter/lib/main.dart");
+      if (updatedMainDart !== mainDart) {
+        change.write(mainDartPath, `import 'pocket_plugins.g.dart';\n${updatedMainDart}`);
+        updatedHostFiles.push("flutter/lib/main.dart");
+      }
     }
   }
 
