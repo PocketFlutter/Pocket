@@ -225,11 +225,27 @@ lines.on("line", (line) => {
 
     await manager.handle(new Request(`${base}/input`, {
       method: "POST",
+      body: JSON.stringify({ type: "resize", width: 390, height: 1170 }),
+    }), projectId, "input");
+    value = await waitFor((next) => next.frame.ops.some((op: Record<string, unknown>) => op.type === "text" && op.text === "child-viewport-390x1114"));
+    assert.equal(value.frame.inputBounds?.h, 1114);
+    await pointer("down", 0, 195, 1150);
+    await pointer("down", 0, 195, 1140);
+    await pointer("up", 0, 195, 1140);
+    entries = await commands();
+    assert.deepEqual(
+      entries.filter((entry) => entry.role === "child" && entry.command.message?.name === "input.pointer")
+        .slice(-4).map((entry) => [entry.command.message.payload.phase, entry.command.message.payload.y]),
+      [["down", 1094], ["cancel", 1094], ["down", 1084], ["up", 1084]],
+    );
+
+    await manager.handle(new Request(`${base}/input`, {
+      method: "POST",
       body: JSON.stringify({ type: "message", message: { type: "hide-surface" } }),
     }), projectId, "input");
     await Bun.sleep(80);
     entries = await commands();
-    assert.deepEqual(childResizes().map((entry) => [entry.command.width, entry.command.height]), [[390, 788], [390, 744]], "hidden background child must not be forced to root size");
+    assert.deepEqual(childResizes().map((entry) => [entry.command.width, entry.command.height]), [[390, 788], [390, 744], [390, 1114]], "hidden background child must not be forced to root size");
   } finally {
     await reader?.cancel();
     await manager.dispose();

@@ -14,6 +14,8 @@ const VIEWPORTS = {
   tablet: { width: 768, height: 1023, label: "Tablet", safeArea: null },
   desktop: { width: 1023, height: 768, label: "Desktop", safeArea: null },
 };
+const CUSTOM_VIEWPORT_STORAGE_KEY = "pocket-studio-custom-viewport";
+const VIEWPORT_INSET_EDGES = ["top", "bottom", "left", "right"];
 
 const projectsEl = $("projects");
 const projectSwitcher = $("project-switcher");
@@ -437,7 +439,7 @@ function populateSurfaceViewportOptions(profiles = allSurfaceProfiles, enabledMo
       picker.appendChild(optgroup);
     }
   }
-  const hasPrevious = previousValue === "mobile" || previousValue === "tablet" || previousValue === "desktop" || surfaceProfilesById.has(previousValue);
+  const hasPrevious = Object.hasOwn(VIEWPORTS, previousValue) || surfaceProfilesById.has(previousValue);
   picker.value = hasPrevious ? previousValue : "mobile";
   if (!hasPrevious) {
     currentSurfaceRenderMode = "";
@@ -4552,6 +4554,75 @@ function viewportEntryFor(viewportKey = $("viewport-picker")?.value || "mobile")
   return VIEWPORTS[viewportKey] || VIEWPORTS.mobile;
 }
 
+function customViewportEntry({ width, height, safeArea } = {}) {
+  if (![width, height].every((value) => Number.isInteger(value) && value >= 1 && value <= 4096)) return null;
+  if (!VIEWPORT_INSET_EDGES.every((edge) => Number.isInteger(safeArea?.[edge]) && safeArea[edge] >= 0)) return null;
+  const { top, bottom, left, right } = safeArea;
+  if (top + bottom >= height || left + right >= width) return null;
+  return { width, height, label: "自定义", safeArea: { top, bottom, left, right } };
+}
+
+function registerCustomViewport(entry) {
+  VIEWPORTS.custom = entry;
+  const option = $("viewport-picker").querySelector('option[value="custom"]');
+  option.hidden = option.disabled = false;
+  option.textContent = `${entry.label} · ${entry.width} × ${entry.height}`;
+}
+
+function storeCustomViewport(active) {
+  if (!VIEWPORTS.custom) return;
+  try {
+    localStorage.setItem(CUSTOM_VIEWPORT_STORAGE_KEY, JSON.stringify({ ...VIEWPORTS.custom, active }));
+  } catch {}
+}
+
+function setupCustomViewport() {
+  const picker = $("viewport-picker");
+  const dialog = $("custom-viewport-dialog");
+  const form = $("custom-viewport-form");
+  const error = $("custom-viewport-error");
+  try {
+    const saved = JSON.parse(localStorage.getItem(CUSTOM_VIEWPORT_STORAGE_KEY));
+    const entry = saved && customViewportEntry(saved);
+    if (entry) {
+      registerCustomViewport(entry);
+      if (saved.active === true) {
+        picker.value = "custom";
+        setViewport("custom");
+      }
+    }
+  } catch {}
+  $("edit-custom-viewport").addEventListener("click", () => {
+    const entry = VIEWPORTS.custom || viewportEntryFor();
+    form.elements.width.value = entry.width || "";
+    form.elements.height.value = entry.height || "";
+    for (const edge of VIEWPORT_INSET_EDGES) {
+      form.elements[edge].value = entry.safeArea?.[edge] ?? 0;
+    }
+    error.hidden = true;
+    dialog.showModal();
+  });
+  $("cancel-custom-viewport").addEventListener("click", () => dialog.close());
+  form.addEventListener("input", () => { error.hidden = true; });
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const entry = customViewportEntry({
+      width: form.elements.width.valueAsNumber,
+      height: form.elements.height.valueAsNumber,
+      safeArea: Object.fromEntries(VIEWPORT_INSET_EDGES.map((edge) => [edge, form.elements[edge].valueAsNumber])),
+    });
+    if (!entry) {
+      error.textContent = "同一轴的安全区之和必须小于视口尺寸。";
+      error.hidden = false;
+      return;
+    }
+    registerCustomViewport(entry);
+    picker.value = "custom";
+    setViewport("custom");
+    dialog.close();
+  });
+}
+
 function clearDynamicViewportClasses(element) {
   if (!element) return;
   for (const cls of Array.from(element.classList)) {
@@ -4568,6 +4639,7 @@ function clearDynamicViewportClasses(element) {
 }
 
 function setViewport(value, options = {}) {
+  storeCustomViewport(value === "custom");
   const profile = activeSurfaceProfile(value);
   if (!options.preserveRenderMode) {
     currentSurfaceRenderMode = profile?.defaultRenderMode || "";
@@ -5671,6 +5743,7 @@ for (const id of PROJECT_CONFIG_INPUTS) {
   });
 }
 $("viewport-picker").addEventListener("change", (event) => setViewport(event.currentTarget.value));
+setupCustomViewport();
 $("surface-render-mode")?.addEventListener("change", (event) => {
   currentSurfaceRenderMode = event.currentTarget.value;
   syncSurfaceToolbarControls();

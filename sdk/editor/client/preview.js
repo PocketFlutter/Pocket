@@ -3493,8 +3493,8 @@ void main() {
           point.y >= area.y && point.y <= area.y + area.h;
         const minX = Math.round(inChild ? Math.max(0, area.x) : 0);
         const minY = Math.round(inChild ? Math.max(0, area.y) : 0);
-        const maxX = Math.round(Math.min(logicalWidth(), 1023, inChild ? area.x + area.w : Infinity));
-        const maxY = Math.round(Math.min(logicalHeight(), 1023, inChild ? area.y + area.h : Infinity));
+        const maxX = Math.round(inChild ? Math.min(logicalWidth(), area.x + area.w) : logicalWidth());
+        const maxY = Math.round(inChild ? Math.min(logicalHeight(), area.y + area.h) : logicalHeight());
         const midX = Math.round((minX + maxX) / 2);
         const midY = Math.round((minY + maxY) / 2);
         const startX = Math.round(clamp(point.x, minX, maxX));
@@ -3543,9 +3543,8 @@ void main() {
         }
       }
 
-      // Native's canonical touch wire is bounded by the viewport and 10 bits.
-      // Keep one contact across the burst; only re-anchor when that wire runs
-      // out of room. Preserve the remaining delta rather than clipping it away.
+      // Keep one contact across the burst and re-anchor at the viewport edge.
+      // Preserve the remaining delta for the next contact.
       const contact = wheelContact;
       const { anchor, minX, minY, maxX, maxY, midX, midY } = contact;
       contact.remX = clamp(contact.remX + dx, -MAX_DIMENSION, MAX_DIMENSION);

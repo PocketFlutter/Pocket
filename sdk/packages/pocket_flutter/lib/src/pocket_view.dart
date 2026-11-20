@@ -588,6 +588,8 @@ class PocketView extends StatefulWidget {
     this.workerProgram,
     this.offloadProviderFactory,
     this.viewport,
+    this.viewportReferenceWidth,
+    this.viewportScale,
     this.geometryRevision = 0,
     this.compositorBounds,
     this.compositorViewport,
@@ -620,6 +622,23 @@ class PocketView extends StatefulWidget {
   }) : assert(
          textLayoutCacheCapacity > 0,
          'textLayoutCacheCapacity must be positive',
+       ),
+       assert(
+         viewportReferenceWidth == null ||
+             (viewportReferenceWidth > 0 &&
+                 viewportReferenceWidth < double.infinity &&
+                 viewportScale == null &&
+                 viewport == null &&
+                 runtime == null),
+         'viewportReferenceWidth requires a finite positive width and a live self-owned runtime',
+       ),
+       assert(
+         viewportScale == null ||
+             (viewportScale > 0 &&
+                 viewportScale < double.infinity &&
+                 viewport == null &&
+                 runtime == null),
+         'viewportScale requires a finite positive scale and a live self-owned runtime',
        ),
        jsAsset = jsAsset ?? 'assets/app.js',
        _jsAssetWasExplicit = jsAsset != null;
@@ -710,6 +729,16 @@ class PocketView extends StatefulWidget {
   /// Injected runtimes keep their own dimensions for tests/hosts, preserving
   /// the old fixed-runtime behavior when no explicit size is supplied.
   final Size? viewport;
+
+  /// Projects a live self-owned runtime to this logical width. Height follows
+  /// the host aspect ratio. Mutually exclusive with [viewport], [viewportScale]
+  /// and [runtime].
+  final double? viewportReferenceWidth;
+
+  /// Uniform host pixels per guest logical pixel for a live child surface.
+  /// Use [PocketCompositorSlot.viewportScale] to inherit its parent's scale.
+  /// Mutually exclusive with [viewport] and [runtime].
+  final double? viewportScale;
 
   /// Host compositor geometry revision. This is a notification only: the
   /// child still measures its own RenderBox after layout and reports the
@@ -1599,7 +1628,11 @@ class _PocketViewState extends State<PocketView>
         }
       }
     }
+    final viewportProjectionChanged =
+        oldWidget.viewportReferenceWidth != widget.viewportReferenceWidth ||
+        oldWidget.viewportScale != widget.viewportScale;
     if (oldWidget.inputEnabled != widget.inputEnabled ||
+        viewportProjectionChanged ||
         oldWidget.viewport != widget.viewport ||
         oldWidget.enableDuplexPointerInput != widget.enableDuplexPointerInput ||
         fallbackChanged ||
@@ -1610,9 +1643,13 @@ class _PocketViewState extends State<PocketView>
         )) {
       _markSceneNeedsBuild();
     }
-    if (oldWidget.viewport != widget.viewport &&
-        _isUsableSize(widget.viewport)) {
-      _scheduleResize(widget.viewport!);
+    if (oldWidget.viewport != widget.viewport || viewportProjectionChanged) {
+      final viewport = _desiredRuntimeViewport;
+      if (_isUsableSize(viewport) &&
+          (widget.viewport != null || viewportProjectionChanged)) {
+        _scheduleResize(viewport!);
+      }
+      if (viewportProjectionChanged) _scheduleSafeAreaReport();
     }
     if (oldWidget.geometryRevision != widget.geometryRevision) {
       // A compositor transform can move this RenderBox without changing its
@@ -1684,7 +1721,7 @@ class _PocketViewState extends State<PocketView>
     final runtime = _runtime;
     if (runtime == null || !_effectiveActive || !mounted) return;
     pocketSetSchedulerPaused(runtime, false);
-    final desiredViewport = widget.viewport ?? _hostConstraints;
+    final desiredViewport = _desiredRuntimeViewport;
     if (_isUsableSize(desiredViewport) &&
         (desiredViewport!.width != _frame.width ||
             desiredViewport.height != _frame.height)) {
@@ -1764,6 +1801,34 @@ class _PocketViewState extends State<PocketView>
         size.height > 0;
   }
 
+  bool get _projectsViewport =>
+      widget.viewportReferenceWidth != null || widget.viewportScale != null;
+
+  double _projectionScaleForHostWidth(double hostWidth) {
+    final scale =
+        widget.viewportScale ??
+        (widget.viewportReferenceWidth == null
+            ? 1.0
+            : hostWidth / widget.viewportReferenceWidth!);
+    return scale.isFinite && scale > 0 ? scale : 1.0;
+  }
+
+  Size? get _desiredRuntimeViewport {
+    final viewport = widget.viewport;
+    if (viewport != null) return viewport;
+    final host = _hostConstraints;
+    if (host == null) return null;
+    final scale = _projectionScaleForHostWidth(host.width);
+    return Size(
+      widget.viewportReferenceWidth ?? host.width / scale,
+      host.height / scale,
+    );
+  }
+
+  Size _liveCanvasSize(double hostWidth) =>
+      Size(_frame.width, _frame.height) *
+      _projectionScaleForHostWidth(hostWidth);
+
   void _scheduleStartIfReady() {
     if (_started || !mounted) return;
     // A self-owned runtime needs a real bounded host to establish its
@@ -1771,7 +1836,7 @@ class _PocketViewState extends State<PocketView>
     // runtime already owns its viewport and can start immediately.
     if (widget.runtime == null &&
         widget.viewport == null &&
-        !_isUsableSize(_hostConstraints)) {
+        !_isUsableSize(_desiredRuntimeViewport)) {
       return;
     }
     _started = true;
@@ -1804,7 +1869,8 @@ class _PocketViewState extends State<PocketView>
         widget.viewport == null &&
         _runtime != null &&
         !_resizeUnavailable) {
-      _scheduleResize(next);
+      final viewport = _desiredRuntimeViewport;
+      if (_isUsableSize(viewport)) _scheduleResize(viewport!);
     }
   }
 
@@ -1937,7 +2003,6 @@ class _PocketViewState extends State<PocketView>
           'An injected runtime owns its recording configuration',
         );
       }
-      final viewport = widget.viewport;
       _refreshHz = _readRefreshRate();
       if (_refreshHz.isFinite && _refreshHz > 0) {
         // This is only the first-ticker fallback. Subsequent callbacks use
@@ -1945,7 +2010,7 @@ class _PocketViewState extends State<PocketView>
         // 60-Hz display. Native tickHz remains the bundle/core rate.
         _firstFrameDeltaMs = 1000.0 / _refreshHz;
       }
-      final runtimeViewport = viewport ?? _hostConstraints;
+      final runtimeViewport = _desiredRuntimeViewport;
       if (widget.runtime == null && !_isUsableSize(runtimeViewport)) {
         throw ArgumentError.value(
           runtimeViewport,
@@ -1976,7 +2041,10 @@ class _PocketViewState extends State<PocketView>
                   width: runtimeViewport!.width,
                   height: runtimeViewport.height,
                   rasterDensity: pocketRasterDensity(
-                    View.of(context).devicePixelRatio,
+                    View.of(context).devicePixelRatio *
+                        _projectionScaleForHostWidth(
+                          _hostConstraints?.width ?? runtimeViewport.width,
+                        ),
                   ),
                   tickHz: widget.tickHz,
                 ));
@@ -3578,7 +3646,7 @@ class _PocketViewState extends State<PocketView>
         widget.viewport == null &&
         !_resizeUnavailable;
     final canvasSize = automaticViewport
-        ? Size(_frame.width, _frame.height)
+        ? _liveCanvasSize(host.size.width)
         : _fitSurfaceSize(
             _frame.width,
             _frame.height,
@@ -3699,16 +3767,16 @@ class _PocketViewState extends State<PocketView>
         !_resizeUnavailable;
     if (!automaticViewport || !host.hasSize) return true;
     final frame = Size(_frame.width, _frame.height);
-    final expectedHostSize = _hostConstraints ?? host.size;
+    final expectedViewport = _desiredRuntimeViewport ?? host.size;
     const tolerance = 1.0;
     return frame.width.isFinite &&
         frame.height.isFinite &&
         frame.width > 0 &&
         frame.height > 0 &&
-        expectedHostSize.width.isFinite &&
-        expectedHostSize.height.isFinite &&
-        (frame.width - expectedHostSize.width).abs() <= tolerance &&
-        (frame.height - expectedHostSize.height).abs() <= tolerance;
+        expectedViewport.width.isFinite &&
+        expectedViewport.height.isFinite &&
+        (frame.width - expectedViewport.width).abs() <= tolerance &&
+        (frame.height - expectedViewport.height).abs() <= tolerance;
   }
 
   /// Returns the portion of the software keyboard that overlaps the actual
@@ -7482,7 +7550,7 @@ class _PocketViewState extends State<PocketView>
                 widget.viewport == null &&
                 !_resizeUnavailable;
             final primarySize = automaticViewport
-                ? Size(_frame.width, _frame.height)
+                ? _liveCanvasSize(constraints.maxWidth)
                 : _fitSurfaceSize(_frame.width, _frame.height, constraints);
             Widget placeSurface(Widget surface, Size surfaceSize) {
               if (!automaticViewport) return Center(child: surface);
@@ -7663,6 +7731,7 @@ class _PocketViewState extends State<PocketView>
       return const SizedBox.shrink();
     }
     final textInputLineHeight = _textInputLineHeight();
+    final appearanceScale = _projectsViewport ? math.min(scaleX, scaleY) : 1.0;
     final textInputField = Material(
       type: MaterialType.transparency,
       child: TextField(
@@ -7689,7 +7758,7 @@ class _PocketViewState extends State<PocketView>
           fontFamilyFallback: widget.fontFamilyFallback.isEmpty
               ? null
               : widget.fontFamilyFallback,
-          fontSize: _textInputFontSize,
+          fontSize: _textInputFontSize * appearanceScale,
           fontWeight: _textInputFontWeight,
           height: textInputLineHeight,
           letterSpacing: 0.0,
@@ -7697,6 +7766,7 @@ class _PocketViewState extends State<PocketView>
         cursorColor: _textInputFocusedBorderColor.a == 0
             ? _textInputTextColor
             : _textInputFocusedBorderColor,
+        cursorWidth: 2 * appearanceScale,
         decoration: InputDecoration(
           isDense: true,
           filled: true,
@@ -7707,33 +7777,45 @@ class _PocketViewState extends State<PocketView>
             fontFamilyFallback: widget.fontFamilyFallback.isEmpty
                 ? null
                 : widget.fontFamilyFallback,
-            fontSize: _textInputFontSize,
+            fontSize: _textInputFontSize * appearanceScale,
             fontWeight: _textInputFontWeight,
             height: textInputLineHeight,
             letterSpacing: 0.0,
           ),
           contentPadding: EdgeInsets.symmetric(
-            horizontal: _textInputPaddingHorizontal,
-            vertical: _textInputPaddingVertical,
+            horizontal: _textInputPaddingHorizontal * appearanceScale,
+            vertical: _textInputPaddingVertical * appearanceScale,
           ),
           border: OutlineInputBorder(
             // Material 3 adds OutlineInputBorder.gapPadding to the
             // horizontal origin even without a floating label.
             gapPadding: 0,
-            borderRadius: BorderRadius.circular(_textInputBorderRadius),
-            borderSide: BorderSide(color: _textInputBorderColor),
+            borderRadius: BorderRadius.circular(
+              _textInputBorderRadius * appearanceScale,
+            ),
+            borderSide: BorderSide(
+              color: _textInputBorderColor,
+              width: appearanceScale,
+            ),
           ),
           enabledBorder: OutlineInputBorder(
             gapPadding: 0,
-            borderRadius: BorderRadius.circular(_textInputBorderRadius),
-            borderSide: BorderSide(color: _textInputBorderColor),
+            borderRadius: BorderRadius.circular(
+              _textInputBorderRadius * appearanceScale,
+            ),
+            borderSide: BorderSide(
+              color: _textInputBorderColor,
+              width: appearanceScale,
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             gapPadding: 0,
-            borderRadius: BorderRadius.circular(_textInputBorderRadius),
+            borderRadius: BorderRadius.circular(
+              _textInputBorderRadius * appearanceScale,
+            ),
             borderSide: BorderSide(
               color: _textInputFocusedBorderColor,
-              width: 1,
+              width: appearanceScale,
             ),
           ),
         ),
@@ -7948,6 +8030,7 @@ class _PocketViewState extends State<PocketView>
             bounds: bounds,
             visibleClip: visible,
             logicalViewport: Size(width, height),
+            viewportScale: _projectsViewport ? math.min(scaleX, scaleY) : null,
             visible: !visible.isEmpty,
             focused: op.focused && !visible.isEmpty,
             drawIndex: drawIndex,
@@ -8174,6 +8257,7 @@ class _PocketViewState extends State<PocketView>
             bounds: bounds,
             visibleClip: Rect.zero,
             logicalViewport: Size(width, height),
+            viewportScale: _projectsViewport ? math.min(scaleX, scaleY) : null,
             visible: false,
             focused: false,
             drawIndex: -1,

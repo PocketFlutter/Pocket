@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -162,6 +163,79 @@ final class _FixedDisplayGeometrySource implements PocketDisplayGeometrySource {
 }
 
 void main() {
+  final libraryPath = Platform.environment['POCKET_NATIVE_LIBRARY'];
+  testWidgets(
+    'projects a live native viewport, safe area, and pointer at reference width',
+    (tester) async {
+      addTearDown(tester.view.reset);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(600, 960);
+      tester.view.viewPadding = const FakeViewPadding(top: 30, bottom: 18);
+      final events = <PocketEvent>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PocketView(
+            viewportReferenceWidth: 400,
+            jsSource: r'''
+              globalThis.__pocketEvent = function(event) {
+                if (event.name !== "display.viewport" &&
+                    event.name !== "input.pointer") return;
+                pocket._emitValue({
+                  type: "event",
+                  name: "test." + event.name,
+                  payload: event.payload
+                });
+              };
+              __pocketEvent.__binaryCapable = true;
+            ''',
+            showDebugFps: false,
+            enableDuplexPointerInput: false,
+            onEvent: events.add,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      Map<String, dynamic> viewport() => events
+          .lastWhere(
+            (event) =>
+                event.method == 'test.display.viewport' &&
+                event.params.containsKey('keyboardInset'),
+          )
+          .params;
+
+      expect(viewport()['width'], 400);
+      expect(viewport()['height'], 640);
+      expect(viewport()['safeArea'], <String, double>{
+        'top': 20,
+        'right': 0,
+        'bottom': 12,
+        'left': 0,
+      });
+
+      tester.view.physicalSize = const Size(600, 750);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 120);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(viewport()['width'], 400);
+      expect(viewport()['height'], 500);
+      expect(viewport()['keyboardInset'], 80);
+      final pointer = await tester.startGesture(const Offset(150, 300));
+      await tester.pump(const Duration(milliseconds: 20));
+      final pointerPayload = events
+          .lastWhere((event) => event.method == 'test.input.pointer')
+          .params;
+      expect(pointerPayload['phase'], 'down');
+      expect(pointerPayload['x'], 100);
+      expect(pointerPayload['y'], 200);
+      await pointer.up();
+      await tester.pump();
+    },
+    skip: libraryPath == null,
+  );
+
   testWidgets(
     'reports view safe area and keyboard overlap in guest coordinates',
     (tester) async {
@@ -456,9 +530,7 @@ void main() {
     },
   );
 
-  testWidgets('shows the Flutter FPS HUD inside the safe area', (
-    tester,
-  ) async {
+  testWidgets('shows the Flutter FPS HUD inside the safe area', (tester) async {
     _configureDuoLikeView(tester);
     tester.view.viewInsets = FakeViewPadding.zero;
     tester.view.padding = const FakeViewPadding(
@@ -502,9 +574,7 @@ void main() {
     expect(ignorePointer.ignoring, isTrue);
   });
 
-  testWidgets('hides the Flutter FPS HUD when disabled', (
-    tester,
-  ) async {
+  testWidgets('hides the Flutter FPS HUD when disabled', (tester) async {
     _configureDuoLikeView(tester);
     final runtime = _ViewportRuntime();
     await tester.pumpWidget(

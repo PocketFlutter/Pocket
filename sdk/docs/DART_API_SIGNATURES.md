@@ -6,7 +6,7 @@ This catalog lists declarations importable from each package library after apply
 
 Source-first reuse note: outside the retained parent `pocket_host/`, this work checked `README.md`, `docs/02_ARCHITECTURE_AND_MEMORY_DESIGN.md`, `docs/03_DUAL_HOST_UI_COMPONENTS_SPEC.md`, `docs/04_DEVELOPER_GUIDE_AND_VERIFICATION.md`, and `docs/04_BIDIRECTIONAL_FFI_WASM_AND_YOOASSET_HOTUPDATE.md` in `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo`. These preserve the earlier Flutter/WeChat host split, component-to-host projections, and run/regression scenarios. The necessary adaptation is to use only current SDK library exports and apply every Dart `show`/`hide`, keeping app UI policy and composition in JS and Dart at the rendering/input/lifecycle/native boundary. Validation checks the biometrics and root SDK facade filters, default parameter signatures, and current source SHA markers.
 
-Coverage: 617 public declarations and 3120 declared members across 22 library entrances; 110 inventoried source digests.
+Coverage: 617 public declarations and 3126 declared members across 22 library entrances; 110 inventoried source digests.
 
 ## Packages and imports
 
@@ -1573,11 +1573,12 @@ Source: [packages/pocket_flutter/lib/src/pocket_runtime.dart](../packages/pocket
 **Class** `final class PocketCompositorSlot`
 
 Members:
-- `const PocketCompositorSlot({ required this.surfaceHandle, required this.bounds, required this.visibleClip, required this.logicalViewport, this.visible = true, required this.focused, required this.drawIndex, this.preserveDisplayGeometry = false, })`
+- `const PocketCompositorSlot({ required this.surfaceHandle, required this.bounds, required this.visibleClip, required this.logicalViewport, this.viewportScale, this.visible = true, required this.focused, required this.drawIndex, this.preserveDisplayGeometry = false, })`
 - `final int surfaceHandle`
 - `final Rect bounds`
 - `final Rect visibleClip`
 - `final Size logicalViewport`
+- `final double? viewportScale`
 - `final bool visible`
 - `final bool focused`
 - `final int drawIndex`
@@ -1818,7 +1819,7 @@ Source: [packages/pocket_flutter/lib/src/pocket_recording.dart](../packages/pock
 
 **Typedef** `typedef PocketHostSurfaceBuilder = Widget? Function(PocketCompositorSlot slot);`
 
-Source: [packages/pocket_flutter/lib/src/pocket_compositor.dart](../packages/pocket_flutter/lib/src/pocket_compositor.dart#L62)
+Source: [packages/pocket_flutter/lib/src/pocket_compositor.dart](../packages/pocket_flutter/lib/src/pocket_compositor.dart#L66)
 
 ### `PocketHostSurfaceOp`
 
@@ -2658,7 +2659,7 @@ Source: [packages/pocket_flutter/lib/src/pocket_model.dart](../packages/pocket_f
 **Class** `class PocketView extends StatefulWidget`
 
 Members:
-- `const PocketView({ super.key, this.runtime, this.recordingFactory, this.memoryLimits = const PocketMemoryLimits(), this.controller, this.active = true, this.inputEnabled = true, this.keyboardInputEnabled = false, this.keyboardAutofocus = false, this.keyboardButtonMap = const <LogicalKeyboardKey, int>{}, this.rawTextInputEnabled = false, this.textLayoutCacheCapacity = 256, this.backgroundColor, this.compositorSurfaces = const {}, this.hostSurfaceBuilder, this.hostSurfaceResidents = const {}, this.workerProgram, this.offloadProviderFactory, this.viewport, this.geometryRevision = 0, this.compositorBounds, this.compositorViewport, this.preserveCompositorDisplayGeometry = false, this.tickHz = 60, this.fontFamilyFallback = const <String>[], this.onBeforeFrame, String? jsAsset, this.bytecodeAsset, this.bytecodeMetadataAsset = 'assets/app.bytecode.json', this.bytecodeBytes, this.bytecodeMetadata, this.pakAsset, this.jsSource, this.pakBytes, this.packageSource, this.auxiliaryViewport, this.displayGeometry, this.initialEvents = const <Map<String, dynamic>>[], this.imageResourceDecoder, this.loadingBuilder, this.onReady, this.onEvent, this.onDuplexEvent, this.enableDuplexPointerInput = true, this.onError, this.onPerformanceSample, this.showDebugFps = true, this.enableSceneCapture = false, })`
+- `const PocketView({ super.key, this.runtime, this.recordingFactory, this.memoryLimits = const PocketMemoryLimits(), this.controller, this.active = true, this.inputEnabled = true, this.keyboardInputEnabled = false, this.keyboardAutofocus = false, this.keyboardButtonMap = const <LogicalKeyboardKey, int>{}, this.rawTextInputEnabled = false, this.textLayoutCacheCapacity = 256, this.backgroundColor, this.compositorSurfaces = const {}, this.hostSurfaceBuilder, this.hostSurfaceResidents = const {}, this.workerProgram, this.offloadProviderFactory, this.viewport, this.viewportReferenceWidth, this.viewportScale, this.geometryRevision = 0, this.compositorBounds, this.compositorViewport, this.preserveCompositorDisplayGeometry = false, this.tickHz = 60, this.fontFamilyFallback = const <String>[], this.onBeforeFrame, String? jsAsset, this.bytecodeAsset, this.bytecodeMetadataAsset = 'assets/app.bytecode.json', this.bytecodeBytes, this.bytecodeMetadata, this.pakAsset, this.jsSource, this.pakBytes, this.packageSource, this.auxiliaryViewport, this.displayGeometry, this.initialEvents = const <Map<String, dynamic>>[], this.imageResourceDecoder, this.loadingBuilder, this.onReady, this.onEvent, this.onDuplexEvent, this.enableDuplexPointerInput = true, this.onError, this.onPerformanceSample, this.showDebugFps = true, this.enableSceneCapture = false, })`
 - `final PocketRuntime? runtime`
 - `final PocketRecordingController Function()? recordingFactory`
 - `final PocketMemoryLimits memoryLimits`
@@ -2679,6 +2680,8 @@ Members:
 - `final bool enableSceneCapture`
 - `final PocketViewController? controller`
 - `final Size? viewport`
+- `final double? viewportReferenceWidth`
+- `final double? viewportScale`
 - `final int geometryRevision`
 - `final Rect? compositorBounds`
 - `final Size? compositorViewport`
@@ -2803,37 +2806,37 @@ Source: [packages/pocket_flutter/lib/src/pocket_worker_runtime.dart](../packages
 
 **Top-level variable** `void Function({double? buildMs, double? paintMs})? debugOnPocketFrameStageAttribution`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L872)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L901)
 
 ### `debugOnPocketTickAttribution`
 
 **Top-level variable** `void Function({required double nativeMs, required double decodeMs, required double diffMs, PocketNativeStageTimings nativeStages})? debugOnPocketTickAttribution`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L868)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L897)
 
 ### `debugPocketFirstFrameResourceTimeoutOverride`
 
 **Top-level variable** `Duration? debugPocketFirstFrameResourceTimeoutOverride`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L880)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L909)
 
 ### `debugPocketFrameDeltaAtOverride`
 
 **Top-level variable** `PocketFrame? Function(PocketRuntime runtime, double deltaMilliseconds)? debugPocketFrameDeltaAtOverride`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L853)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L882)
 
 ### `debugPocketNativeFrameDurationOverride`
 
 **Top-level variable** `Duration Function()? debugPocketNativeFrameDurationOverride`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L856)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L885)
 
 ### `debugPocketSelfOwnedRuntimeFactory`
 
 **Top-level variable** `PocketRuntime Function(Size viewport)? debugPocketSelfOwnedRuntimeFactory`
 
-Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L859)
+Source: [packages/pocket_flutter/lib/src/pocket_view.dart](../packages/pocket_flutter/lib/src/pocket_view.dart#L888)
 
 ### `measurePocketHostScalarAdvance`
 
@@ -6349,11 +6352,12 @@ Source: [packages/pocket_services/lib/src/pocket_host.dart](../packages/pocket_s
 **Class** `final class PocketCompositorSlot`
 
 Members:
-- `const PocketCompositorSlot({ required this.surfaceHandle, required this.bounds, required this.visibleClip, required this.logicalViewport, this.visible = true, required this.focused, required this.drawIndex, this.preserveDisplayGeometry = false, })`
+- `const PocketCompositorSlot({ required this.surfaceHandle, required this.bounds, required this.visibleClip, required this.logicalViewport, this.viewportScale, this.visible = true, required this.focused, required this.drawIndex, this.preserveDisplayGeometry = false, })`
 - `final int surfaceHandle`
 - `final Rect bounds`
 - `final Rect visibleClip`
 - `final Size logicalViewport`
+- `final double? viewportScale`
 - `final bool visible`
 - `final bool focused`
 - `final int drawIndex`
@@ -6578,7 +6582,7 @@ Source: [packages/pocket_services/lib/src/pocket_host.dart](../packages/pocket_s
 
 **Typedef** `typedef PocketHostSurfaceBuilder = Widget? Function(PocketCompositorSlot slot);`
 
-Source: [packages/pocket_flutter/lib/src/pocket_compositor.dart](../packages/pocket_flutter/lib/src/pocket_compositor.dart#L62)
+Source: [packages/pocket_flutter/lib/src/pocket_compositor.dart](../packages/pocket_flutter/lib/src/pocket_compositor.dart#L66)
 
 ### `PocketLazyPlugin`
 
@@ -7212,9 +7216,9 @@ Source: [packages/pocket_flutter/lib/src/pocket_startup_progress.dart](../packag
 **Class** `final class PocketSystemHost extends StatefulWidget`
 
 Members:
-- `const PocketSystemHost({ super.key, required this.systemUI, required this.applications, this.maxInstances = 8, this.controller, this.recordings, this.diagnostics, this.catalogLoader, this.onClose, this.onCloseWithResult, this.initialLaunch, this.active = true, this.cacheFirst = false, this.backgroundColor = const Color(0xFF000000), this.nativeEdgeExitEnabled = true, this.nativeExitRoute, @visibleForTesting this.platformUpdateRequestTimeoutForTesting, })`
+- `const PocketSystemHost({ super.key, required this.systemUI, required this.applications, this.maxInstances = 8, this.controller, this.recordings, this.diagnostics, this.catalogLoader, this.onClose, this.onCloseWithResult, this.initialLaunch, this.active = true, this.cacheFirst = false, this.backgroundColor = const Color(0xFF000000), this.viewportReferenceWidth, this.nativeEdgeExitEnabled = true, this.nativeExitRoute, @visibleForTesting this.platformUpdateRequestTimeoutForTesting, })`
 - `final Duration? platformUpdateRequestTimeoutForTesting`
-- `factory PocketSystemHost.fromHostConfig({ Key? key, required PocketHostConfig config, int maxInstances = 8, PocketSystemHostController? controller, PocketRecordingLibrary? recordings, PocketHostDiagnostics? diagnostics, PocketSystemHostSystemUIApprover? approveSystemUI, PocketSystemHostApplicationApprover? approveApplication, Future<PocketHostConfig?> Function(String? rootPayloadSha256)? reloadHostConfig, VoidCallback? onClose, ValueChanged<PocketSystemLaunchResult?>? onCloseWithResult, PocketSystemLaunchRequest? initialLaunch, bool active = true, bool cacheFirst = false, Color backgroundColor = const Color(0xFF000000), bool nativeEdgeExitEnabled = true, TransitionRoute<dynamic>? nativeExitRoute, })`
+- `factory PocketSystemHost.fromHostConfig({ Key? key, required PocketHostConfig config, int maxInstances = 8, PocketSystemHostController? controller, PocketRecordingLibrary? recordings, PocketHostDiagnostics? diagnostics, PocketSystemHostSystemUIApprover? approveSystemUI, PocketSystemHostApplicationApprover? approveApplication, Future<PocketHostConfig?> Function(String? rootPayloadSha256)? reloadHostConfig, VoidCallback? onClose, ValueChanged<PocketSystemLaunchResult?>? onCloseWithResult, PocketSystemLaunchRequest? initialLaunch, bool active = true, bool cacheFirst = false, Color backgroundColor = const Color(0xFF000000), double? viewportReferenceWidth, bool nativeEdgeExitEnabled = true, TransitionRoute<dynamic>? nativeExitRoute, })`
 - `final PocketAppConfig systemUI`
 - `final Map<String, PocketAppConfig> applications`
 - `final int maxInstances`
@@ -7228,11 +7232,12 @@ Members:
 - `final bool active`
 - `final bool cacheFirst`
 - `final Color backgroundColor`
+- `final double? viewportReferenceWidth`
 - `final bool nativeEdgeExitEnabled`
 - `final TransitionRoute<dynamic>? nativeExitRoute`
 - `State<PocketSystemHost> createState()`
 
-Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L919)
+Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L930)
 
 ### `PocketSystemHostAppBuilder`
 
@@ -7245,8 +7250,8 @@ Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L13
 **Class** `final class PocketSystemHostApplication extends StatefulWidget`
 
 Members:
-- `const PocketSystemHostApplication({ super.key, required this.loadBundledApplications, required this.buildSystemUI, required this.buildApplications, this.loadHostConfig, this.hostConfigUrl, this.initialHostConfig, this.initialHostConfigError, this.initialBundledApplications, this.initialCatalogError, this.controller, this.recordings, this.diagnostics, this.approveSystemUI, this.approveApplication, this.appBuilder, this.onExit, this.onCloseWithResult, this.initialLaunch, this.active = true, this.showPerformanceOverlay = false, this.backgroundColor = const Color(0xFF000000), this.nativeEdgeExitEnabled = true, })`
-- `factory PocketSystemHostApplication.fromBundledAssets({ Key? key, required String catalogAsset, required String assetPrefix, required int firstCompositorHandle, required int lastCompositorHandle, Set<String> reservedAppIds = const <String>{}, AssetBundle? bundle, required PocketAppConfig systemUI, Map<String, PocketAppConfig> nativePolicies = const <String, PocketAppConfig>{}, Set<String> keyboardInputAppIdPrefixes = const <String>{}, Future<PocketHostConfig?> Function()? loadHostConfig, Uri? hostConfigUrl, PocketHostConfig? initialHostConfig, Object? initialHostConfigError, PocketBundledApplicationCatalog? initialBundledApplications, Object? initialCatalogError, PocketSystemHostController? controller, PocketRecordingLibrary? recordings, PocketHostDiagnostics? diagnostics, PocketSystemHostSystemUIApprover? approveSystemUI, PocketSystemHostApplicationApprover? approveApplication, PocketSystemHostAppBuilder? appBuilder, VoidCallback? onExit, ValueChanged<PocketSystemLaunchResult?>? onCloseWithResult, PocketSystemLaunchRequest? initialLaunch, bool active = true, bool showPerformanceOverlay = false, Color backgroundColor = const Color(0xFF000000), bool nativeEdgeExitEnabled = true, })`
+- `const PocketSystemHostApplication({ super.key, required this.loadBundledApplications, required this.buildSystemUI, required this.buildApplications, this.loadHostConfig, this.hostConfigUrl, this.initialHostConfig, this.initialHostConfigError, this.initialBundledApplications, this.initialCatalogError, this.controller, this.recordings, this.diagnostics, this.approveSystemUI, this.approveApplication, this.appBuilder, this.onExit, this.onCloseWithResult, this.initialLaunch, this.active = true, this.showPerformanceOverlay = false, this.backgroundColor = const Color(0xFF000000), this.viewportReferenceWidth, this.nativeEdgeExitEnabled = true, })`
+- `factory PocketSystemHostApplication.fromBundledAssets({ Key? key, required String catalogAsset, required String assetPrefix, required int firstCompositorHandle, required int lastCompositorHandle, Set<String> reservedAppIds = const <String>{}, AssetBundle? bundle, required PocketAppConfig systemUI, Map<String, PocketAppConfig> nativePolicies = const <String, PocketAppConfig>{}, Set<String> keyboardInputAppIdPrefixes = const <String>{}, Future<PocketHostConfig?> Function()? loadHostConfig, Uri? hostConfigUrl, PocketHostConfig? initialHostConfig, Object? initialHostConfigError, PocketBundledApplicationCatalog? initialBundledApplications, Object? initialCatalogError, PocketSystemHostController? controller, PocketRecordingLibrary? recordings, PocketHostDiagnostics? diagnostics, PocketSystemHostSystemUIApprover? approveSystemUI, PocketSystemHostApplicationApprover? approveApplication, PocketSystemHostAppBuilder? appBuilder, VoidCallback? onExit, ValueChanged<PocketSystemLaunchResult?>? onCloseWithResult, PocketSystemLaunchRequest? initialLaunch, bool active = true, bool showPerformanceOverlay = false, Color backgroundColor = const Color(0xFF000000), double? viewportReferenceWidth, bool nativeEdgeExitEnabled = true, })`
 - `final Future<PocketHostConfig?> Function()? loadHostConfig`
 - `final Uri? hostConfigUrl`
 - `final PocketSystemHostApplicationCatalogLoader loadBundledApplications`
@@ -7268,6 +7273,7 @@ Members:
 - `final bool active`
 - `final bool showPerformanceOverlay`
 - `final Color backgroundColor`
+- `final double? viewportReferenceWidth`
 - `final bool nativeEdgeExitEnabled`
 - `State<PocketSystemHostApplication> createState()`
 
@@ -7319,7 +7325,7 @@ Members:
 - `Future<bool> requestBack()`
 - `bool requestLaunchApp(PocketSystemLaunchRequest request)`
 
-Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L1110)
+Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L1130)
 
 ### `PocketSystemHostSystemUIApprover`
 
@@ -7351,7 +7357,7 @@ Members:
 - `final bool isPresented`
 - `final bool compositorFocused`
 
-Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L1173)
+Source: [lib/src/pocket_system_host.dart](../lib/src/pocket_system_host.dart#L1193)
 
 ### `PocketSystemLaunchRequest`
 
@@ -7802,7 +7808,7 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: lib/pocket_sdk.dart 10520b79c6451a77363b1ca8e83af90b03f43e6b8b7d2c26ef898a261c89b227 -->
 <!-- api-source: lib/src/package_info_plugin.dart dd2b8837f117d798568fb575f8c3d640a2dac5b6934644d546cedc4d6eb43b66 -->
 <!-- api-source: lib/src/performance_history.dart 8e329f064d64bc89a3571f1ff3887c776031badd05a375d9ecefdc483487b150 -->
-<!-- api-source: lib/src/pocket_app.dart def228fcbc3d241079831445cf1e2fe8a550b362c8d174ab0d3ca56dd2a3b98b -->
+<!-- api-source: lib/src/pocket_app.dart 940b96a0113c304f134d7c62286019dc339b7281d6181de1db1826a580c3ce4d -->
 <!-- api-source: lib/src/pocket_bundled_application_catalog.dart 6435fe06ef162cd0af60c68f574dd44926e27576f45638637fa2c5d0d41a7ec4 -->
 <!-- api-source: lib/src/pocket_config.dart ec24fb4afed296175e8f7b36620d3be8c83f12a495c801f9de7c3a66eee44a69 -->
 <!-- api-source: lib/src/pocket_diagnostics.dart 09d9344ecb870d45200bf562e9339888547c76abfb297002402a6705187bfb17 -->
@@ -7811,7 +7817,7 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: lib/src/pocket_platform_endpoints.dart ec1a7131cc4bf3a2edec3ccddaf32c70cf1c143d60ae1b5f3d7304183bfdd4bd -->
 <!-- api-source: lib/src/pocket_recordings.dart f1752b58909af49504a9f4aa160a0f3f41dd0a9b8f10dc19dfa966ffd1e6e522 -->
 <!-- api-source: lib/src/pocket_session.dart bb79644ee14821a6507c47add141ad85999934731b0d2dca0aa26598d18a67ce -->
-<!-- api-source: lib/src/pocket_system_host.dart 3570cc630592748a7caeb2a6dcbdf9d1f267973c41e807b58484c3faca4d8ae2 -->
+<!-- api-source: lib/src/pocket_system_host.dart 497854e66cc1028257923ac82f66bec5ef26a45dee71d206490bec70a785beb8 -->
 <!-- api-source: lib/src/pocket_worker.dart 7b8fe3cbf435f21882a8ef7939e421297b938bc8c07131495d118ff621e93f0e -->
 <!-- api-source: packages/pocket_archive/lib/pocket_archive.dart 3ae77c255d6b4d4fb82a990e129552a9c23260efe9cefcc7ced6463b977b9299 -->
 <!-- api-source: packages/pocket_archive/pubspec.yaml 1e215ad281ef0637572e9a82d2c82b8f7da23872aeb81f7d4a7b85bb57c38fd7 -->
@@ -7845,7 +7851,7 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: packages/pocket_flutter/lib/src/flutter_frame_monitor.dart 626c6efbb13485e152951394e52006dd3504161eeece65a7194ee307a5ac5abf -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_assets.dart 41597ebae97867674b980136bdfa317dadc447a09050314303f70ba3a175e9ed -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_binary_codec.dart 8803b58e9c08a8ab66ae4e8f775e8822a4e6830465089fa1bb791ffa4402b903 -->
-<!-- api-source: packages/pocket_flutter/lib/src/pocket_compositor.dart 1c72621386b2a9d7c49f78d138c425b66520cc97358ca194f48977b36f87ca85 -->
+<!-- api-source: packages/pocket_flutter/lib/src/pocket_compositor.dart ac266e89ae65ccda48aa602fea797f601c739984c24d4caa88b6d22ac2e6a51d -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_display.dart 7b4a0c327abca2191a9b949e4cd571ac71a808bf8aa24d3ffbc61b3d29fb8144 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_display_geometry.dart 5497df4c23fa34a36754cdc63d75ad649a3c9f9c8e0aba49fec36c9dc426a5a3 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_duplex.dart 99e1fc0a6941d175ced6d64858991aa7548f42f309dbce498806b11490d306bc -->
@@ -7861,7 +7867,7 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_runtime.dart 98eaf76141089185c85d1b4260ce11abec3192e580b28314372f5837d5076e08 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_startup_progress.dart 9bad727136e9aa06cb4b093b874df4a156df9476821df36867a6a330ec68e906 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_text_cache.dart dd2d6c89527fe86a19153873a5eed89e653c8d689a883b46e6d0ba453905d6d6 -->
-<!-- api-source: packages/pocket_flutter/lib/src/pocket_view.dart b1923238c968d32e45d498f3e922b933595695d7ff4d77ef2f0e8ded7e3d2b7d -->
+<!-- api-source: packages/pocket_flutter/lib/src/pocket_view.dart 77fe12451a99ec2fd4fd1cb95faf41bb04180a00c72e70739d97409f23cd2019 -->
 <!-- api-source: packages/pocket_flutter/lib/src/pocket_worker_runtime.dart f2d67e2cab0c35fd3b6f52bb2a3227beac7c9077a7933378206e20f120780ae7 -->
 <!-- api-source: packages/pocket_flutter/pubspec.yaml 1a7401a5855c2e85a553120eab790e5dc32c140441b2fcb566820b16bb9c46d6 -->
 <!-- api-source: packages/pocket_hardware/lib/pocket_hardware.dart 67b30d7afa3ec5397822d64f62229370e2229b68ae9e632d25f2f975e776e8f4 -->

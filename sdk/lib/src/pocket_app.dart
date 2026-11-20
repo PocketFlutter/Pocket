@@ -89,6 +89,8 @@ final class PocketGuestSession extends StatefulWidget {
     this.active = true,
     this.inputEnabled = true,
     this.viewport,
+    this.viewportReferenceWidth,
+    this.viewportScale,
     this.geometryRevision = 0,
     this.backgroundColor,
     this.compositorBounds,
@@ -103,6 +105,8 @@ final class PocketGuestSession extends StatefulWidget {
   final bool active;
   final bool inputEnabled;
   final Size? viewport;
+  final double? viewportReferenceWidth;
+  final double? viewportScale;
   final Color? backgroundColor;
 
   /// Increments when a compositor host surface moves or changes clip. The
@@ -304,6 +308,8 @@ final class PocketGuestSessionState extends State<PocketGuestSession> {
       keyboardButtonMap: config.keyboardButtonMap,
       backgroundColor: widget.backgroundColor,
       viewport: widget.viewport,
+      viewportReferenceWidth: widget.viewportReferenceWidth,
+      viewportScale: widget.viewportScale,
       geometryRevision: widget.geometryRevision,
       compositorBounds: widget.compositorBounds,
       compositorViewport: widget.compositorViewport,

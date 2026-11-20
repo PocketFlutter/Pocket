@@ -169,13 +169,14 @@
             <div class="panel-header preview-header">
               <h2 id="preview-title" class="sr-only">预览</h2>
               <div class="preview-actions" role="group" aria-label="预览工具">
-                <label class="viewport-select-label"><span class="sr-only">预览尺寸</span><select id="viewport-picker" aria-label="预览视口"><option value="mobile">手机</option><option value="tablet">平板 · 768 × 1023</option><option value="desktop">桌面 · 1023 × 768</option></select></label>
+                <label class="viewport-select-label"><span class="sr-only">预览尺寸</span><select id="viewport-picker" aria-label="预览视口"><option value="mobile">手机</option><option value="tablet">平板 · 768 × 1023</option><option value="desktop">桌面 · 1023 × 768</option><option value="custom" hidden disabled>自定义</option></select></label>
+                <button id="edit-custom-viewport" class="button secondary small-button" type="button" aria-haspopup="dialog">自定义视口…</button>
                 <label id="surface-render-mode-wrap" class="viewport-select-label surface-mode-label" hidden><span class="sr-only">渲染模式</span><select id="surface-render-mode" aria-label="表面渲染模式"></select></label>
                 <button id="widget-companion-jump" class="button secondary small-button" type="button" title="模拟点击小组件/磁贴并跳转打开宿主主应用" hidden>打开宿主 App ↗</button>
                 <button id="open-packages-manager" class="button secondary small-button" type="button" title="按需安装或卸载 PocketFlutter 官方包" disabled>📦 官方包</button>
                 <button id="open-ecosystem-builder" class="button secondary small-button" type="button" title="按需创建或管理 Apple / Android 全家桶与微件扩展" disabled>＋ 生态/微件</button>
                 <button id="preview-bezel-toggle" class="button secondary small-button" type="button" aria-pressed="false" title="为支持的预览显示设备边框">设备边框</button>
-                <button id="preview-gpu-toggle" class="button secondary small-button" type="button" aria-pressed="false" title="切换直连 Web 运行时。使用烘焙字形；区域 ID、原生检查和设备安全区可在 Flutter 预览中使用。" hidden>直连 Web</button>
+                <button id="preview-gpu-toggle" class="button secondary small-button" type="button" aria-pressed="false" title="切换直连 Web 运行时。使用烘焙字形；字体检查、区域 ID 和设备安全区可在 Flutter 预览中使用。" hidden>直连 Web</button>
                 <button id="toggle-regions" class="button secondary small-button" type="button" aria-pressed="false" title="显示 Flutter 预览中的区域 ID" disabled>区域 ID</button>
                 <button id="refresh-preview" class="button secondary small-button" type="button" disabled>刷新</button>
                 <button id="capture-preview" class="button secondary small-button" type="button" title="截取当前预览" disabled>截图</button>
@@ -614,6 +615,23 @@
       </main>
     </div>
   </div>
+
+  <dialog id="custom-viewport-dialog" aria-labelledby="custom-viewport-heading" aria-describedby="custom-viewport-help">
+    <form id="custom-viewport-form">
+      <h2 id="custom-viewport-heading">自定义 Canvas 视口</h2>
+      <p id="custom-viewport-help">宽、高和四边安全区均填写逻辑像素。</p>
+      <div class="form-grid">
+        <label>宽度<input name="width" type="number" min="1" max="4096" required></label>
+        <label>高度<input name="height" type="number" min="1" max="4096" required></label>
+        <label>顶部安全区<input name="top" type="number" min="0" max="4095" required></label>
+        <label>底部安全区<input name="bottom" type="number" min="0" max="4095" required></label>
+        <label>左侧安全区<input name="left" type="number" min="0" max="4095" required></label>
+        <label>右侧安全区<input name="right" type="number" min="0" max="4095" required></label>
+      </div>
+      <p id="custom-viewport-error" role="alert" hidden></p>
+      <div class="dialog-actions"><button id="cancel-custom-viewport" class="button secondary" type="button">取消</button><button class="button primary" type="submit">应用</button></div>
+    </form>
+  </dialog>
 
   <dialog id="create-dialog">
     <form id="create-form" method="dialog">

@@ -18,14 +18,25 @@ types of named parameters. Use public exports and respect `show` and `hide` filt
 | --- | --- | --- |
 | `PocketApp` | `config: PocketAppConfig`, `active`, `backgroundColor`, `loadingBuilder` | Standalone MaterialApp and Scaffold. Active by default with a black root background. |
 | `PocketGuest` | Same properties. Nullable backgroundColor. | Embeds in an existing Flutter page, sharing the SDK frame loop and leaving application routing to the host. |
-| `PocketSystemHost` | `systemUI`, `applications`, controller, initialLaunch, active, catalogLoader, onCloseWithResult, and related properties | Multi-guest SystemUI container for an existing Flutter app's tab or route. |
-| `PocketSystemHostApplication` | Direct constructor, `fromBundledAssets`, or `fromHostConfig` | Includes an app shell and Navigator, catalog loading, and remote bootstrap. |
+| `PocketSystemHost` | `systemUI`, `applications`, controller, initialLaunch, active, catalogLoader, onCloseWithResult, viewportReferenceWidth, and related properties | Multi-guest SystemUI container for an existing Flutter app's tab or route. |
+| `PocketSystemHostApplication` | Direct constructor or `fromBundledAssets`, both with optional `viewportReferenceWidth` | Includes an app shell and Navigator, catalog loading, and remote bootstrap. |
 
 `PocketApp` and `PocketGuest` take `key, config, active, backgroundColor, loadingBuilder`.
 `PocketGuestSession` is visible in source. The umbrella library exports App and Guest
 as the public application entry points. Mount creates the session, and unmount releases
 the runtime and resources. `active` combines with ancestor `TickerMode` and AppLifecycle.
 Background views cannot run foreground capabilities.
+
+For a low-level self-owned `PocketView`, `viewportReferenceWidth` fixes the
+guest layout width and derives the height from the host aspect ratio.
+`viewportScale` instead supplies host logical pixels per guest logical pixel.
+Supply at most one of these positive, finite options. They require a live
+self-owned runtime and are incompatible with `viewport` and `runtime`.
+The default follows the host constraints. A projected compositor parent
+passes its scale to a child builder through `PocketCompositorSlot.viewportScale`.
+The Flutter host projects painting, pointer coordinates, safe insets and the
+native text editor through the same canvas. Native raster density is selected
+at runtime creation.
 
 See [Host parameters, catalog, launch, and controller](HYBRID_HOST_API.md),
 [Hybrid host setup and launch modes](HYBRID_FLUTTER_TAB_HOST.md), and

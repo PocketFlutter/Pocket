@@ -120,6 +120,12 @@ test("browser preview scrolls a built public SDK guest, flings after release, an
       port: 0,
       fetch: (request) => {
         const pathname = new URL(request.url).pathname;
+        if (pathname === "/tall") {
+          return new Response(
+            '<body style="margin:0"><iframe style="display:block;width:540px;height:1170px;border:0" src="/api/projects/tall-scroll/preview"></iframe>',
+            { headers: { "content-type": "text/html" } },
+          );
+        }
         const endpoint = pathname.endsWith("/stream")
           ? "stream"
           : pathname.endsWith("/input")
@@ -127,7 +133,7 @@ test("browser preview scrolls a built public SDK guest, flings after release, an
             : pathname.endsWith("/snapshot")
               ? "snapshot"
               : "page";
-        return manager.handle(request, "scroll", endpoint);
+        return manager.handle(request, pathname.includes("/tall-scroll/") ? "tall-scroll" : "scroll", endpoint);
       },
     });
     browser = await chromium.launch({ headless: true });
@@ -442,6 +448,34 @@ test("browser preview scrolls a built public SDK guest, flings after release, an
 
     assert.ok(requests.some((packet) => packet.type === "pointer" && packet.phase === "down"), "browser drag must send pointer DOWN");
     assert.ok(requests.some((packet) => packet.type === "pointer" && packet.phase === "up"), "browser drag must send pointer UP");
+
+    await page.setViewportSize({ width: 540, height: 1170 });
+    await page.goto(`http://127.0.0.1:${server.port}/tall`);
+    const tall = page.frames().find((frame: any) => frame.url().includes("/tall-scroll/"));
+    assert.ok(tall, "tall preview iframe must load");
+    await page.evaluate(() => {
+      document.querySelector("iframe")!.contentWindow!.postMessage({
+        source: "pocket-editor",
+        type: "preview.resize",
+        width: 540,
+        height: 1170,
+      }, location.origin);
+    });
+    const tallBefore = await waitFrame(tall, (frame) => frame.width === 540 && frame.height === 1170, "Android logical preview viewport");
+    const tallBox = await tall.locator("canvas").boundingBox();
+    assert.ok(tallBox, "tall preview must expose its canvas");
+    const tallRequestStart = requests.length;
+    await page.mouse.move(tallBox.x + 270 * tallBox.width / 540, tallBox.y + 1120 * tallBox.height / 1170);
+    await page.mouse.wheel(0, 65);
+    await waitFrame(tall, (frame) => {
+      const y = markerYOrUndefined(frame, "SCROLL_ROW_3");
+      return y !== undefined && y < markerY(tallBefore, "SCROLL_ROW_3") - 10;
+    }, "native scroll frame after wheel input below y=1023");
+    await waitForWheelTerminal(tallRequestStart, "tall preview");
+    const tallPointers = requests.slice(tallRequestStart).filter((packet) => packet.type === "pointer");
+    assert.ok(tallPointers.some((packet) => packet.phase === "down" && Number(packet.y) === 1120));
+    assert.ok(tallPointers.some((packet) => packet.phase === "move" && Number(packet.y) > 1023));
+
     assert.deepEqual(responseErrors, [], `preview input requests failed: ${responseErrors.join(", ")}`);
     assert.deepEqual(pageErrors, [], `browser page errors: ${pageErrors.join("; ")}`);
     console.log(JSON.stringify({

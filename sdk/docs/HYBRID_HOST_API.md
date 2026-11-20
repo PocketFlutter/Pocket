@@ -26,6 +26,7 @@ Embeds Pocket in an existing MaterialApp, Navigator, or native tab. One trusted 
 | active | bool | true | Combined with ancestor TickerMode to control foreground sessions and Back interception. May follow tab or route visibility. |
 | cacheFirst | bool | false | Show a healthy, verified SystemUI cache first. Misses await signed downloads. An update is staged for next open while the current instance stays active. |
 | backgroundColor | Color | 0xFF000000 | Fill for SystemUI root, startup, and error surfaces. |
+| viewportReferenceWidth | double? | null | Optional positive, finite reference width in logical pixels for the SystemUI and its compositor surfaces. |
 | nativeEdgeExitEnabled | bool | true | Allows an unhandled native edge swipe to exit. JS guest gestures can still handle Back. |
 | nativeExitRoute | TransitionRoute<dynamic>? | Optional | Outer route for native edge exit with a nested Navigator. Usually inferred from ancestor ModalRoute. |
 | platformUpdateRequestTimeoutForTesting | Duration? | visibleForTesting only | Injects the update request timeout in tests. |
@@ -39,7 +40,7 @@ Trust configuration is fixed for one mount. Changes to systemUI, applications, o
 - `approveSystemUI: PocketSystemHostSystemUIApprover?`, `approveApplication: PocketSystemHostApplicationApprover?`
 - `reloadHostConfig: Future<PocketHostConfig?> Function(String? rootPayloadSha256)?`
 - `onClose: VoidCallback?`, `onCloseWithResult: ValueChanged<PocketSystemLaunchResult?>?`, `initialLaunch: PocketSystemLaunchRequest?`
-- `active: bool = true`, `cacheFirst: bool = false`, `backgroundColor: Color = 0xFF000000`, `nativeEdgeExitEnabled: bool = true`, `nativeExitRoute: TransitionRoute<dynamic>?`
+- `active: bool = true`, `cacheFirst: bool = false`, `backgroundColor: Color = 0xFF000000`, `viewportReferenceWidth: double?`, `nativeEdgeExitEnabled: bool = true`, `nativeExitRoute: TransitionRoute<dynamic>?`
 
 The factory derives root and applications from one PocketHostConfig. Approvers modify root or child config before use. When a catalog exists, the SDK uses verified config to restore or load the catalog matching the root hash. See [SDK integration](SDK_INTEGRATION.md) and [Bundled Application Catalog](BUNDLED_APPLICATION_CATALOG.md) for signed remote updates.
 
@@ -62,11 +63,21 @@ Both constructors accept these optional parameters:
 - `approveApplication: PocketSystemHostApplicationApprover?`, a `PocketAppConfig Function(String appId, PocketAppConfig config)`
 - `appBuilder: PocketSystemHostAppBuilder?`, a `Widget Function(BuildContext, Widget)`
 - `onExit: VoidCallback?`, `onCloseWithResult: ValueChanged<PocketSystemLaunchResult?>?`, `initialLaunch: PocketSystemLaunchRequest?`
-- `active: bool = true`, `showPerformanceOverlay: bool = false`, `backgroundColor: Color = 0xFF000000`, `nativeEdgeExitEnabled: bool = true`
+- `active: bool = true`, `showPerformanceOverlay: bool = false`, `backgroundColor: Color = 0xFF000000`, `viewportReferenceWidth: double?`, `nativeEdgeExitEnabled: bool = true`
 
 `fromBundledAssets` requires `catalogAsset: String`, `assetPrefix: String`, `firstCompositorHandle: int`, `lastCompositorHandle: int`, and `systemUI: PocketAppConfig`. Additional optional parameters are `reservedAppIds: Set<String> = {}`, `bundle: AssetBundle?`, `nativePolicies: Map<String, PocketAppConfig> = {}`, and `keyboardInputAppIdPrefixes: Set<String> = {}`.
 
 `fromBundledAssets` reserves systemUI.appId, merges the catalog compositor map into systemUI, and calls catalog.applicationsWithNativePolicies. Matching keyboard prefixes enable keyboardInputEnabled only. PocketSystemHostApplication uses the default maxInstances of PocketSystemHost. For remote or debug config use `loadHostConfig` or `hostConfigUrl`. A custom loader owns its I/O cancellation. The SDK cancels its own URL requests.
+
+To keep the same design width across different Flutter window widths, pass `viewportReferenceWidth` once when constructing the container. The root guest lays out at that logical width and derives its logical height from the host surface. Child guests inherit the root scale and lay out to the aspect ratio of their compositor slot. Guest layout, insets and input remain in guest logical coordinates. The default `null` uses the host-sized viewport.
+
+```dart
+PocketSystemHost(
+  systemUI: systemUiConfig,
+  applications: applicationConfigs,
+  viewportReferenceWidth: 375,
+)
+```
 
 Related public types:
 

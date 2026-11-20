@@ -44,7 +44,7 @@ Read-only comparison found an upstream difference. Flutter resizes each child ru
 - Pump the child after resize to process new layout and host requests. Visible background children settle without advancing foreground animation.
 - Do not infer component types from corner UVs, colors, and adjacent rectangles or round all DrawOps. The local rounded-component compensation was removed to avoid false sprite matches and altering translucent fills.
 - Keep corner texture alpha and filtering. Preserve clip and avoid reconstructing rounded geometry to hide seams.
-- Native DrawOps still provide clip. Input is bounded by the native 10-bit coordinate range and root viewport. A child animating in from the bottom exposes input only where it overlaps the canvas.
+- Native DrawOps still provide clip. Input is bounded by the logical viewport. A child animating in from the bottom exposes input only where it overlaps the canvas. The native touch protocol carries coordinates above 1023 through its coordinate sidecar, including Studio wheel contacts and capture cancellation.
 - `renderCurrentFrame` uses the screen DPR rounded up to an integer as a uniform backing-store supersampling factor. FrameResult, input, and screenshot protocol stay logical. `setTransform` maps to backing pixels. Child viewport correction and DPR clarity address separate issues.
 - Browsers may scale the entire iframe through CSS. Record logical, backing, and CSS dimensions and DPR when comparing screen captures with raw canvas pixels.
 
@@ -82,6 +82,33 @@ The results cover the listed cases. Later rebuild of separate `preview_mini_app.
 Keep this record and inline comments in sync if the strategy changes, and retain reproducible negative controls. The observations, implementation, and acceptance evidence have separate scopes.
 
 ## Native Mini App Safe-Area Invalidation
+
+### Shared Reference Width for Flutter System Host
+
+The retained parent's `lib/ui/mini_app_host_page.dart` and
+`lib/core/pocketjs_bundle_runner.dart` establish the viewport and compositor
+transition at the host boundary. Pocket's renderer already projects draw
+operations and maps input, safe areas and reserved regions into that frame.
+The SDK reuses those boundaries for an optional reference width.
+
+For a selected width `R` and a bounded Flutter host size `W × H`, the runtime
+lays out at `R × (H / (W / R))`. The host draws that canvas at scale
+`W / R`. The compositor gives children the same scale, with each child
+laying out to its own slot size. A height change such as keyboard appearance
+keeps the scale fixed while the runtime resizes. Flutter's visible text
+editor uses the same effective size as the guest graphics and pointer
+mapping. The system UI still supplies its own Android or iOS safe areas.
+
+The FunHub ablation removed the page-level login scaling and the extra
+input font sizes. Version 2007's APK matched all 45 original Pocket
+bytecode, asset pack, manifest, metadata and catalog files. A single
+`viewportReferenceWidth: 375` in the FunHub system host enabled the policy.
+On the 1080 × 2340 / 320dpi Android device the Flutter host is 540 × 1170.
+At equal 375-pixel screenshot widths, the welcome CTA starts at row 670
+on the real Android build and iPhone X preview. Its row was 714 on the
+Android per-page build. The login CTA starts at row 487 on both. The
+actual Android build also passed welcome → login → native keyboard text
+entry → return to welcome. [Flutter System Host API](HYBRID_HOST_API.md)
 
 An Android capture on the same date revealed a host geometry issue. The entering child RenderBox moved from bottom to top without parent constraints or OS window metrics changing. Initial `safeArea.top=0` could persist. Measuring on initialization or OS metric changes alone missed this movement.
 

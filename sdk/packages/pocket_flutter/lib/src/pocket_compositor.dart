@@ -16,6 +16,7 @@ final class PocketCompositorSlot {
     required this.bounds,
     required this.visibleClip,
     required this.logicalViewport,
+    this.viewportScale,
     this.visible = true,
     required this.focused,
     required this.drawIndex,
@@ -33,6 +34,9 @@ final class PocketCompositorSlot {
 
   /// Logical size of the parent DrawOps surface.
   final Size logicalViewport;
+
+  /// Uniform projection inherited by the child from an opted-in parent.
+  final double? viewportScale;
 
   /// Whether this DrawOps contains the surface. False slots are retained
   /// offstage so their runtime can resume without replacing its native realm.

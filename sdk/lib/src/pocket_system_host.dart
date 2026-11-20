@@ -334,6 +334,7 @@ final class PocketSystemHostApplication extends StatefulWidget {
     this.active = true,
     this.showPerformanceOverlay = false,
     this.backgroundColor = const Color(0xFF000000),
+    this.viewportReferenceWidth,
     this.nativeEdgeExitEnabled = true,
   }) : _bundledCatalogAssetSource = null;
 
@@ -369,6 +370,7 @@ final class PocketSystemHostApplication extends StatefulWidget {
     bool active = true,
     bool showPerformanceOverlay = false,
     Color backgroundColor = const Color(0xFF000000),
+    double? viewportReferenceWidth,
     bool nativeEdgeExitEnabled = true,
   }) {
     final source = _BundledCatalogAssetSource(
@@ -426,6 +428,7 @@ final class PocketSystemHostApplication extends StatefulWidget {
       active: active,
       showPerformanceOverlay: showPerformanceOverlay,
       backgroundColor: backgroundColor,
+      viewportReferenceWidth: viewportReferenceWidth,
       nativeEdgeExitEnabled: nativeEdgeExitEnabled,
     );
   }
@@ -453,6 +456,7 @@ final class PocketSystemHostApplication extends StatefulWidget {
     bool active = true,
     bool showPerformanceOverlay = false,
     Color backgroundColor = const Color(0xFF000000),
+    double? viewportReferenceWidth,
     bool nativeEdgeExitEnabled = true,
   }) : loadHostConfig = loadHostConfig,
        hostConfigUrl = hostConfigUrl,
@@ -475,6 +479,7 @@ final class PocketSystemHostApplication extends StatefulWidget {
        active = active,
        showPerformanceOverlay = showPerformanceOverlay,
        backgroundColor = backgroundColor,
+       viewportReferenceWidth = viewportReferenceWidth,
        nativeEdgeExitEnabled = nativeEdgeExitEnabled,
        _bundledCatalogAssetSource = source,
        super(key: key);
@@ -509,6 +514,10 @@ final class PocketSystemHostApplication extends StatefulWidget {
   final bool active;
   final bool showPerformanceOverlay;
   final Color backgroundColor;
+
+  /// Optional logical width shared by SystemUI and its child surfaces.
+  /// See [PocketSystemHost.viewportReferenceWidth].
+  final double? viewportReferenceWidth;
 
   /// Whether an unhandled native edge swipe may leave the Pocket container.
   /// Guest-managed page gestures remain enabled when this is false.
@@ -784,6 +793,7 @@ final class _PocketSystemHostApplicationState
                     initialLaunch: widget.initialLaunch,
                     active: effectiveActive,
                     backgroundColor: widget.backgroundColor,
+                    viewportReferenceWidth: widget.viewportReferenceWidth,
                     nativeEdgeExitEnabled: widget.nativeEdgeExitEnabled,
                     nativeExitRoute: nativeExitRoute,
                   )
@@ -798,6 +808,7 @@ final class _PocketSystemHostApplicationState
                     initialLaunch: widget.initialLaunch,
                     active: effectiveActive,
                     backgroundColor: widget.backgroundColor,
+                    viewportReferenceWidth: widget.viewportReferenceWidth,
                     nativeEdgeExitEnabled: widget.nativeEdgeExitEnabled,
                     nativeExitRoute: nativeExitRoute,
                     approveSystemUI:
@@ -932,6 +943,7 @@ final class PocketSystemHost extends StatefulWidget {
     this.active = true,
     this.cacheFirst = false,
     this.backgroundColor = const Color(0xFF000000),
+    this.viewportReferenceWidth,
     this.nativeEdgeExitEnabled = true,
     this.nativeExitRoute,
     @visibleForTesting this.platformUpdateRequestTimeoutForTesting,
@@ -963,6 +975,7 @@ final class PocketSystemHost extends StatefulWidget {
     bool active = true,
     bool cacheFirst = false,
     Color backgroundColor = const Color(0xFF000000),
+    double? viewportReferenceWidth,
     bool nativeEdgeExitEnabled = true,
     TransitionRoute<dynamic>? nativeExitRoute,
   }) {
@@ -1029,6 +1042,7 @@ final class PocketSystemHost extends StatefulWidget {
       active: active,
       cacheFirst: cacheFirst,
       backgroundColor: backgroundColor,
+      viewportReferenceWidth: viewportReferenceWidth,
       nativeEdgeExitEnabled: nativeEdgeExitEnabled,
       nativeExitRoute: nativeExitRoute,
     );
@@ -1090,6 +1104,12 @@ final class PocketSystemHost extends StatefulWidget {
   /// Opaque root fill for the SystemUI surface, including startup and error
   /// states. Child compositor sessions stay transparent and reveal this fill.
   final Color backgroundColor;
+
+  /// Optional reference logical width for the entire SystemUI container.
+  /// SystemUI derives its logical height from the host aspect ratio and
+  /// child compositor surfaces inherit the same projection scale.
+  /// When omitted, each runtime uses the existing host-sized viewport.
+  final double? viewportReferenceWidth;
 
   /// Whether an unhandled native edge swipe may leave this host container.
   /// Pocket guest back gestures are still delivered when this is false.
@@ -1859,6 +1879,7 @@ final class _PocketSystemHostState extends State<PocketSystemHost>
         config: _systemUIInstance.config,
         session: _systemUIInstance.session,
         backgroundColor: widget.backgroundColor,
+        viewportReferenceWidth: widget.viewportReferenceWidth,
         onFirstFrame: () => _onFirstFrame(_systemUIInstance),
         hostSurfaceBuilder: _buildCompositorSurface,
         hostSurfaceResidents: <int>{
@@ -1918,6 +1939,7 @@ final class _PocketSystemHostState extends State<PocketSystemHost>
       enableSceneCapture: instance.session.hasConfiguredCapability(
         _platformImagesCaptureCapability,
       ),
+      viewportScale: slot.viewportScale,
       geometryRevision: instance.compositorGeometryRevision,
       compositorBounds: slot.bounds,
       compositorViewport: slot.logicalViewport,

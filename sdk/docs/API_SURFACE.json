@@ -607,7 +607,7 @@
                 "PocketViewCapture",
                 "PocketViewController"
               ],
-              "sourceSha256": "b1923238c968d32e45d498f3e922b933595695d7ff4d77ef2f0e8ded7e3d2b7d"
+              "sourceSha256": "77fe12451a99ec2fd4fd1cb95faf41bb04180a00c72e70739d97409f23cd2019"
             },
             {
               "from": "packages/pocket_flutter/lib/pocket_flutter.dart",
@@ -620,7 +620,7 @@
                 "PocketCompositorSlot",
                 "PocketHostSurfaceBuilder"
               ],
-              "sourceSha256": "1c72621386b2a9d7c49f78d138c425b66520cc97358ca194f48977b36f87ca85"
+              "sourceSha256": "ac266e89ae65ccda48aa602fea797f601c739984c24d4caa88b6d22ac2e6a51d"
             },
             {
               "from": "packages/pocket_flutter/lib/pocket_flutter.dart",
@@ -1278,7 +1278,7 @@
                 "PocketGuestSession",
                 "PocketGuestSessionState"
               ],
-              "sourceSha256": "def228fcbc3d241079831445cf1e2fe8a550b362c8d174ab0d3ca56dd2a3b98b"
+              "sourceSha256": "940b96a0113c304f134d7c62286019dc339b7281d6181de1db1826a580c3ce4d"
             },
             {
               "from": "lib/pocket_sdk.dart",
@@ -1431,7 +1431,7 @@
                 "PocketSystemLaunchRequest",
                 "PocketSystemLaunchResult"
               ],
-              "sourceSha256": "3570cc630592748a7caeb2a6dcbdf9d1f267973c41e807b58484c3faca4d8ae2"
+              "sourceSha256": "497854e66cc1028257923ac82f66bec5ef26a45dee71d206490bec70a785beb8"
             },
             {
               "from": "lib/pocket_sdk.dart",

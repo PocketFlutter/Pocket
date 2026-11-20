@@ -4695,28 +4695,16 @@ class PreviewSession {
     const focusedSlot = slots.find((slot) => slot.focused);
     const focusedChildRuntime = focusedSlot ? this.childRuntimes.get(focusedSlot.appId) : undefined;
     const focusedChild = focusedChildRuntime?.frame;
-    // Pointer coordinates are carried over the native 10-bit touch wire. A
-    // child can have a larger logical frame than that wire, so expose the
-    // largest root-space rectangle that maps to an accepted child coordinate.
-    // The slot itself is the only source of this geometry; do not infer it
-    // from the flattened child DrawOps.
+    // Intersect the focused child's slot with the visible root frame. A slot
+    // can extend beyond the browser canvas during the mini-app entry animation.
     const inputBounds = (() => {
       if (!focusedSlot || !focusedChild) return undefined;
       const rootWidth = Math.max(1, root.width);
       const rootHeight = Math.max(1, root.height);
-      const childWidth = Math.max(1, focusedChild.width);
-      const childHeight = Math.max(1, focusedChild.height);
-      // The child-to-slot transform must also respect the native ten-bit
-      // pointer wire. Then intersect that usable slot with the root frame:
-      // during the mini-app entry animation a 390x844 slot can begin at
-      // y=701, so advertising its unclipped bottom would route input outside
-      // the browser canvas and violate the preview contract.
-      const usableWidth = focusedSlot.w * Math.min(childWidth, 1023) / childWidth;
-      const usableHeight = focusedSlot.h * Math.min(childHeight, 1023) / childHeight;
       const left = Math.max(0, focusedSlot.x);
       const top = Math.max(0, focusedSlot.y);
-      const right = Math.min(rootWidth, focusedSlot.x + usableWidth);
-      const bottom = Math.min(rootHeight, focusedSlot.y + usableHeight);
+      const right = Math.min(rootWidth, focusedSlot.x + focusedSlot.w);
+      const bottom = Math.min(rootHeight, focusedSlot.y + focusedSlot.h);
       return right > left && bottom > top
         ? { x: left, y: top, w: right - left, h: bottom - top }
         : undefined;
@@ -4906,13 +4894,10 @@ class PreviewSession {
     // A resize can shrink the captured runtime after DOWN. Native validates
     // CANCEL coordinates against the current viewport too, so clamp the
     // original target point without changing its captured runtime/surface.
-    const frame = target.runtime.frame;
+    const { runtime } = target;
     const auxiliary = target.surface === 1 || target.surface === "auxiliary";
-    const viewport = auxiliary ? frame?.auxiliary : frame;
-    const viewportWidth = Number(viewport?.width ?? 1023);
-    const viewportHeight = Number(viewport?.height ?? 1023);
-    const maxX = Number.isFinite(viewportWidth) ? Math.min(1023, Math.max(0, viewportWidth)) : 1023;
-    const maxY = Number.isFinite(viewportHeight) ? Math.min(1023, Math.max(0, viewportHeight)) : 1023;
+    const maxX = auxiliary ? (runtime.frame?.auxiliary?.width ?? point.x) : runtime.viewportWidth;
+    const maxY = auxiliary ? (runtime.frame?.auxiliary?.height ?? point.y) : runtime.viewportHeight;
     const payload: JsonRecord = {
       phase: "cancel",
       id,
