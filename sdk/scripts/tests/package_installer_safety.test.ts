@@ -20,7 +20,8 @@ test("revalidates cached archives and preserves project vendoring and dependency
     writeFileSync(pkg, "{}\n");
     buildPackageRegistry({ sdkRoot, outDir: registry });
     const options = { projectDir, registry, cacheDir, packages: ["looseleaf"] };
-    await installProjectPackages(options);
+    const installed = await installProjectPackages(options);
+    expect(installed.updatedFiles).toContain("package.json");
 
     const entry = readProjectLockfile(projectDir).packages.pocket_looseleaf!;
     const archive = join(cacheDir, `${entry.tarballSha256}.tar.gz`);
@@ -30,9 +31,12 @@ test("revalidates cached archives and preserves project vendoring and dependency
     writeFileSync(custom, "Project customization\n");
     const dependencies = JSON.parse(readFileSync(pkg, "utf8")).dependencies;
     dependencies[entry.jsPackageName!] = "workspace:*";
-    writeFileSync(pkg, JSON.stringify({ dependencies }));
+    const customPackageJson = JSON.stringify({ dependencies });
+    writeFileSync(pkg, customPackageJson);
 
-    await installProjectPackages(options);
+    const reinstalled = await installProjectPackages(options);
+    expect(reinstalled.updatedFiles).not.toContain("package.json");
+    expect(readFileSync(pkg, "utf8")).toBe(customPackageJson);
     expect(createHash("sha256").update(readFileSync(archive)).digest("hex")).toBe(entry.tarballSha256);
     expect(readdirSync(cacheDir).every((path) => path.endsWith(".tar.gz"))).toBe(true);
     expect(readFileSync(custom, "utf8")).toBe("Project customization\n");

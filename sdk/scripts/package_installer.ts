@@ -1032,6 +1032,7 @@ export async function installProjectPackages(options: {
           if (dependencies[entry.jsPackageName] === undefined) {
             dependencies[entry.jsPackageName] = `file:${vendorRelPath}`;
             managedJsDependency = true;
+            updatedFiles.add("package.json");
           } else if (!previous?.vendorPath) {
             managedJsDependency = false;
           }
@@ -1090,8 +1091,10 @@ export async function installProjectPackages(options: {
         newlyInstalled.push(lockEntry);
       }
 
-      pkgJson.dependencies = dependencies;
-      change.write(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + "\n");
+      if (updatedFiles.has("package.json")) {
+        pkgJson.dependencies = dependencies;
+        change.write(pkgJsonPath, JSON.stringify(pkgJson, null, 2) + "\n");
+      }
 
       const hostSync = syncFlutterHostFromInstalledPackages(
         projectDir,
