@@ -111,6 +111,32 @@ import {
   type CosTargetConfig,
   type EditorProjectCosConfig,
 } from "../packages/pocket_cos/src/index.ts";
+import {
+  buildPlatformEndpointsDocument,
+  createR2Client,
+  inspectLocalCloudflareEnvironment,
+  normalizeCloudflarePlatforms,
+  normalizeR2KeyPrefix,
+  publishStudioVersionToCloudflareMatrix,
+  removeWorkspaceCloudflareProfile,
+  resolveCloudflareTarget,
+  resolveLocalCloudflareCredentials,
+  upsertWorkspaceCloudflareProfile,
+  validateCloudflareAccountId,
+  validateCloudflareProfileId,
+  validateCloudflareRouteMatrix,
+  validateCloudflareZoneId,
+  validateR2Bucket,
+  type CloudflareStudioPublishSummary,
+  type EditorProjectCloudflareConfig,
+  type ProjectCloudflareRouteConfig,
+} from "../packages/pocket_cloudflare/src/index.ts";
+import {
+  installProjectPackages,
+  loadRegistryIndex,
+  readProjectLockfile,
+  removeProjectPackages,
+} from "../scripts/package_installer.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const projectIdPattern = /^[a-z][a-z0-9-]{0,47}$/;
@@ -140,6 +166,7 @@ export type EditorConfig = {
   template: "app" | "game";
   reusePublishedPackages?: string[];
   cos?: EditorProjectCosConfig;
+  cloudflare?: EditorProjectCloudflareConfig;
   ecosystemModules?: EcosystemModuleId[];
   previewHostConfig?: boolean;
 };
@@ -277,6 +304,21 @@ export type StartEditorOptions = {
     allowInsecureHttpForTesting?: boolean;
     endpointOverride?: string;
   };
+  /** Optional Cloudflare R2 / Zone API inspection & transport overrides for tests. */
+  cloudflareOptions?: {
+    env?: NodeJS.ProcessEnv;
+    homeDir?: string;
+    wranglerConfigPath?: string;
+    fetchImpl?: typeof fetch;
+    allowInsecureHttpForTesting?: boolean;
+    endpointOverride?: string;
+    apiBaseOriginOverride?: string;
+  };
+  /** Optional PocketFlutter package registry overrides for tests. */
+  packageRegistryOptions?: {
+    registry?: string;
+    fetchImpl?: typeof fetch;
+  };
   /** Used by service tests; production always uses the real runner below. */
   buildRunner?: BuildRunner;
 };
@@ -294,6 +336,8 @@ type EditorState = {
   publish?: EditorStatus["publish"];
   cosPublish?: Partial<Record<VersionSlot, CosPublishSummary>>;
   cosPublishedReleaseIds?: string[];
+  cloudflarePublish?: Partial<Record<VersionSlot, CloudflareStudioPublishSummary>>;
+  cloudflarePublishedReleaseIds?: string[];
   /** Stable identity of a root-catalog source registered as this project. */
   sourceProjectIdentity?: string;
   novelBackup?: { intervalMinutes: number; lastRunAt?: string; lastBackupId?: string; error?: string };
@@ -1226,6 +1270,37 @@ function validateConfig(id: string, input: Record<string, unknown>): EditorConfi
       ...(typeof rawCos.publicBaseUrl === "string" ? { publicBaseUrl: rawCos.publicBaseUrl.trim() } : {}),
     };
   }
+  if (isObject(input.cloudflare)) {
+    const rawCf = input.cloudflare;
+    const rawTargets = Array.isArray(rawCf.targets) ? rawCf.targets : [];
+    const cleanTargets: ProjectCloudflareRouteConfig[] = [];
+    for (const item of rawTargets) {
+      if (!isObject(item)) continue;
+      const profileId = typeof item.profileId === "string" ? item.profileId.trim() : "";
+      const bucket = typeof item.bucket === "string" ? item.bucket.trim() : "";
+      const publicBaseUrl = typeof item.publicBaseUrl === "string" ? item.publicBaseUrl.trim() : "";
+      if (!profileId || !bucket) continue;
+      cleanTargets.push({
+        profileId,
+        ...(typeof item.accountId === "string" && item.accountId.trim() ? { accountId: item.accountId.trim().toLowerCase() } : {}),
+        bucket,
+        ...(typeof item.endpoint === "string" && item.endpoint.trim() ? { endpoint: item.endpoint.trim() } : {}),
+        ...(typeof item.keyPrefix === "string" && item.keyPrefix.trim() ? { keyPrefix: normalizeR2KeyPrefix(item.keyPrefix) } : {}),
+        publicBaseUrl,
+        platforms: normalizeCloudflarePlatforms(item.platforms as string[] | string | undefined),
+        role: item.role === "fallback" ? "fallback" : "primary",
+        ...(typeof item.zoneId === "string" && item.zoneId.trim() ? { zoneId: item.zoneId.trim().toLowerCase() } : {}),
+        ...(typeof item.pagesProjectName === "string" && item.pagesProjectName.trim() ? { pagesProjectName: item.pagesProjectName.trim() } : {}),
+        ...(typeof item.workerScriptName === "string" && item.workerScriptName.trim() ? { workerScriptName: item.workerScriptName.trim() } : {}),
+      });
+    }
+    config.cloudflare = {
+      enabled: Boolean(rawCf.enabled),
+      ...(rawCf.syncOnPublish !== undefined ? { syncOnPublish: Boolean(rawCf.syncOnPublish) } : {}),
+      ...(rawCf.purgeCacheOnPublish !== undefined ? { purgeCacheOnPublish: Boolean(rawCf.purgeCacheOnPublish) } : {}),
+      targets: cleanTargets,
+    };
+  }
   return config;
 }
 
@@ -1398,6 +1473,9 @@ async function writeConfig(projectDir: string, config: EditorConfig): Promise<vo
   if (config.cos === undefined && isObject(editor.cos)) {
     nextEditor.cos = editor.cos;
   }
+  if (config.cloudflare === undefined && isObject(editor.cloudflare)) {
+    nextEditor.cloudflare = editor.cloudflare;
+  }
   if (config.ecosystemModules && config.ecosystemModules.length > 0) {
     nextEditor.ecosystemModules = config.ecosystemModules;
     pocket.surfaces = {
@@ -1476,6 +1554,13 @@ async function writeProjectCosConfig(projectDir: string, cos: EditorProjectCosCo
   safeProjectFile(projectDir, "pocket.json", { allowConfig: true });
   const editor = await readJsonFile<Record<string, unknown>>(editorPath, {});
   await writeProjectFile(projectDir, "editor.json", JSON.stringify({ ...editor, cos }, null, 2) + "\n", { allowConfig: true });
+}
+
+async function writeProjectCloudflareConfig(projectDir: string, cloudflare: EditorProjectCloudflareConfig): Promise<void> {
+  const editorPath = safeProjectFile(projectDir, "editor.json", { allowConfig: true });
+  safeProjectFile(projectDir, "pocket.json", { allowConfig: true });
+  const editor = await readJsonFile<Record<string, unknown>>(editorPath, {});
+  await writeProjectFile(projectDir, "editor.json", JSON.stringify({ ...editor, cloudflare }, null, 2) + "\n", { allowConfig: true });
 }
 
 async function createProject(workspace: Workspace, id: string, input: Record<string, unknown>, destination?: string): Promise<EditorConfig> {
@@ -4536,7 +4621,7 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
     }
     return deviceUpdates.origin;
   };
-  const versionBackendSnapshot = async (id: string, state: EditorState, config: EditorConfig) => {
+  const versionBackendSnapshot = async (id: string, state: EditorState, config: EditorConfig, loopback = true) => {
     let origin = `http://127.0.0.1:${server.port}`;
     let error: string | undefined;
     try {
@@ -4691,7 +4776,8 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
       current: { ...history.current },
       history: historyEntries,
       ...(appConfigUrl ? { appConfigUrl } : {}),
-      cos: await projectCosSnapshot(id, config, state),
+      cos: await projectCosSnapshot(id, config, state, loopback),
+      cloudflare: await projectCloudflareSnapshot(id, config, state, loopback),
     };
   };
 
@@ -4703,13 +4789,15 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
     ...(options.cosOptions?.coscmdPath ? { coscmdPath: options.cosOptions.coscmdPath } : {}),
   });
 
-  const projectCosSnapshot = async (_id: string, config: EditorConfig, state: EditorState) => {
-    const local = inspectLocalCosEnvironment(localCosLookupOptions());
+  const projectCosSnapshot = async (_id: string, config: EditorConfig, state: EditorState, loopback = true) => {
+    const local = loopback
+      ? inspectLocalCosEnvironment(localCosLookupOptions())
+      : { available: false, source: "none" as const, discoveredBuckets: [] };
     const effectiveConfig: EditorProjectCosConfig = {
       enabled: Boolean(config.cos?.enabled),
       syncOnPublish: Boolean(config.cos?.syncOnPublish),
-      bucket: config.cos?.bucket ?? local.defaultBucket?.bucket ?? "",
-      region: config.cos?.region ?? local.defaultBucket?.region ?? "",
+      bucket: config.cos?.bucket ?? (loopback ? local.defaultBucket?.bucket : undefined) ?? "",
+      region: config.cos?.region ?? (loopback ? local.defaultBucket?.region : undefined) ?? "",
       keyPrefix: config.cos?.keyPrefix ?? "",
       publicBaseUrl: config.cos?.publicBaseUrl ?? "",
     };
@@ -4821,6 +4909,205 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
     await persistProjectState(id, state);
     return summary;
   };
+
+  const localCloudflareLookupOptions = () => ({
+    workspaceKeysDir: workspace.keys,
+    ...(options.cloudflareOptions?.env ? { env: options.cloudflareOptions.env } : {}),
+    ...(options.cloudflareOptions?.homeDir ? { homeDir: options.cloudflareOptions.homeDir } : {}),
+    ...(options.cloudflareOptions?.wranglerConfigPath ? { wranglerConfigPath: options.cloudflareOptions.wranglerConfigPath } : {}),
+  });
+
+  const projectCloudflareSnapshot = async (_id: string, config: EditorConfig, state: EditorState, loopback = true) => {
+    const local = loopback
+      ? inspectLocalCloudflareEnvironment(localCloudflareLookupOptions())
+      : { available: false, source: "none" as const, profiles: [] };
+    const effectiveConfig: EditorProjectCloudflareConfig = {
+      enabled: Boolean(config.cloudflare?.enabled),
+      syncOnPublish: Boolean(config.cloudflare?.syncOnPublish),
+      purgeCacheOnPublish: config.cloudflare?.purgeCacheOnPublish !== false,
+      targets: Array.isArray(config.cloudflare?.targets) ? config.cloudflare!.targets : [],
+    };
+    return {
+      local,
+      config: effectiveConfig,
+      published: state.cloudflarePublish ?? {},
+    };
+  };
+
+  const buildProjectPackagesSnapshot = async (id: string) => {
+    const pDir = projectDir(id);
+    const loaded = await loadRegistryIndex({
+      registry: options.packageRegistryOptions?.registry,
+      sdkRoot: root,
+      fetchImpl: options.packageRegistryOptions?.fetchImpl,
+    });
+    const lock = readProjectLockfile(pDir);
+    const pkgJsonPath = join(pDir, "package.json");
+    const pkgDeps = existsSync(pkgJsonPath)
+      ? ((await readJsonFile<Record<string, unknown>>(pkgJsonPath, {})).dependencies as Record<string, string> | undefined) ?? {}
+      : {};
+    const flutterPubspecPath = join(pDir, "flutter/pubspec.yaml");
+    const flutterPubspecText = existsSync(flutterPubspecPath)
+      ? await readFile(flutterPubspecPath, "utf8")
+      : "";
+
+    const items = loaded.index.packages.map((entry) => {
+      const locked = lock.packages[entry.slug];
+      const preinstalledCore = entry.slug === "pocket_ui";
+      const preinstalledDart = Boolean(
+        entry.dartPackageName &&
+          new RegExp(`^  ${entry.dartPackageName}:`, "m").test(flutterPubspecText),
+      );
+      const installed = Boolean(locked || preinstalledCore || preinstalledDart);
+      return {
+        slug: entry.slug,
+        version: locked?.version ?? entry.version,
+        kind: entry.kind,
+        category: entry.category,
+        jsPackageName: entry.jsPackageName,
+        dartPackageName: entry.dartPackageName,
+        shortAliases: entry.shortAliases,
+        description: entry.description,
+        dependencies: entry.dependencies,
+        platforms: entry.platforms,
+        requiresHostRebuild: entry.requiresHostRebuild,
+        installed,
+        locked: Boolean(locked),
+        coreLocked: entry.slug === "pocket_ui",
+      };
+    });
+
+    return {
+      registrySource: loaded.baseLocation,
+      sdkVersion: loaded.index.sdkVersion,
+      totalPackages: items.length,
+      installedCount: items.filter((item) => item.installed).length,
+      packages: items,
+      lock,
+    };
+  };
+
+  const executeCloudflarePublish = async (
+    id: string,
+    config: EditorConfig,
+    state: EditorState,
+    slot: VersionSlot,
+  ): Promise<CloudflareStudioPublishSummary> => {
+    const history = await readVersionHistory(versionHistoryPath(workspace.states, id));
+    const entry = history.entries.find(
+      (candidate) => candidate.hostVersion === updateHostVersion && candidate.slot === slot,
+    );
+    if (!entry) {
+      const err = new Error("请先发布本地测试版/稳定版，再同步至 Cloudflare R2");
+      (err as unknown as { status: number }).status = 409;
+      throw err;
+    }
+    const rawTargets = config.cloudflare?.targets ?? [];
+    if (rawTargets.length === 0) {
+      const err = new Error("请至少配置一个 Cloudflare 目标账户路由");
+      (err as unknown as { status: number }).status = 400;
+      throw err;
+    }
+
+    const reusedEntries: Array<{ ownerProjectId: string; entry: PublishedVersion }> = [];
+    if (entry.reusedPackages?.length) {
+      const seenOwnerRelease = new Set<string>();
+      for (const reused of entry.reusedPackages) {
+        const key = `${reused.ownerProjectId}\n${reused.releaseId}`;
+        if (seenOwnerRelease.has(key)) continue;
+        seenOwnerRelease.add(key);
+        const ownerHistory = await readVersionHistory(
+          versionHistoryPath(workspace.states, reused.ownerProjectId),
+        );
+        const ownerEntry = ownerHistory.entries.find(
+          (candidate) => candidate.releaseId === reused.releaseId,
+        );
+        if (!ownerEntry) {
+          throw new Error(
+            `Reused package ${reused.id} release ${reused.releaseId} was not found in project ${reused.ownerProjectId}`,
+          );
+        }
+        reusedEntries.push({ ownerProjectId: reused.ownerProjectId, entry: ownerEntry });
+      }
+    }
+
+    const publishedIds = new Set(state.cloudflarePublishedReleaseIds ?? []);
+    const previouslyPublishedEntries = history.entries.filter(
+      (candidate) =>
+        candidate.hostVersion === updateHostVersion &&
+        candidate.slot === slot &&
+        publishedIds.has(candidate.releaseId),
+    );
+
+    const lookupOpts = localCloudflareLookupOptions();
+    const clients = rawTargets.map((route) => {
+      const { credentials } = resolveLocalCloudflareCredentials(
+        { profileId: route.profileId, accountId: route.accountId },
+        lookupOpts,
+      );
+      return createR2Client({
+        target: {
+          profileId: route.profileId,
+          accountId: route.accountId || credentials.accountId,
+          bucket: route.bucket,
+          endpoint: options.cloudflareOptions?.endpointOverride || route.endpoint,
+          keyPrefix: route.keyPrefix,
+          publicBaseUrl: route.publicBaseUrl,
+          platforms: route.platforms,
+          role: route.role ?? "primary",
+          zoneId: route.zoneId,
+          pagesProjectName: route.pagesProjectName,
+          workerScriptName: route.workerScriptName,
+          apiBaseOrigin: options.cloudflareOptions?.apiBaseOriginOverride,
+          allowInsecureHttpForTesting: Boolean(
+            options.cloudflareOptions?.allowInsecureHttpForTesting || route.allowInsecureHttpForTesting,
+          ),
+        },
+        credentials,
+        ...(options.cloudflareOptions?.fetchImpl ? { fetchImpl: options.cloudflareOptions.fetchImpl } : {}),
+      });
+    });
+
+    const { key } = await editorUpdateTrust(workspace, id);
+    const pDir = projectDir(id);
+    const flutterAssetsDir = join(pDir, "flutter/assets");
+    const writeEndpointsPath = existsSync(join(pDir, "flutter/pubspec.yaml"))
+      ? join(flutterAssetsDir, "pocket-endpoints.json")
+      : undefined;
+
+    const summary = await publishStudioVersionToCloudflareMatrix({
+      clients,
+      updatesDir: workspace.updates,
+      projectId: id,
+      rootAppId: config.appId,
+      entry,
+      ...(reusedEntries.length > 0 ? { reusedEntries } : {}),
+      ...(previouslyPublishedEntries.length > 0 ? { previouslyPublishedEntries } : {}),
+      publicKey: key.publicKeyBase64,
+      publicKeyBase64: key.publicKeyBase64,
+      keyId: key.keyId,
+      purgeCache: config.cloudflare?.purgeCacheOnPublish !== false,
+      ...(writeEndpointsPath ? { writeEndpointsPath } : {}),
+    });
+
+    state.cloudflarePublish = {
+      ...(state.cloudflarePublish ?? {}),
+      [slot]: summary,
+    };
+    const nextReleaseIds = new Set<string>([
+      ...(state.cloudflarePublishedReleaseIds ?? []),
+      entry.releaseId,
+      ...reusedEntries.map((item) => item.entry.releaseId),
+    ]);
+    state.cloudflarePublishedReleaseIds = [...nextReleaseIds];
+    pushLog(
+      state,
+      `cloudflare published (${slot}): ${summary.version}+${summary.build} across ${summary.targets.length} account(s) -> ${summary.appConfigUrl} (uploaded=${summary.uploadedFiles}, skipped=${summary.skippedFiles})`,
+    );
+    await persistProjectState(id, state);
+    return summary;
+  };
+
   const devices = createEditorDeviceManager({
     projectDirectory: (id) => projectDir(asProjectId(id)),
     flutterDirectory: (id) => id === workspace.projectId && flutterRoot ? resolve(flutterRoot) : workspace.projectSources?.get(id)?.flutterRoot,
@@ -5025,6 +5312,19 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
         }
         if (path === "/api/ecosystem/modules" && method === "GET") {
           return json({ modules: ECOSYSTEM_MODULES, profiles: previewDevice.profiles });
+        }
+        if (path === "/api/packages/catalog" && method === "GET") {
+          const loaded = await loadRegistryIndex({
+            registry: options.packageRegistryOptions?.registry,
+            sdkRoot: root,
+            fetchImpl: options.packageRegistryOptions?.fetchImpl,
+          });
+          return json({
+            registrySource: loaded.baseLocation,
+            sdkVersion: loaded.index.sdkVersion,
+            totalPackages: loaded.index.totalPackages,
+            packages: loaded.index.packages,
+          });
         }
         if (path === "/novel/live2d-core.js" && method === "GET") return serveNovelLive2dCore();
         if (path === "/health" && method === "GET") return json({
@@ -5341,6 +5641,100 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
               );
               await persistProjectState(id, state);
               return json({ config, ...result, status: publicStatus(id, state) });
+            }
+            return failure("method not allowed", 405);
+          }
+          if (parts[3] === "packages" && parts.length === 4) {
+            if (method === "GET") {
+              return json(await buildProjectPackagesSnapshot(id));
+            }
+            if (method === "POST") {
+              if (!loopback) return failure("forbidden: local loopback required", 403);
+              if (state.busy) return failure("Build in progress; retry when the build completes", 409);
+              await validateProjectInputTree(projectDir(id));
+              const body = await parseJsonBody(request);
+              const action = body.action === "remove" ? "remove" : "add";
+              const rawList = Array.isArray(body.packages)
+                ? body.packages
+                : typeof body.package === "string"
+                  ? [body.package]
+                  : [];
+              const pkgSpecs = rawList
+                .filter((item): item is string => typeof item === "string")
+                .map((s) => s.trim())
+                .filter(Boolean);
+              if (pkgSpecs.length === 0) {
+                return failure("packages list is required", 400);
+              }
+              const pDir = projectDir(id);
+              let installed: unknown[] = [];
+              let removed: string[] = [];
+              let requiresHostRebuild = false;
+              let updatedFiles: string[] = [];
+              if (action === "remove") {
+                const res = removeProjectPackages({
+                  projectDir: pDir,
+                  packages: pkgSpecs,
+                });
+                removed = res.removed;
+                updatedFiles = res.updatedFiles;
+              } else {
+                const pkgJsonPath = join(pDir, "package.json");
+                if (!existsSync(pkgJsonPath)) {
+                  const cfg = await loadConfig(pDir, id);
+                  const safePkgName =
+                    (cfg.name || id)
+                      .toLowerCase()
+                      .replace(/[^a-z0-9._-]+/g, "-")
+                      .replace(/^-+|-+$/g, "") || id;
+                  const pocketUiRel = relative(pDir, join(root, "packages/pocket_ui")).replaceAll("\\", "/");
+                  await writeFile(
+                    pkgJsonPath,
+                    JSON.stringify(
+                      {
+                        name: safePkgName,
+                        version: cfg.version || "0.1.0",
+                        private: true,
+                        type: "module",
+                        dependencies: {
+                          "@pocket/ui": `file:${pocketUiRel.startsWith(".") ? pocketUiRel : `./${pocketUiRel}`}`,
+                        },
+                      },
+                      null,
+                      2,
+                    ) + "\n",
+                    "utf8",
+                  );
+                }
+                const res = await installProjectPackages({
+                  projectDir: pDir,
+                  packages: pkgSpecs,
+                  registry: options.packageRegistryOptions?.registry,
+                  sdkRoot: root,
+                  fetchImpl: options.packageRegistryOptions?.fetchImpl,
+                });
+                installed = res.installed;
+                requiresHostRebuild = res.requiresHostRebuild;
+                updatedFiles = res.updatedFiles;
+              }
+              state.revision += 1;
+              state.error = undefined;
+              state.publish = undefined;
+              pushLog(
+                state,
+                `packages ${action} (${pkgSpecs.join(", ")}): revision ${state.revision}`,
+              );
+              await saveState(workspace, id, state);
+              return json({
+                ok: true,
+                action,
+                installed,
+                removed,
+                requiresHostRebuild,
+                updatedFiles,
+                packagesSnapshot: await buildProjectPackagesSnapshot(id),
+                status: publicStatus(id, state),
+              });
             }
             return failure("method not allowed", 405);
           }
@@ -5987,12 +6381,13 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
           }
           if (parts[3] === "versions" && method === "GET") {
             const config = await loadConfig(projectDir(id), id);
-            return json(await versionBackendSnapshot(id, state, config));
+            return json(await versionBackendSnapshot(id, state, config, loopback));
           }
           if (parts[3] === "cos") {
+            if (!loopback) return failure("forbidden: local loopback required", 403);
             const config = await loadConfig(projectDir(id), id);
             if (parts.length === 4 && method === "GET") {
-              return json(await projectCosSnapshot(id, config, state));
+              return json(await projectCosSnapshot(id, config, state, loopback));
             }
             if (parts.length === 4 && method === "PUT") {
               const body = await parseJsonBody(request);
@@ -6157,6 +6552,249 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
             }
             return failure("not found", 404);
           }
+          if (parts[3] === "cloudflare") {
+            if (!loopback) return failure("forbidden: local loopback required", 403);
+            const config = await loadConfig(projectDir(id), id);
+            if (parts.length === 4 && method === "GET") {
+              return json(await projectCloudflareSnapshot(id, config, state, loopback));
+            }
+            if (parts.length === 4 && method === "PUT") {
+              const body = await parseJsonBody(request);
+              if (typeof body.removeProfileId === "string" && body.removeProfileId.trim()) {
+                removeWorkspaceCloudflareProfile(workspace.keys, body.removeProfileId.trim());
+              }
+              if (isObject(body.upsertProfile)) {
+                const p = body.upsertProfile;
+                const profileId = validateCloudflareProfileId(String(p.profileId ?? ""));
+                const accountId = validateCloudflareAccountId(String(p.accountId ?? ""));
+                const accessKeyId = typeof p.accessKeyId === "string" ? p.accessKeyId.trim() : "";
+                const secretAccessKey = typeof p.secretAccessKey === "string" ? p.secretAccessKey.trim() : "";
+                if (!accessKeyId || !secretAccessKey) {
+                  return failure("保存 Cloudflare 账户需要填写 Access Key ID 与 Secret Access Key", 400);
+                }
+                upsertWorkspaceCloudflareProfile(workspace.keys, {
+                  profileId,
+                  accountId,
+                  ...(typeof p.label === "string" && p.label.trim() ? { label: p.label.trim() } : {}),
+                  accessKeyId,
+                  secretAccessKey,
+                  ...(typeof p.sessionToken === "string" && p.sessionToken.trim() ? { sessionToken: p.sessionToken.trim() } : {}),
+                  ...(typeof p.apiToken === "string" && p.apiToken.trim() ? { apiToken: p.apiToken.trim() } : {}),
+                  setDefault: p.setDefault === true,
+                });
+              }
+
+              const local = inspectLocalCloudflareEnvironment(localCloudflareLookupOptions());
+              const hasConfigUpdate =
+                body.enabled !== undefined ||
+                body.syncOnPublish !== undefined ||
+                body.purgeCacheOnPublish !== undefined ||
+                Array.isArray(body.targets);
+
+              if (hasConfigUpdate) {
+                const enabled =
+                  body.enabled !== undefined
+                    ? Boolean(body.enabled)
+                    : Boolean(config.cloudflare?.enabled);
+                const syncOnPublish =
+                  body.syncOnPublish !== undefined
+                    ? Boolean(body.syncOnPublish)
+                    : Boolean(config.cloudflare?.syncOnPublish);
+                const purgeCacheOnPublish =
+                  body.purgeCacheOnPublish !== undefined
+                    ? Boolean(body.purgeCacheOnPublish)
+                    : config.cloudflare?.purgeCacheOnPublish !== false;
+                const rawTargets = Array.isArray(body.targets)
+                  ? body.targets
+                  : (config.cloudflare?.targets ?? []);
+
+                const cleanTargets: ProjectCloudflareRouteConfig[] = [];
+                for (const item of rawTargets) {
+                  if (!isObject(item)) continue;
+                  const profileId = validateCloudflareProfileId(String(item.profileId ?? ""));
+                  const matchedProfile = local.profiles.find((pr) => pr.profileId === profileId);
+                  const rawAcc =
+                    typeof item.accountId === "string" && item.accountId.trim()
+                      ? item.accountId.trim()
+                      : (matchedProfile?.accountId ?? "");
+                  const accountId = rawAcc ? validateCloudflareAccountId(rawAcc) : undefined;
+                  const bucket = validateR2Bucket(String(item.bucket ?? ""));
+                  const keyPrefix =
+                    typeof item.keyPrefix === "string" && item.keyPrefix.trim()
+                      ? normalizeR2KeyPrefix(item.keyPrefix)
+                      : undefined;
+                  const publicBaseUrl =
+                    typeof item.publicBaseUrl === "string" ? item.publicBaseUrl.trim() : "";
+                  if (!publicBaseUrl) {
+                    return failure(`目标存储桶 ${bucket} 需要填写公开访问域名 (publicBaseUrl)`, 400);
+                  }
+                  const platforms = normalizeCloudflarePlatforms(
+                    item.platforms as string[] | string | undefined,
+                  );
+                  const role = item.role === "fallback" ? "fallback" : "primary";
+                  const zoneId =
+                    typeof item.zoneId === "string" && item.zoneId.trim()
+                      ? validateCloudflareZoneId(item.zoneId)
+                      : undefined;
+                  cleanTargets.push({
+                    profileId,
+                    ...(accountId ? { accountId } : {}),
+                    bucket,
+                    ...(keyPrefix ? { keyPrefix } : {}),
+                    publicBaseUrl,
+                    platforms,
+                    role,
+                    ...(zoneId ? { zoneId } : {}),
+                    ...(typeof item.pagesProjectName === "string" && item.pagesProjectName.trim()
+                      ? { pagesProjectName: item.pagesProjectName.trim() }
+                      : {}),
+                    ...(typeof item.workerScriptName === "string" && item.workerScriptName.trim()
+                      ? { workerScriptName: item.workerScriptName.trim() }
+                      : {}),
+                  });
+                }
+
+                let resolvedTargetsForEndpoints: ReturnType<typeof resolveCloudflareTarget>[] = [];
+                if (enabled || cleanTargets.length > 0) {
+                  if (enabled && !local.available) {
+                    return failure("未检测到可用的本机 Cloudflare 账户密钥，请先添加至少一个账户", 400);
+                  }
+                  if (enabled && cleanTargets.length === 0) {
+                    return failure("开启 Cloudflare 发布前请至少添加一条账户 × 平台路由规则", 400);
+                  }
+                  if (enabled) {
+                    const knownProfileIds = new Set(local.profiles.map((p) => p.profileId));
+                    for (const t of cleanTargets) {
+                      if (!knownProfileIds.has(t.profileId)) {
+                        return failure(`未找到 Cloudflare 账户凭据 "${t.profileId}"，请先保存对应账户密钥`, 400);
+                      }
+                    }
+                  }
+                  if (cleanTargets.length > 0) {
+                    resolvedTargetsForEndpoints = cleanTargets.map((t) =>
+                      resolveCloudflareTarget({
+                        ...t,
+                        accountId:
+                          t.accountId ||
+                          local.profiles.find((p) => p.profileId === t.profileId)?.accountId ||
+                          "0".repeat(32),
+                        allowInsecureHttpForTesting: Boolean(
+                          options.cloudflareOptions?.allowInsecureHttpForTesting,
+                        ),
+                      }),
+                    );
+                    validateCloudflareRouteMatrix(resolvedTargetsForEndpoints);
+                  }
+                }
+
+                const pDir = projectDir(id);
+                const nextCfConfig: EditorProjectCloudflareConfig = {
+                  enabled,
+                  syncOnPublish,
+                  purgeCacheOnPublish,
+                  targets: cleanTargets,
+                };
+                await writeProjectCloudflareConfig(pDir, nextCfConfig);
+
+                if (resolvedTargetsForEndpoints.length > 0 && existsSync(join(pDir, "flutter/pubspec.yaml"))) {
+                  const { key } = await editorUpdateTrust(workspace, id);
+                  const endpointsDoc = buildPlatformEndpointsDocument({
+                    targets: resolvedTargetsForEndpoints,
+                    appId: config.appId,
+                    hostVersion: updateHostVersion,
+                    packageVersion: config.version,
+                    slot: "stable",
+                    keyId: key.keyId,
+                    publicKey: key.publicKeyBase64,
+                  });
+                  await mkdir(join(pDir, "flutter", "assets"), { recursive: true });
+                  await writeFile(
+                    join(pDir, "flutter", "assets", "pocket-endpoints.json"),
+                    JSON.stringify(endpointsDoc, null, 2) + "\n",
+                    "utf8",
+                  );
+                }
+
+                pushLog(
+                  state,
+                  `cloudflare config saved: enabled=${enabled}, targets=${cleanTargets.length}`,
+                );
+                await persistProjectState(id, state);
+              }
+
+              const updatedConfig = await loadConfig(projectDir(id), id);
+              return json(await projectCloudflareSnapshot(id, updatedConfig, state));
+            }
+            if (parts.length === 5 && parts[4] === "check" && method === "POST") {
+              const body = await parseJsonBody(request);
+              const lookupOpts = localCloudflareLookupOptions();
+              const rawTarget = isObject(body.target) ? body.target : body;
+              const profileId = typeof rawTarget.profileId === "string" ? rawTarget.profileId.trim() : undefined;
+              const rawAccountId = typeof rawTarget.accountId === "string" ? rawTarget.accountId.trim() : undefined;
+              const { profileId: resolvedProfileId, credentials } = resolveLocalCloudflareCredentials(
+                { profileId, accountId: rawAccountId },
+                lookupOpts,
+              );
+              const bucket = validateR2Bucket(String(rawTarget.bucket ?? ""));
+              const keyPrefix =
+                typeof rawTarget.keyPrefix === "string" && rawTarget.keyPrefix.trim()
+                  ? normalizeR2KeyPrefix(rawTarget.keyPrefix)
+                  : undefined;
+              const publicBaseUrl =
+                typeof rawTarget.publicBaseUrl === "string" && rawTarget.publicBaseUrl.trim()
+                  ? rawTarget.publicBaseUrl.trim()
+                  : undefined;
+              const client = createR2Client({
+                target: {
+                  profileId: resolvedProfileId,
+                  accountId: rawAccountId || credentials.accountId,
+                  bucket,
+                  endpoint: options.cloudflareOptions?.endpointOverride,
+                  keyPrefix,
+                  publicBaseUrl,
+                  allowInsecureHttpForTesting: Boolean(
+                    options.cloudflareOptions?.allowInsecureHttpForTesting,
+                  ),
+                },
+                credentials,
+                ...(options.cloudflareOptions?.fetchImpl ? { fetchImpl: options.cloudflareOptions.fetchImpl } : {}),
+              });
+              await client.checkAccess();
+              return json({
+                ok: true,
+                profileId: resolvedProfileId,
+                bucket: client.target.bucket,
+                publicBaseUrl: client.target.publicBaseUrl,
+                checkedAt: now(),
+              });
+            }
+            if (parts.length === 5 && parts[4] === "publish" && method === "POST") {
+              const body = await parseJsonBody(request);
+              if (body.channel !== undefined && !["test", "release"].includes(body.channel as string)) {
+                return failure("publish channel must be test or release", 400);
+              }
+              if (state.busy) return failure("build is still running", 409);
+              if (!config.cloudflare?.enabled) {
+                return failure("请先开启并保存 Cloudflare 多账户发布配置", 400);
+              }
+              const channel = body.channel === "release" ? "release" : "test";
+              const slot = versionSlot(channel);
+              const cfLockKey = `cf:${updateHostVersion}/${config.appId}/${slot}`;
+              if (publishSlots.has(cfLockKey)) {
+                return failure("another Cloudflare publish is using this package slot; retry when it completes", 409);
+              }
+              publishSlots.add(cfLockKey);
+              releasePublishSlot = () => publishSlots.delete(cfLockKey);
+              const summary = await executeCloudflarePublish(id, config, state, slot);
+              return json({
+                ok: true,
+                cloudflarePublish: summary,
+                status: publicStatus(id, state),
+                cloudflare: await projectCloudflareSnapshot(id, config, state),
+              });
+            }
+            return failure("not found", 404);
+          }
           if (parts[3] === "package-offline" && method === "POST") {
             if (state.busy) return failure("build is still running", 409);
             const config = await loadConfig(projectDir(id), id);
@@ -6248,6 +6886,27 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
                 }
               }
             }
+            let cloudflarePublish: CloudflareStudioPublishSummary | undefined;
+            let cloudflareError: string | undefined;
+            if (config.cloudflare?.enabled && config.cloudflare?.syncOnPublish) {
+              const cfLockKey = `cf:${updateHostVersion}/${config.appId}/${publishSlot}`;
+              if (publishSlots.has(cfLockKey)) {
+                cloudflareError = "another Cloudflare publish is using this package slot; retry when it completes";
+                pushLog(state, `Cloudflare auto-sync skipped: ${cloudflareError}`);
+                await persistProjectState(id, state);
+              } else {
+                publishSlots.add(cfLockKey);
+                try {
+                  cloudflarePublish = await executeCloudflarePublish(id, config, state, publishSlot);
+                } catch (error) {
+                  cloudflareError = error instanceof Error ? error.message : String(error);
+                  pushLog(state, `Cloudflare auto-sync failed: ${cloudflareError}`);
+                  await persistProjectState(id, state);
+                } finally {
+                  publishSlots.delete(cfLockKey);
+                }
+              }
+            }
             return json({
               status: publicStatus(id, state),
               manifest: result.envelope,
@@ -6260,6 +6919,8 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
               ...(state.publish?.reusedPackages ? { reusedPackages: state.publish.reusedPackages } : {}),
               ...(cosPublish ? { cosPublish } : {}),
               ...(cosError ? { cosError } : {}),
+              ...(cloudflarePublish ? { cloudflarePublish } : {}),
+              ...(cloudflareError ? { cloudflareError } : {}),
             });
           }
           if (parts[3] === "artifacts" && method === "GET") {

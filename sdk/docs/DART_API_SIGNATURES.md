@@ -6,7 +6,7 @@ This catalog lists declarations importable from each package library after apply
 
 Source-first reuse note: outside the retained parent `pocket_host/`, this work checked `README.md`, `docs/02_ARCHITECTURE_AND_MEMORY_DESIGN.md`, `docs/03_DUAL_HOST_UI_COMPONENTS_SPEC.md`, `docs/04_DEVELOPER_GUIDE_AND_VERIFICATION.md`, and `docs/04_BIDIRECTIONAL_FFI_WASM_AND_YOOASSET_HOTUPDATE.md` in `/Volumes/ORICO/Development/Github/pocketjs_flutter_demo`. These preserve the earlier Flutter/WeChat host split, component-to-host projections, and run/regression scenarios. The necessary adaptation is to use only current SDK library exports and apply every Dart `show`/`hide`, keeping app UI policy and composition in JS and Dart at the rendering/input/lifecycle/native boundary. Validation checks the biometrics and root SDK facade filters, default parameter signatures, and current source SHA markers.
 
-Coverage: 615 public declarations and 3098 declared members across 22 library entrances; 109 inventoried source digests.
+Coverage: 617 public declarations and 3120 declared members across 22 library entrances; 110 inventoried source digests.
 
 ## Packages and imports
 
@@ -6430,6 +6430,19 @@ Members:
 
 Source: [packages/pocket_flutter/lib/src/pocket_duplex.dart](../packages/pocket_flutter/lib/src/pocket_duplex.dart#L389)
 
+### `PocketEndpointRoute`
+
+**Class** `final class PocketEndpointRoute`
+
+Members:
+- `PocketEndpointRoute({ required this.platformKey, required this.primaryUri, Iterable<Uri> fallbackUris = const <Uri>[], })`
+- `final String platformKey`
+- `final Uri primaryUri`
+- `final List<Uri> fallbackUris`
+- `List<Uri> get orderedUris`
+
+Source: [lib/src/pocket_platform_endpoints.dart](../lib/src/pocket_platform_endpoints.dart#L15)
+
 ### `PocketEvent`
 
 **Class** `class PocketEvent`
@@ -6784,6 +6797,31 @@ Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket
 **Typedef** `typedef PocketPermissionRequestHandler = FutureOr<Set<String>> Function(PocketPermissionRequest request);`
 
 Source: [packages/pocket_services/lib/src/pocket_plugin.dart](../packages/pocket_services/lib/src/pocket_plugin.dart#L276)
+
+### `PocketPlatformEndpoints`
+
+**Class** `final class PocketPlatformEndpoints`
+
+Members:
+- `PocketPlatformEndpoints({ required this.appId, required this.hostVersion, required Map<String, PocketEndpointRoute> routes, this.packageVersion, this.slot, this.keyId, this.publicKey, this.trustRootKeyId, this.trustRootPublicKey, this.trustPolicyUrl, })`
+- `factory PocketPlatformEndpoints.fromJson( Map<String, dynamic> json, { Set<String> allowInsecureHttpHosts = const <String>{}, })`
+- `final String appId`
+- `final String hostVersion`
+- `final String? packageVersion`
+- `final String? slot`
+- `final String? keyId`
+- `final String? publicKey`
+- `final String? trustRootKeyId`
+- `final String? trustRootPublicKey`
+- `final String? trustPolicyUrl`
+- `final Map<String, PocketEndpointRoute> routes`
+- `static String selectorForTargetPlatform({ TargetPlatform? platform, bool isWeb = kIsWeb, })`
+- `PocketEndpointRoute resolveRoute({ TargetPlatform? platform, bool isWeb = kIsWeb, String? overridePlatformSelector, })`
+- `PocketUpdateConfig toUpdateConfig({ TargetPlatform? platform, bool isWeb = kIsWeb, int candidateIndex = 0, String namespace = 'default', List<String> debugHttpHosts = const <String>[], })`
+- `static Future<PocketPlatformEndpoints> loadFromAsset({ String assetKey = 'assets/pocket-endpoints.json', AssetBundle? bundle, Set<String> allowInsecureHttpHosts = const <String>{}, })`
+- `Future<PocketHostConfig> loadHostConfig({ TargetPlatform? platform, bool isWeb = kIsWeb, String? overridePlatformSelector, HttpClient? client, Set<String> allowInsecureHttpHosts = const <String>{}, Directory? trustAnchorDirectory, String? requiredRootPayloadSha256, bool cacheFirst = false, PocketHostLoadProgressCallback? onProgress, PocketCancellationToken? cancellation, })`
+
+Source: [lib/src/pocket_platform_endpoints.dart](../lib/src/pocket_platform_endpoints.dart#L42)
 
 ### `PocketPlugin`
 
@@ -7761,7 +7799,7 @@ Source: [packages/pocket_diagnostics/lib/src/normalize.dart](../packages/pocket_
 
 Every API_SURFACE source file and Dart package manifest is marked, including files that only re-export declarations. Markers are refreshed from the current source bytes.
 
-<!-- api-source: lib/pocket_sdk.dart aa859c42ad4e3c6d3e1adbe9dd108a4f1e00f0d76a79b4b742c08511cd98d189 -->
+<!-- api-source: lib/pocket_sdk.dart 10520b79c6451a77363b1ca8e83af90b03f43e6b8b7d2c26ef898a261c89b227 -->
 <!-- api-source: lib/src/package_info_plugin.dart dd2b8837f117d798568fb575f8c3d640a2dac5b6934644d546cedc4d6eb43b66 -->
 <!-- api-source: lib/src/performance_history.dart 8e329f064d64bc89a3571f1ff3887c776031badd05a375d9ecefdc483487b150 -->
 <!-- api-source: lib/src/pocket_app.dart def228fcbc3d241079831445cf1e2fe8a550b362c8d174ab0d3ca56dd2a3b98b -->
@@ -7770,6 +7808,7 @@ Every API_SURFACE source file and Dart package manifest is marked, including fil
 <!-- api-source: lib/src/pocket_diagnostics.dart 09d9344ecb870d45200bf562e9339888547c76abfb297002402a6705187bfb17 -->
 <!-- api-source: lib/src/pocket_distribution.dart 8580d9a4e3392a10506c9ca202a9d9f602a358ef1952f06c165320c83a6404d0 -->
 <!-- api-source: lib/src/pocket_host_config.dart eabb17c27a7913f4c1867ca9d7ad723050d0de18e7567ccdebba6a61695cd22b -->
+<!-- api-source: lib/src/pocket_platform_endpoints.dart ec1a7131cc4bf3a2edec3ccddaf32c70cf1c143d60ae1b5f3d7304183bfdd4bd -->
 <!-- api-source: lib/src/pocket_recordings.dart f1752b58909af49504a9f4aa160a0f3f41dd0a9b8f10dc19dfa966ffd1e6e522 -->
 <!-- api-source: lib/src/pocket_session.dart bb79644ee14821a6507c47add141ad85999934731b0d2dca0aa26598d18a67ce -->
 <!-- api-source: lib/src/pocket_system_host.dart 3570cc630592748a7caeb2a6dcbdf9d1f267973c41e807b58484c3faca4d8ae2 -->

@@ -172,6 +172,7 @@
                 <label class="viewport-select-label"><span class="sr-only">预览尺寸</span><select id="viewport-picker" aria-label="预览视口"><option value="mobile">手机</option><option value="tablet">平板 · 768 × 1023</option><option value="desktop">桌面 · 1023 × 768</option></select></label>
                 <label id="surface-render-mode-wrap" class="viewport-select-label surface-mode-label" hidden><span class="sr-only">渲染模式</span><select id="surface-render-mode" aria-label="表面渲染模式"></select></label>
                 <button id="widget-companion-jump" class="button secondary small-button" type="button" title="模拟点击小组件/磁贴并跳转打开宿主主应用" hidden>打开宿主 App ↗</button>
+                <button id="open-packages-manager" class="button secondary small-button" type="button" title="按需安装或卸载 PocketFlutter 官方包" disabled>📦 官方包</button>
                 <button id="open-ecosystem-builder" class="button secondary small-button" type="button" title="按需创建或管理 Apple / Android 全家桶与微件扩展" disabled>＋ 生态/微件</button>
                 <button id="preview-bezel-toggle" class="button secondary small-button" type="button" aria-pressed="false" title="为支持的预览显示设备边框">设备边框</button>
                 <button id="toggle-regions" class="button secondary small-button" type="button" aria-pressed="false" title="显示 Flutter 预览中的区域 ID" disabled>区域 ID</button>
@@ -458,6 +459,81 @@
                     </div>
                   </div>
                 </section>
+                <section id="version-cf-panel" class="version-cos-panel version-cf-panel" aria-labelledby="version-cf-title">
+                  <div class="version-cos-header">
+                    <div class="version-cos-copy">
+                      <span class="eyebrow">Cloudflare R2 · 多账户矩阵</span>
+                      <div class="version-cos-title-row">
+                        <strong id="version-cf-title">多账户平台路由与两阶段热更发布</strong>
+                        <span id="version-cf-badge" class="meta-chip">未检测</span>
+                      </div>
+                      <span id="version-cf-source" class="muted">支持配置多个 Cloudflare 账户按平台分流（iOS / Android / 桌面 / Web / 兜底容灾）</span>
+                    </div>
+                    <div class="version-cos-controls">
+                      <button id="cf-detect" class="button secondary small-button" type="button" disabled>检测账户</button>
+                      <button id="cf-toggle-settings" class="text-button" type="button" aria-expanded="false" disabled>配置</button>
+                      <label class="cos-enable-toggle" for="cf-enabled"><input id="cf-enabled" type="checkbox" disabled><span>开启 CF 发布</span></label>
+                    </div>
+                  </div>
+                  <div id="version-cf-settings" class="version-cos-settings version-cf-settings" hidden>
+                    <div class="cf-checkbox-group">
+                      <label class="cos-checkbox-row" for="cf-sync-on-publish">
+                        <input id="cf-sync-on-publish" type="checkbox">
+                        <span>发布本地版本时自动同步到 Cloudflare 多账户矩阵</span>
+                      </label>
+                      <label class="cos-checkbox-row" for="cf-purge-on-publish">
+                        <input id="cf-purge-on-publish" type="checkbox" checked>
+                        <span>Phase 2 提交索引后自动清理 Cloudflare Zone 缓存</span>
+                      </label>
+                    </div>
+                    <details id="cf-accounts-details" class="cos-credentials-details cf-accounts-details">
+                      <summary>管理 Cloudflare 多账户密钥库（保存在本机 0600 密钥库，支持 R2 S3 与 Zone API Token）</summary>
+                      <div id="cf-profiles-list" class="cf-profiles-list"></div>
+                      <div class="version-cos-grid cos-credentials-grid cf-profile-form-grid">
+                        <label>账户标识 (Profile ID)<input id="cf-profile-id" autocomplete="off" placeholder="cf-apple"></label>
+                        <label>Account ID (32位十六进制)<input id="cf-account-id" autocomplete="off" placeholder="0123456789abcdef0123456789abcdef"></label>
+                        <label>账户备注 (可选)<input id="cf-profile-label" autocomplete="off" placeholder="Apple 端主力账户"></label>
+                        <label>R2 Access Key ID<input id="cf-access-key-id" autocomplete="off" placeholder="R2 S3 Access Key ID"></label>
+                        <label>R2 Secret Access Key<input id="cf-secret-access-key" type="password" autocomplete="off" placeholder="输入密钥保存到本机 0600 保险箱"></label>
+                        <label>Zone API Token (可选，清缓存)<input id="cf-api-token" type="password" autocomplete="off" placeholder="Cloudflare Purge Cache Token"></label>
+                      </div>
+                      <div class="version-cos-actions cf-profile-actions">
+                        <button id="cf-save-profile" class="button secondary small-button" type="button">保存账户密钥</button>
+                      </div>
+                    </details>
+                    <div class="cf-matrix-section">
+                      <div class="cf-matrix-heading">
+                        <div>
+                          <span class="eyebrow">平台分发路由表</span>
+                          <strong>账户 × 平台路由矩阵（自动生成 pocket-endpoints.json）</strong>
+                        </div>
+                        <button id="cf-add-target" class="button secondary small-button" type="button">+ 添加账户路由</button>
+                      </div>
+                      <div id="cf-targets-list" class="cf-targets-list"></div>
+                    </div>
+                    <div class="version-cos-actions">
+                      <button id="cf-save-config" class="button primary small-button" type="button">保存矩阵配置</button>
+                    </div>
+                  </div>
+                  <div id="version-cf-active" class="version-cos-active" hidden>
+                    <div class="version-cos-publish-actions">
+                      <button id="cf-publish-test" class="button secondary small-button" type="button" disabled>上传测试版到 Cloudflare</button>
+                      <button id="cf-publish-stable" class="button primary small-button" type="button" disabled>上传稳定版到 Cloudflare</button>
+                    </div>
+                    <div id="version-cf-app-config" class="version-app-config" hidden>
+                      <div class="version-app-config-copy">
+                        <span class="eyebrow">Cloudflare 线上接入</span>
+                        <strong>主路由接入地址（latest.json）与多账户状态</strong>
+                        <span id="version-cf-publish-meta" class="muted"></span>
+                      </div>
+                      <div class="version-app-config-row">
+                        <a id="version-cf-app-config-link" href="#" target="_blank" rel="noopener"></a>
+                        <button id="version-cf-app-config-copy" class="text-button" type="button" disabled>复制 CF 接入地址</button>
+                      </div>
+                      <div id="version-cf-targets-summary" class="cf-published-targets" hidden></div>
+                    </div>
+                  </div>
+                </section>
                 <div id="version-slots" class="version-slots"><span class="muted">发布测试版或稳定版以创建版本槽。</span></div>
                 <details class="version-host-guide" id="version-host-guide">
                   <summary>技术说明：App 接入地址与 catalog</summary>
@@ -481,7 +557,7 @@
             </details>
 
             <details class="editor-tools" id="editor-tools">
-              <summary><span>项目配置 · 生态与微件按需创建</span><span class="advanced-summary">元数据与跨端扩展</span></summary>
+              <summary><span>项目配置 · 官方包与生态微件</span><span class="advanced-summary">按需安装与跨端扩展</span></summary>
               <div class="editor-tools-content">
                 <section class="panel config-panel" aria-labelledby="config-title">
                   <div class="panel-header compact-header">
@@ -497,6 +573,21 @@
                   <div class="config-actions">
                     <span id="config-save-status" class="status-text" role="status" aria-live="polite">已保存</span>
                     <button id="save-config" class="button secondary small-button" type="button" disabled>保存配置</button>
+                  </div>
+                </section>
+                <section class="panel packages-panel" id="packages-panel" aria-labelledby="packages-title">
+                  <div class="panel-header compact-header">
+                    <div><div class="eyebrow">PocketFlutter Registry · 按需安装</div><h2 id="packages-title">官方包按需开关</h2></div>
+                    <span id="packages-active-count" class="meta-chip">未加载</span>
+                  </div>
+                  <div class="packages-body">
+                    <p class="ecosystem-hint">按需开启官方 UI 皮肤、动画/游戏引擎、原生相机音视频与云发布包，自动维护 <code>pocket-lock.json</code> 与宿主依赖。</p>
+                    <div class="packages-search-row">
+                      <input id="packages-search" type="search" autocomplete="off" placeholder="搜索包名、别名或能力（如 liquid-glass、camera）…" aria-label="搜索官方包" disabled>
+                      <button id="packages-refresh" class="button secondary small-button" type="button" disabled>刷新</button>
+                    </div>
+                    <div id="packages-category-bar" class="packages-category-bar" role="tablist" aria-label="官方包分类筛选"></div>
+                    <div id="packages-list" class="packages-list" role="list" aria-label="官方包列表"><span class="muted">选择项目后可按需开启或卸载官方包。</span></div>
                   </div>
                 </section>
                 <section class="panel ecosystem-panel" id="ecosystem-panel" aria-labelledby="ecosystem-title">

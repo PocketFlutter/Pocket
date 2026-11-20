@@ -1248,7 +1248,7 @@
             {
               "file": "lib/pocket_sdk.dart",
               "declarations": [],
-              "sourceSha256": "aa859c42ad4e3c6d3e1adbe9dd108a4f1e00f0d76a79b4b742c08511cd98d189"
+              "sourceSha256": "10520b79c6451a77363b1ca8e83af90b03f43e6b8b7d2c26ef898a261c89b227"
             },
             {
               "from": "lib/pocket_sdk.dart",
@@ -1344,6 +1344,19 @@
                 "PocketHostLoadProgressCallback"
               ],
               "sourceSha256": "eabb17c27a7913f4c1867ca9d7ad723050d0de18e7567ccdebba6a61695cd22b"
+            },
+            {
+              "from": "lib/pocket_sdk.dart",
+              "export": "src/pocket_platform_endpoints.dart",
+              "filter": "show PocketEndpointRoute, PocketPlatformEndpoints"
+            },
+            {
+              "file": "lib/src/pocket_platform_endpoints.dart",
+              "declarations": [
+                "PocketEndpointRoute",
+                "PocketPlatformEndpoints"
+              ],
+              "sourceSha256": "ec1a7131cc4bf3a2edec3ccddaf32c70cf1c143d60ae1b5f3d7304183bfdd4bd"
             },
             {
               "from": "lib/pocket_sdk.dart",
@@ -1595,6 +1608,183 @@
             "useArcTheme"
           ],
           "sourceSha256": "84dc1bb1fb33c5923c3b9ac6c15c9ce6453b221de53feeef087cbc2d6c8578ae",
+          "reexports": []
+        }
+      ]
+    },
+    {
+      "name": "@pocket/cloudflare",
+      "manifest": "packages/pocket_cloudflare/package.json",
+      "scripts": {
+        "test": "bun test test"
+      },
+      "bin": {},
+      "exports": {
+        ".": "./src/index.ts",
+        "./types": "./src/types.ts",
+        "./sign": "./src/sign.ts",
+        "./local-config": "./src/local_config.ts",
+        "./client": "./src/client.ts",
+        "./pages": "./src/pages.ts",
+        "./publisher": "./src/publisher.ts",
+        "./cli": "./src/cli.ts"
+      },
+      "sourceDeclarations": [
+        {
+          "file": "packages/pocket_cloudflare/src/cli.ts",
+          "declarations": [
+            "runCloudflareCli"
+          ],
+          "sourceSha256": "7b05b9d29fef445934ac284d0653bada54295947ff0c02b17aacb7712e82f815",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_cloudflare/src/client.ts",
+          "declarations": [
+            "CloudflareError",
+            "R2Client",
+            "R2ClientOptions",
+            "R2HeadObjectResult",
+            "R2PutObjectOptions",
+            "R2UploadFileOptions",
+            "createR2Client",
+            "purgeCloudflareZoneCache",
+            "redactCloudflareSecrets",
+            "validateRelativeR2ObjectPath"
+          ],
+          "sourceSha256": "f7d8838f2930114bfaee2c94b6172ca70ca5bc1ae59d76d707922717dcce533e",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_cloudflare/src/index.ts",
+          "declarations": [],
+          "sourceSha256": "f08b2237d4e50688387edaf9e547455e3dcc0e0853e04fa08a4ae24b039c4b01",
+          "reexports": [
+            "export * from \"./types.ts\";",
+            "export * from \"./sign.ts\";",
+            "export * from \"./local_config.ts\";",
+            "export * from \"./client.ts\";",
+            "export * from \"./pages.ts\";",
+            "export * from \"./publisher.ts\";"
+          ]
+        },
+        {
+          "file": "packages/pocket_cloudflare/src/local_config.ts",
+          "declarations": [
+            "LocalCloudflareOptions",
+            "StoredCloudflareAccountEntry",
+            "UpsertWorkspaceCloudflareProfileInput",
+            "WORKSPACE_CLOUDFLARE_CREDENTIALS_FILENAME",
+            "inspectLocalCloudflareEnvironment",
+            "maskAccountId",
+            "maskSecretValue",
+            "removeWorkspaceCloudflareProfile",
+            "resolveLocalCloudflareCredentials",
+            "upsertWorkspaceCloudflareProfile"
+          ],
+          "sourceSha256": "4353913a6ad023398e35decab20489254687b82a43adaeadd4fe5368c835f65b",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_cloudflare/src/pages.ts",
+          "declarations": [
+            "CloudflarePagesDeployOptions",
+            "CloudflareWebDeployResult",
+            "CloudflareWorkersAssetsDeployOptions",
+            "CollectedWebAsset",
+            "collectWebStaticAssets",
+            "deployWebToCloudflarePages",
+            "deployWebToCloudflareWorkersAssets",
+            "deployWebToR2Site",
+            "inferWebAssetContentType"
+          ],
+          "sourceSha256": "4da6a46245e74f9ce4e31a930e6def5027e2c53af6f82528ec6374268cedf057",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_cloudflare/src/publisher.ts",
+          "declarations": [
+            "IMMUTABLE_CACHE_CONTROL",
+            "MUTABLE_CACHE_CONTROL",
+            "PublishNativeInstallersOptions",
+            "PublishNativeInstallersResult",
+            "PublishStudioVersionToCloudflareOptions",
+            "PublishToCloudflareMatrixOptions",
+            "VerifiedCloudflarePackage",
+            "publishNativeInstallersToCloudflare",
+            "publishStudioVersionToCloudflareMatrix",
+            "publishToCloudflareMatrix",
+            "rebaseHostDescriptorForCloudflare",
+            "verifyLocalPackageForCloudflare"
+          ],
+          "sourceSha256": "7d0a16a5b79c84d764fd60025dc7dc37e2d28339bd2dd4fa123323a84589eae3",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_cloudflare/src/sign.ts",
+          "declarations": [
+            "CreateR2PresignedUrlInput",
+            "SignR2RequestInput",
+            "SignR2RequestResult",
+            "awsUriEncode",
+            "createR2PresignedUrl",
+            "encodeR2ObjectPath",
+            "formatAmzTimestamps",
+            "hmacSha256Bytes",
+            "hmacSha256Hex",
+            "sha256Bytes",
+            "sha256Hex",
+            "signR2Request"
+          ],
+          "sourceSha256": "cdc9f9524ae13faf8295b853924746abce9cc69b5e2b82aaf5f6f81a0c3dee21",
+          "reexports": []
+        },
+        {
+          "file": "packages/pocket_cloudflare/src/types.ts",
+          "declarations": [
+            "CF_ACCOUNT_ID_PATTERN",
+            "CF_PROFILE_ID_PATTERN",
+            "CF_PROJECT_NAME_PATTERN",
+            "CF_ZONE_ID_PATTERN",
+            "CLOUDFLARE_CONCRETE_PLATFORMS",
+            "CloudflareAccountProfile",
+            "CloudflareBucketSummary",
+            "CloudflareConcretePlatform",
+            "CloudflareCredentialProvider",
+            "CloudflareMatrixPublishResult",
+            "CloudflarePlatformSelector",
+            "CloudflarePublishFileRecord",
+            "CloudflarePurgeSummary",
+            "CloudflareR2Credentials",
+            "CloudflareRouteRole",
+            "CloudflareStudioPublishSummary",
+            "CloudflareStudioTargetSummary",
+            "CloudflareTargetConfig",
+            "CloudflareTargetPublishResult",
+            "CloudflareUploadProgress",
+            "EditorProjectCloudflareConfig",
+            "LocalCloudflareInspection",
+            "NativeDownloadManifestPayload",
+            "NativeInstallerInput",
+            "NativeInstallerRecord",
+            "PlatformEndpointRoute",
+            "PlatformEndpointsDocument",
+            "ProjectCloudflareRouteConfig",
+            "R2_BUCKET_PATTERN",
+            "ResolvedCloudflareTarget",
+            "SignedNativeDownloadManifest",
+            "buildPlatformEndpointsDocument",
+            "normalizeCloudflarePlatforms",
+            "normalizeR2KeyPrefix",
+            "resolveCloudflareTarget",
+            "targetMatchesPlatform",
+            "validateCloudflareAccountId",
+            "validateCloudflareProfileId",
+            "validateCloudflareRouteMatrix",
+            "validateCloudflareZoneId",
+            "validateR2Bucket"
+          ],
+          "sourceSha256": "9af265e6d5d4099b2ae19f31181de3458414848c28d77cbeca003fb5678b3e14",
           "reexports": []
         }
       ]
@@ -5018,6 +5208,11 @@
         "build:web": "node scripts/toolchain.mjs run scripts/build_web.ts",
         "export:web-sdk": "node scripts/toolchain.mjs run scripts/export_web_sdk.ts",
         "cos": "node scripts/toolchain.mjs run packages/pocket_cos/src/cli.ts",
+        "cf": "node scripts/toolchain.mjs run packages/pocket_cloudflare/src/cli.ts",
+        "search": "node scripts/toolchain.mjs run pocket.ts search",
+        "add": "node scripts/toolchain.mjs run pocket.ts add",
+        "remove": "node scripts/toolchain.mjs run pocket.ts remove",
+        "registry": "node scripts/toolchain.mjs run pocket.ts registry",
         "preview:wechat": "node scripts/toolchain.mjs run scripts/preview_wechat.ts",
         "editor:start": "node scripts/editor_service.mjs start",
         "editor:restart": "node scripts/editor_service.mjs restart",
@@ -5045,11 +5240,15 @@
         },
         {
           "file": "editor/server.ts",
-          "sourceSha256": "b7777bf6125535d5769bad004ab0f0f271053fc2bba8e7fa520770431ba5df00"
+          "sourceSha256": "0715db710905dee5172abeed2cd01a41e215806ea1f031dd68d68ee7ef391f77"
         },
         {
           "file": "editor/test/editor_live_probe.ts",
           "sourceSha256": "13768ca7a9722bc9cd3b4e543950e21ce4f0f7872bd0423e6c4afe04439a92ae"
+        },
+        {
+          "file": "packages/pocket_cloudflare/src/cli.ts",
+          "sourceSha256": "7b05b9d29fef445934ac284d0653bada54295947ff0c02b17aacb7712e82f815"
         },
         {
           "file": "packages/pocket_cos/src/cli.ts",
@@ -5057,7 +5256,7 @@
         },
         {
           "file": "pocket.ts",
-          "sourceSha256": "7a04f769b4d2e0f276ad8a14d82a2388afb1fcb4148a708bd3303be9f854adcc"
+          "sourceSha256": "c46a987a02fcfb27ca40dacee29eecdfd40828e6dcc4898946620c3d1b193c8c"
         },
         {
           "file": "scripts/build_guest.ts",
@@ -5085,7 +5284,7 @@
         },
         {
           "file": "scripts/export_web_sdk.ts",
-          "sourceSha256": "2e5340257003de9c5c565ad9b07015aba158daa9975f68ae0a155e48b9ce8f0c"
+          "sourceSha256": "48c7cbfb21c274162e1214164bc87c946169eeec430e6b739d74c1d6b217ea3c"
         },
         {
           "file": "scripts/install_studio.mjs",

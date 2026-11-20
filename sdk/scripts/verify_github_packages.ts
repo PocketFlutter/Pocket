@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 const consumerPath = process.argv[2];
 if (!consumerPath) throw new Error("Usage: bun sdk/scripts/verify_github_packages.ts <consumer-dir>");
 const consumer = await realpath(resolve(consumerPath));
-const packages = ["diagnostics", "ui", "arc", "liquid_glass", "looseleaf", "sync", "spine", "cos", "vn", "live2d"];
+const packages = ["diagnostics", "ui", "arc", "liquid_glass", "looseleaf", "sync", "spine", "cos", "cloudflare", "vn", "live2d"];
 
 for (const slug of packages) {
   const installedPath = join(consumer, "node_modules", "@pocket", slug);

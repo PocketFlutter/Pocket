@@ -68,6 +68,8 @@ export 'src/pocket_distribution.dart'
 export 'src/pocket_diagnostics.dart' show PocketHostDiagnostics;
 export 'src/pocket_bundled_application_catalog.dart';
 export 'src/pocket_host_config.dart';
+export 'src/pocket_platform_endpoints.dart'
+    show PocketEndpointRoute, PocketPlatformEndpoints;
 export 'src/pocket_session.dart'
     show PocketSession, PocketSessionGenerationMountHook;
 export 'src/performance_history.dart' show PerformanceHistory;

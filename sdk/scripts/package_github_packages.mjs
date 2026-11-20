@@ -17,7 +17,7 @@ if (existsSync(stageRoot)) {
 
 // Publish dependency packages before the packages that consume them.
 const packageSlugs = [
-  "diagnostics", "ui", "spine", "sync", "arc", "liquid_glass", "looseleaf", "cos", "vn", "live2d",
+  "diagnostics", "ui", "spine", "sync", "arc", "liquid_glass", "looseleaf", "cos", "cloudflare", "vn", "live2d",
 ];
 const live2dExports = [".", "./manifest", "./motion", "./interaction", "./transport"];
 const workspaces = new Map(packageSlugs.map((slug) => {
@@ -123,7 +123,7 @@ for (const { slug, directory, manifest: workspaceManifest } of workspaces.values
     cpSync(join(directory, "README.md"), join(stageDir, "README.md"));
     files.push("README.md");
   }
-  if (slug === "cos") stageCos(stageDir);
+  if (slug === "cos" || slug === "cloudflare") stageCos(stageDir);
   writeFileSync(join(stageDir, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   published.push({ name, version: manifest.version, directory: stageDir });
 }

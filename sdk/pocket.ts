@@ -28,9 +28,29 @@ import {
   resolveEcosystemModules,
   scaffoldEcosystemModules,
 } from "./scripts/ecosystem_scaffold.ts";
+import {
+  buildPlatformEndpointsDocument,
+  resolveCloudflareTarget,
+  type CloudflareTargetConfig,
+  type PlatformEndpointsDocument,
+} from "./packages/pocket_cloudflare/src/types.ts";
+import {
+  resolveLocalCloudflareCredentials,
+} from "./packages/pocket_cloudflare/src/local_config.ts";
+import {
+  installProjectPackages,
+  loadRegistryIndex,
+  readProjectLockfile,
+  removeProjectPackages,
+  searchCatalogPackages,
+} from "./scripts/package_installer.ts";
 import { patchDeepLinkPlatforms, resolvePlatformExperience, type PlatformExperienceOptions } from "./scripts/platform_scaffold.ts";
 import { resolveProjectTemplate } from "./scripts/project_templates.ts";
 import { writeProjectSupport } from "./scripts/project_scaffold.ts";
+import {
+  buildPackageRegistry,
+  syncRegistryToCloudflareR2,
+} from "./scripts/registry_builder.ts";
 
 // `pocket.ts` is the SDK entrypoint itself.  Keep the default rooted at this
 // directory so a consumer can run `bun /path/to/pocket/sdk/pocket.ts init`
@@ -1011,7 +1031,85 @@ function projectConfig(project: string): {
   return { appId, version, build, tickHz, hardware, dio, selection, deepLinkScheme: platform.deepLinkScheme };
 }
 
-export async function buildProject(directory: string, options: { outDir?: string; sdkRoot?: string; platform?: NativePlatform } = {}): Promise<{ project: string; output: string; qjbc: string; pak: string; metadata: string }> {
+function readSdkPubspecHostVersion(sdk: string = sdkRoot): string {
+  const pubspecPath = resolve(sdk, "pubspec.yaml");
+  if (existsSync(pubspecPath)) {
+    const match = readFileSync(pubspecPath, "utf8").match(/^version:\s*([^\s+#]+)/m);
+    if (match?.[1]) return match[1].trim();
+  }
+  return "0.1.0";
+}
+
+export function emitProjectCloudflareEndpoints(
+  project: string,
+  appId: string,
+  packageVersion: string,
+  output: string,
+  flutterAssets: string,
+  sdk: string = sdkRoot,
+): string | undefined {
+  const editorDoc = existsSync(join(project, "editor.json")) ? readJson(join(project, "editor.json")) : undefined;
+  const pocketDoc = existsSync(join(project, "pocket.json")) ? readJson(join(project, "pocket.json")) : undefined;
+  const rawCf = (editorDoc?.cloudflare ?? pocketDoc?.cloudflare) as Record<string, unknown> | undefined;
+  if (!rawCf || typeof rawCf !== "object" || rawCf.enabled === false) return undefined;
+  const rawTargets = Array.isArray(rawCf.targets) ? (rawCf.targets as CloudflareTargetConfig[]) : [];
+  if (rawTargets.length === 0) return undefined;
+
+  const resolvedTargets = rawTargets.map((t) =>
+    resolveCloudflareTarget({
+      ...t,
+      accountId:
+        t.accountId ||
+        (typeof t.publicBaseUrl === "string" && t.publicBaseUrl.trim() ? "0".repeat(32) : undefined),
+    }),
+  );
+  const hostVersion =
+    (typeof rawCf.hostVersion === "string" && rawCf.hostVersion.trim()) ||
+    (typeof editorDoc?.hostVersion === "string" && editorDoc.hostVersion.trim()) ||
+    (typeof pocketDoc?.hostVersion === "string" && pocketDoc.hostVersion.trim()) ||
+    readSdkPubspecHostVersion(sdk);
+  const routeVersion =
+    typeof rawCf.routeVersion === "string" && rawCf.routeVersion.trim()
+      ? rawCf.routeVersion.trim()
+      : undefined;
+  const slot =
+    rawCf.slot === "test" || rawCf.slot === "stable"
+      ? rawCf.slot
+      : routeVersion
+        ? undefined
+        : "stable";
+  const endpointsDoc: PlatformEndpointsDocument = buildPlatformEndpointsDocument({
+    targets: resolvedTargets,
+    appId,
+    hostVersion,
+    packageVersion,
+    slot,
+    routeVersion,
+    keyId: typeof rawCf.keyId === "string" ? rawCf.keyId : undefined,
+    publicKey: typeof rawCf.publicKey === "string" ? rawCf.publicKey : undefined,
+    trustRootKeyId: typeof rawCf.trustRootKeyId === "string" ? rawCf.trustRootKeyId : undefined,
+    trustRootPublicKey: typeof rawCf.trustRootPublicKey === "string" ? rawCf.trustRootPublicKey : undefined,
+    trustPolicyUrl: typeof rawCf.trustPolicyUrl === "string" ? rawCf.trustPolicyUrl : undefined,
+  });
+  const outEndpoints = join(output, "pocket-endpoints.json");
+  writeJson(outEndpoints, endpointsDoc);
+  if (existsSync(flutterAssets)) {
+    cpSync(outEndpoints, join(flutterAssets, "pocket-endpoints.json"));
+    const pubspecPath = join(project, "flutter/pubspec.yaml");
+    if (existsSync(pubspecPath)) {
+      const pubspecText = readFileSync(pubspecPath, "utf8");
+      if (!pubspecText.includes("assets/pocket-endpoints.json") && pubspecText.includes("- assets/app.pak")) {
+        writeFileSync(
+          pubspecPath,
+          pubspecText.replace("- assets/app.pak", "- assets/app.pak\n    - assets/pocket-endpoints.json"),
+        );
+      }
+    }
+  }
+  return outEndpoints;
+}
+
+export async function buildProject(directory: string, options: { outDir?: string; sdkRoot?: string; platform?: NativePlatform } = {}): Promise<{ project: string; output: string; qjbc: string; pak: string; metadata: string; endpoints?: string }> {
   const project = resolve(directory);
   const sdk = resolve(options.sdkRoot ?? sdkRoot);
   if (!existsSync(join(project, "app.tsx")) || !existsSync(join(project, "manifest.json"))) fail(`not an initialized PocketJS project: ${project}`);
@@ -1078,10 +1176,11 @@ export async function buildProject(directory: string, options: { outDir?: string
         if (existsSync(source)) cpSync(source, join(flutterAssets, name));
       }
     }
-    const buildInfo = { appId: config.appId, version: config.version, build: config.build, tickHz: config.tickHz, entryFormat: "quickjs-bytecode", runtimeAbi: metadata.runtimeAbi, output };
+    const endpointsPath = emitProjectCloudflareEndpoints(project, config.appId, config.version, output, flutterAssets, sdk);
+    const buildInfo = { appId: config.appId, version: config.version, build: config.build, tickHz: config.tickHz, entryFormat: "quickjs-bytecode", runtimeAbi: metadata.runtimeAbi, output, ...(endpointsPath ? { endpoints: endpointsPath } : {}) };
     writeJson(join(output, "build.json"), buildInfo);
-    console.log(JSON.stringify({ ok: true, project, output, qjbc: join(output, "app.qjbc"), pak: join(output, "app.pak"), metadata: join(output, "app.bytecode.json"), runtimeAbi: metadata.runtimeAbi }, null, 2));
-    return { project, output, qjbc: join(output, "app.qjbc"), pak: join(output, "app.pak"), metadata: join(output, "app.bytecode.json") };
+    console.log(JSON.stringify({ ok: true, project, output, qjbc: join(output, "app.qjbc"), pak: join(output, "app.pak"), metadata: join(output, "app.bytecode.json"), runtimeAbi: metadata.runtimeAbi, ...(endpointsPath ? { endpoints: endpointsPath } : {}) }, null, 2));
+    return { project, output, qjbc: join(output, "app.qjbc"), pak: join(output, "app.pak"), metadata: join(output, "app.bytecode.json"), ...(endpointsPath ? { endpoints: endpointsPath } : {}) };
   } finally {
     rmSync(staging, { recursive: true, force: true });
   }
@@ -1177,7 +1276,7 @@ function requireEditorDirectory(options: EditorCliOptions): string {
 }
 
 function usage(): never {
-  console.error("usage: bun pocket.ts init <directory> [--template=app|game] [--sdk-root=DIR] [--app-id=ID] [--name=NAME] [--version=VERSION] [--hardware] [--camera] [--bluetooth] [--sensors] [--location] [--biometrics] [--weather] [--permissions=POLICY_KEYS] [--dio] [--clipboard] [--platform-experience] [--deep-link-scheme=SCHEME] [--surfaces=MODULES]\n       bun pocket.ts surfaces [<directory>] [--add=MODULES | --set=MODULES | --list | --xcodegen] [--bundle-id=ID] [--team-id=ID] [--deep-link-scheme=SCHEME] [--embed-ios-extensions] [--run-xcodegen]\n       bun pocket.ts build <directory> [--sdk-root=DIR] [--out=DIR] [--platform=ios-sim|ios|macos|android]\n       bun pocket.ts types <descriptor.json> --out=plugin-types.ts\n       bun pocket.ts editor [--pocket|--web] [<directory>] [--port=N] [--workspace=DIR]   (Pocket Studio is the default on macOS when studio/ is present; --web selects web Studio; POCKET_EDITOR_UI=pocket|web overrides)\n       bun pocket.ts editor --web <directory> [--port=N] [--workspace=DIR] [--flutter-root=DIR] [--update-host=LAN_IP] [--update-port=N] [--update-host-version=VERSION] [--extra-project-root=DIR]... [--provision-update-key]");
+  console.error("usage: bun pocket.ts init <directory> [--template=app|game] [--sdk-root=DIR] [--app-id=ID] [--name=NAME] [--version=VERSION] [--hardware] [--camera] [--bluetooth] [--sensors] [--location] [--biometrics] [--weather] [--permissions=POLICY_KEYS] [--dio] [--clipboard] [--platform-experience] [--deep-link-scheme=SCHEME] [--surfaces=MODULES]\n       bun pocket.ts surfaces [<directory>] [--add=MODULES | --set=MODULES | --list | --xcodegen] [--bundle-id=ID] [--team-id=ID] [--deep-link-scheme=SCHEME] [--embed-ios-extensions] [--run-xcodegen]\n       bun pocket.ts search [keyword] [--registry=DIR_OR_URL]\n       bun pocket.ts packages [<directory>]\n       bun pocket.ts add <directory> <package...> [--registry=DIR_OR_URL] [--public-key=FILE]\n       bun pocket.ts remove <directory> <package...>\n       bun pocket.ts registry build [--out=DIR] [--key-file=FILE] [--r2-base-url=URL] [--github-base-url=URL]\n       bun pocket.ts registry sync-r2 --registry-dir=DIR --account-id=HEX32 --bucket=NAME [--profile=ID] [--workspace=DIR] [--public-base-url=URL] [--zone-id=HEX32] [--dry-run]\n       bun pocket.ts build <directory> [--sdk-root=DIR] [--out=DIR] [--platform=ios-sim|ios|macos|android]\n       bun pocket.ts types <descriptor.json> --out=plugin-types.ts\n       bun pocket.ts editor [--pocket|--web] [<directory>] [--port=N] [--workspace=DIR]   (Pocket Studio is the default on macOS when studio/ is present; --web selects web Studio; POCKET_EDITOR_UI=pocket|web overrides)\n       bun pocket.ts editor --web <directory> [--port=N] [--workspace=DIR] [--flutter-root=DIR] [--update-host=LAN_IP] [--update-port=N] [--update-host-version=VERSION] [--extra-project-root=DIR]... [--provision-update-key]");
   process.exit(1);
 }
 
@@ -1202,7 +1301,121 @@ if (import.meta.main) {
       const deepLinkScheme = takeFlag(args, "deep-link-scheme");
       const surfaces = takeFlag(args, "surfaces");
       ensureNoArgs(args);
-      console.log(`pocket init: ${await initProject(directory, { sdkRoot: sdk, template, appId, name, version, hardware, hardwareModules, permissions, dio, clipboard, platformExperience, deepLinkScheme, surfaces })}`);
+      console.log(`pocket init: ${await initProject(directory, { sdkRoot: sdk, template, appId, name, version, hardware, hardwareModules, permissions, dio, clipboard, platformExperience, deepLinkScheme, surfaces })}`)
+    } else if (command === "search") {
+      const registry = takeFlag(args, "registry");
+      const sdk = takeFlag(args, "sdk-root");
+      const keyword = args[0] && !args[0].startsWith("--") ? args.shift() : undefined;
+      ensureNoArgs(args);
+      const loaded = await loadRegistryIndex({ registry, sdkRoot: sdk ?? sdkRoot });
+      const matches = searchCatalogPackages(loaded.index, keyword);
+      console.log(JSON.stringify({
+        registrySource: loaded.baseLocation,
+        total: matches.length,
+        packages: matches.map((p) => ({
+          slug: p.slug,
+          jsPackage: p.jsPackageName,
+          dartPackage: p.dartPackageName,
+          kind: p.kind,
+          version: p.version,
+          aliases: p.shortAliases,
+          requiresHostRebuild: p.requiresHostRebuild,
+          description: p.description,
+        })),
+      }, null, 2));
+    } else if (command === "packages") {
+      const directory = args[0] && !args[0].startsWith("--") ? args.shift()! : ".";
+      ensureNoArgs(args);
+      const lock = readProjectLockfile(resolve(directory));
+      console.log(JSON.stringify(lock, null, 2));
+    } else if (command === "add") {
+      const registry = takeFlag(args, "registry");
+      const sdk = takeFlag(args, "sdk-root");
+      const cacheDir = takeFlag(args, "cache-dir");
+      const pubKeyFile = takeFlag(args, "public-key");
+      const directory = takePosition(args, "project directory");
+      const packages: string[] = [];
+      while (args.length > 0 && !args[0]!.startsWith("-")) {
+        packages.push(args.shift()!);
+      }
+      if (packages.length === 0) fail("specify at least one package to add");
+      ensureNoArgs(args);
+      const publicKeyPem = pubKeyFile ? readFileSync(resolve(pubKeyFile), "utf8") : undefined;
+      const result = await installProjectPackages({
+        projectDir: directory,
+        packages,
+        registry,
+        sdkRoot: sdk ?? sdkRoot,
+        cacheDir,
+        publicKeyPem,
+      });
+      console.log(JSON.stringify(result, null, 2));
+    } else if (command === "remove") {
+      const directory = takePosition(args, "project directory");
+      const packages: string[] = [];
+      while (args.length > 0 && !args[0]!.startsWith("-")) {
+        packages.push(args.shift()!);
+      }
+      if (packages.length === 0) fail("specify at least one package to remove");
+      ensureNoArgs(args);
+      const result = removeProjectPackages({ projectDir: directory, packages });
+      console.log(JSON.stringify(result, null, 2));
+    } else if (command === "registry") {
+      const sub = takePosition(args, "registry subcommand (build|sync-r2)");
+      if (sub === "build") {
+        const out = takeFlag(args, "out") ?? join(sdkRoot, ".pocket-build/registry");
+        const sdk = takeFlag(args, "sdk-root") ?? sdkRoot;
+        const keyFile = takeFlag(args, "key-file");
+        const r2BaseUrl = takeFlag(args, "r2-base-url");
+        const githubBaseUrl = takeFlag(args, "github-base-url");
+        ensureNoArgs(args);
+        const built = buildPackageRegistry({
+          sdkRoot: sdk,
+          outDir: out,
+          keyFile,
+          r2BaseUrl,
+          githubBaseUrl,
+        });
+        console.log(JSON.stringify({
+          outDir: built.outDir,
+          indexPath: built.indexPath,
+          signedIndexPath: built.signedIndexPath,
+          totalPackages: built.index.totalPackages,
+        }, null, 2));
+      } else if (sub === "sync-r2") {
+        const registryDir = takeFlag(args, "registry-dir");
+        const accountId = takeFlag(args, "account-id");
+        const bucket = takeFlag(args, "bucket");
+        const profile = takeFlag(args, "profile");
+        const workspace = takeFlag(args, "workspace");
+        const endpoint = takeFlag(args, "endpoint");
+        const keyPrefix = takeFlag(args, "key-prefix");
+        const publicBaseUrl = takeFlag(args, "public-base-url");
+        const zoneId = takeFlag(args, "zone-id");
+        const dryRun = takeBooleanFlag(args, "dry-run");
+        ensureNoArgs(args);
+        if (!registryDir || !accountId || !bucket) {
+          fail("registry sync-r2 requires --registry-dir, --account-id, and --bucket");
+        }
+        const resolvedCreds = resolveLocalCloudflareCredentials(
+          { profileId: profile, accountId },
+          { workspaceKeysDir: workspace ? join(resolve(workspace), "keys") : undefined },
+        );
+        const syncResult = await syncRegistryToCloudflareR2({
+          registryDir,
+          accountId,
+          bucket,
+          credentials: resolvedCreds.credentials,
+          endpoint,
+          keyPrefix,
+          publicBaseUrl,
+          zoneId,
+          dryRun,
+        });
+        console.log(JSON.stringify(syncResult, null, 2));
+      } else {
+        fail(`unknown registry subcommand ${sub}`);
+      }
     } else if (command === "surfaces") {
       const listOnly = takeBooleanFlag(args, "list");
       const useXcodeGen = takeBooleanFlag(args, "xcodegen");

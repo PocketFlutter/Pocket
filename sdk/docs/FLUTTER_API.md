@@ -86,11 +86,7 @@ default developer hosts in debug only.
 | `manifestUri(packageId)` | Resolves the canonical update entry point. `packageVersion` selects admission compatibility independently of the canonical URL path. |
 | `validate()` | Rejects incomplete or invalid configuration. Surface validation failures to the caller. |
 
-The client stores public keys only. Private signing keys stay with the publisher.
-See [Trust and updates](PACKAGE_UPDATE_MODES.md), [Update before opening](MINI_APP_UPDATE_BEFORE_OPEN.md),
-and [COS publishing](COS_PUBLISH.md). `pocket_services` exports package validation,
-trust policy, and the update coordinator. Direct consumers import that package and
-reuse its cancellation and progress lifecycle.
+The client stores public keys only. Private signing keys stay with the publisher. For multi-account platform routing, load build-generated `assets/pocket-endpoints.json` via `PocketPlatformEndpoints.loadFromAsset()`, and resolve or fetch host descriptors via `toUpdateConfig()` or `loadHostConfig()` (which fails over across backup accounts only on transient network/5xx/timeout errors and fails closed immediately on signature, digest, schema, or same-origin errors). See [Trust and updates](PACKAGE_UPDATE_MODES.md), [Update before opening](MINI_APP_UPDATE_BEFORE_OPEN.md), [COS publishing](COS_PUBLISH.md), and [Cloudflare publishing](CLOUDFLARE_PUBLISH.md). `pocket_services` exports package validation, trust policy, and the update coordinator. Direct consumers import that package and reuse its cancellation and progress lifecycle.
 
 ## Advanced PocketSession lifecycle
 
@@ -390,6 +386,7 @@ export chain permits it.
 | [lib/src/pocket_diagnostics.dart](../lib/src/pocket_diagnostics.dart) | `PocketHostDiagnostics` |
 | [lib/src/pocket_bundled_application_catalog.dart](../lib/src/pocket_bundled_application_catalog.dart) | `PocketBundledApplicationCatalog`, `PocketBundledApplicationEntry` |
 | [lib/src/pocket_host_config.dart](../lib/src/pocket_host_config.dart) | `PocketHostCatalogEntry`, `PocketHostConfig`, `PocketHostLoadProgress`, `PocketHostLoadProgressCallback` |
+| [lib/src/pocket_platform_endpoints.dart](../lib/src/pocket_platform_endpoints.dart) | `PocketEndpointRoute`, `PocketPlatformEndpoints` |
 | [lib/src/pocket_session.dart](../lib/src/pocket_session.dart) | `PocketSession`, `PocketSessionEventListener`, `PocketSessionGenerationMountHook` |
 | [lib/src/performance_history.dart](../lib/src/performance_history.dart) | `PerformanceHistory` |
 | [lib/src/pocket_recordings.dart](../lib/src/pocket_recordings.dart) | `PocketRecordingLibrary` |
