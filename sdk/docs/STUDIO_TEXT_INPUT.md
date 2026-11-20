@@ -38,6 +38,25 @@ An explicit `null` `maxLines` now means unbounded, and `minLines > maxLines` is 
 cannot trip Flutter's assertion. With `action: "newline"` the platform inserts the line break as
 text; the host does not emit `textInput.submit`.
 
+### Selection in Studio’s Flutter preview
+
+The retained parent uses a native Flutter `TextField` for value, selection and IME editing
+(`pocketjs_flutter_demo/lib/render/pocket_ui_components.dart:3507-3682`). Studio keeps the
+same host-input protocol and uses a browser textarea for editing a guest rendered through
+the native probe. The guest DrawOps paint the field and its text on the canvas, including
+in Studio screenshots.
+
+The browser selection previously started at the unpadded field border and used the
+iframe’s inherited font. The textarea now uses the canvas system font and the guest’s
+`fontSize`, `paddingHorizontal` and `paddingVertical`, scaled into the preview viewport.
+Its glyphs stay transparent during selection, and the browser paints a translucent
+selection background over the canvas text. The existing session, selection and
+composition events keep the same behavior.
+
+The Chromium pixel regression in `editor/test/preview_input_browser.test.ts` selects
+`123` through the real textarea, checks the highlight origin against the Canvas text
+position, and verifies that only the translucent highlight changes the pixels.
+
 ## B. Configurable text layout cache
 
 `PocketView(textLayoutCacheCapacity: 256)` (default 256, asserted > 0, fixed for the view's

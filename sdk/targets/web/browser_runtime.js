@@ -14,6 +14,7 @@ const { PocketRenderWorkerHost } = require("./render_worker_transport.js");
 const { observeRenderHost } = require("./render_observations.js");
 const { createBrowserLive2d, live2dCapabilities } = require("./live2d_browser.js");
 import { createWebLive2dMeshBinding } from "../../packages/pocket_live2d/src/web_live2d_mesh_binding.js";
+import { createWebNativeText } from "./native_text.js";
 
 function numberOr(value, fallback) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -99,6 +100,7 @@ class PocketWebRuntime {
     this.pointerFrame = null;
     this.renderWorker = options.renderWorker ?? this.config.renderWorker ?? false;
     if (typeof this.renderWorker !== "boolean") throw new TypeError("renderWorker must be a boolean host option");
+    if (this.renderWorker && this.config.nativeText === true) throw new Error("Browser native text requires main-thread rendering");
     this.context = this.renderWorker ? null : this.canvas.getContext("2d", { alpha: true });
     if (!this.renderWorker && !this.context) throw new Error("PocketJS requires a Canvas2D context");
     this.onError = options.onError;
@@ -138,6 +140,7 @@ class PocketWebRuntime {
     } else {
       this.host = new PocketWechatHost({ ...hostOptions,
         createWebMesh: this.config.live2d?.gpuMesh === true ? createWebLive2dMeshBinding : undefined,
+        createWebNativeText: this.config.nativeText === true ? createWebNativeText : undefined,
         modelFrameClock: this.config.live2d?.gpuMesh === true ? globalThis : undefined,
       });
       this.observations = observeRenderHost(this.host, "main");

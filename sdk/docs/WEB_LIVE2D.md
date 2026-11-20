@@ -287,10 +287,14 @@ their usual presentation paths. Web projects use baked fonts. A higher
 `--density` bakes more glyph detail for high-density displays at the cost
 of a larger PAK.
 
-Studio defaults to its native-probe preview, which uses the browser's
-Canvas2D text renderer and WebGL2 for compatible model mesh batches. Its
-optional direct Web mode uses baked glyphs from the PAK and presents the
-entire preview through the browser WebAssembly runtime.
+Studio defaults to direct Web for compatible local Live2D builds. Projects
+with the default fonts use Canvas2D font metrics and rasterize Pocket's
+`TEXT_RUN` commands at the canvas backing resolution. Their text coverage
+is blended at the command's position in the software painter, so clipping,
+paint order, cached UI layers, software fallback and PNG capture use the
+same output. WebGL2 handles the supported model mesh run. Custom project
+fonts and older baked builds retain their baked glyphs. Browser-rendered
+color glyphs use their coverage in the guest text color.
 [Launch the Workbench](LIVE2D_WORKBENCH.md#try-the-web-gpu-preview) ·
 [Choose the Editor mode](LIVE2D_WORKBENCH.md#use-gpu-preview-inside-web-editor) ·
 [Same-guest browser measurements](LIVE2D_WORKBENCH.md#opt-in-web-gpu-measurement)
@@ -299,10 +303,27 @@ The retained parent's `web_wasm_preview/index.html` demonstrates a browser
 canvas and DPR-aware input. Studio reuses the actual pinned Pocket Web
 runtime for the iframe, using its existing QJBC build and generation-specific
 asset routes. This avoids both the native probe's full-frame serialization and
-the browser's per-frame SSE decode. A local Studio test with an Editor-built
+the browser's per-frame SSE decode. Direct Web reuses the font slot and
+Canvas2D text projection conventions from `editor/client/preview.js` and
+the pinned engine's host-font `TEXT_RUN` and measurement interface. A prior
+local Studio test with an Editor-built
 Mao guest on Chromium Metal at DPR 3 showed both outfits with baked Chinese
 glyphs and exported a PNG through the Editor toolbar. A trusted drag moved
 the figure by 64 logical pixels. The GPU submission interval after release
 was 16.3 ms at P50 and 27.1 ms at P95 over 102 frames. These timings measure
 browser submissions; screen scanout and physical phone behavior are outside
 this test.
+
+The default-font Workbench rebuild reduced the PAK from 8,624,304 to
+1,077,488 bytes. Playwright at DPR 3 observed Canvas2D painting both the
+Chinese title and the lower outfit button, and WebGL2 presenting the model.
+The test changed outfits, dragged the model by 64 logical pixels, exported
+a PNG, and verified that choosing Flutter persists across reloads. Blocking
+WebGL2 in a separate browser run exercised the software presenter with the
+same DPR 3 text.
+
+In three isolated WebKit runs at DPR 3, the unchanged UI layers reused
+their text rasters while the model submitted 99–108 frames per 1.8 seconds.
+P95 submission intervals were 18–23 ms. A test-only measurement cache
+removed Canvas2D measurement calls without improving the frame intervals,
+so the implementation uses the existing layer caches alone.

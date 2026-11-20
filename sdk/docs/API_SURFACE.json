@@ -5241,7 +5241,7 @@
         },
         {
           "file": "editor/server.ts",
-          "sourceSha256": "f6a6e33b61777ab03a84426ecd660f4be6805af6a9d9a102ceb66ccfbcf4c68e"
+          "sourceSha256": "10a0ed44cc436ad38dc7d8518551f1fe9b6fdfecca885f665a9405e7dcdb3182"
         },
         {
           "file": "editor/test/editor_live_probe.ts",
@@ -5269,7 +5269,7 @@
         },
         {
           "file": "scripts/build_web_engine.ts",
-          "sourceSha256": "16304b170d88e544ab29f749b55ddc4ba76ff250887760ebfe35b3ea1adad094"
+          "sourceSha256": "141e062d77175b16cbcb371d7c7ac6fb1569bb140df7d914392b49fd6b245d1f"
         },
         {
           "file": "scripts/check_project.mjs",

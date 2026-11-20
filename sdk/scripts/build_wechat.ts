@@ -580,13 +580,31 @@ pub extern "C" fn web_compositor_frames(h: &WasmHost) -> i32 {
   lib = replaceOnce(lib, "        quickjs: Rc::new(RefCell::new(None)),", "        quickjs: Rc::new(RefCell::new(None)),\n        app_index: Cell::new(0),", "WeChat Guest app index initialization");
   lib = replaceOnce(lib, "RefCell::new((\"web\".into(), BINDING_GENERATION))", "RefCell::new((\"wechat\".into(), BINDING_GENERATION))", "WeChat host identity");
   if (browserLive2dMesh) {
+    const rasterSource = join(workspace, "engine/raster/src");
+    const rasterPath = join(rasterSource, "lib.rs");
+    const surfacePath = join(rasterSource, "surface.rs");
+    cpSync(join(SDK_ROOT, "targets/web/src/native_text_raster.rs"), join(rasterSource, "native_text.rs"));
+    let raster = readFileSync(rasterPath, "utf8");
+    raster = replaceOnce(raster, "mod surface;", "mod surface;\n#[cfg(target_arch = \"wasm32\")]\nmod native_text;", "browser native text raster");
+    raster = replaceOnce(raster, "    mask: Vec<u8>,", "    mask: Vec<u8>,\n    #[cfg(target_arch = \"wasm32\")]\n    text_mask: Vec<u8>,",
+      "browser native text raster scratch");
+    raster = replaceOnce(raster, "                i = end;\n            }\n            // The op set is closed",
+      "                #[cfg(target_arch = \"wasm32\")]\n                native_text::paint(&words[i..end], target, width, scale, clip, &mut scratch.text_mask);\n                i = end;\n            }\n            // The op set is closed",
+      "browser native text in legacy raster order");
+    writeFileSync(rasterPath, raster);
+    let surface = readFileSync(surfacePath, "utf8");
+    surface = replaceOnce(surface, "        let clip = operation_clip(&operation, geometry, scale_i32, root);",
+      "        let clip = operation_clip(&operation, geometry, scale_i32, root);\n        #[cfg(target_arch = \"wasm32\")]\n        if operation.opcode == draw_op::TEXT_RUN {\n            super::native_text::paint(operation.words, target, geometry.width, scale_i32, clip, &mut scratch.text_mask);\n            continue;\n        }",
+      "browser native text in surface raster order");
+    writeFileSync(surfacePath, surface);
     cpSync(join(SDK_ROOT, "packages/pocket_live2d/web/live2d_mesh_preview.rs"), join(src, "live2d_mesh_preview.rs"));
-    lib = replaceOnce(lib, "mod wechat_assets;", "mod wechat_assets;\nmod live2d_mesh_preview;", "browser Live2D module");
+    cpSync(join(SDK_ROOT, "targets/web/src/native_text_host.rs"), join(src, "native_text_host.rs"));
+    lib = replaceOnce(lib, "mod wechat_assets;", "mod wechat_assets;\nmod live2d_mesh_preview;\nmod native_text_host;", "browser Live2D and native text modules");
     lib = replaceOnce(lib, "    capture: RefCell<Capture>,",
-      "    capture: RefCell<Capture>,\n    live2d_mesh_preview: RefCell<live2d_mesh_preview::Cache>,",
+      "    capture: RefCell<Capture>,\n    live2d_mesh_preview: RefCell<live2d_mesh_preview::Cache>,\n    native_text: Cell<bool>,",
       "browser Live2D cache storage");
     lib = replaceOnce(lib, "        capture: RefCell::new(Capture::default()),",
-      "        capture: RefCell::new(Capture::default()),\n        live2d_mesh_preview: RefCell::new(live2d_mesh_preview::Cache::default()),",
+      "        capture: RefCell::new(Capture::default()),\n        live2d_mesh_preview: RefCell::new(live2d_mesh_preview::Cache::default()),\n        native_text: Cell::new(false),",
       "browser Live2D cache initialization");
     const resetCore = "            *h.ops.borrow_mut() = core_context(h.logical.get(), density, h.auxiliary.get());";
     lib = replaceOnce(lib, resetCore, `${resetCore}\n            h.live2d_mesh_preview.borrow_mut().invalidate();`,
@@ -633,6 +651,14 @@ pub extern "C" fn web_compositor_frames(h: &WasmHost) -> i32 {
     '            .ok_or(RuntimeError::InvalidArgument)',
     '        Err(RuntimeError::UnsupportedOperation)',
     "do not claim synchronous WX provider dispatch");
+  if (browserLive2dMesh) {
+    browser = replaceOnce(browser, "            let identity =\n                embedded::identity",
+      "            if h.native_text.get() {\n                plan[\"features\"][\"text.layout.native\"] = json!(true);\n            }\n            let identity =\n                embedded::identity",
+      "report browser native text plan feature");
+    browser = replaceOnce(browser, "            let ops = runtime.op_context();\n            ops.set_compositor_enabled(true)?;",
+      "            let ops = runtime.op_context();\n            ops.set_compositor_enabled(true)?;\n            if h.native_text.get() {\n                crate::native_text_host::install(&mut ops.core_mut()?.ui);\n            }",
+      "install browser native text before guest evaluation");
+  }
   writeFileSync(browserPath, browser);
 
   const packagePath = join(workspace, "engine/package/src/embedded.rs");

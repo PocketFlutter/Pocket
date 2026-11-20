@@ -50,6 +50,7 @@ test("GPU preview stays unavailable without engine configuration or with a nativ
 test("GPU preview build admission requires Live2D and only capabilities the Web provider supports", () => {
   const requires = ["media.live2d.model.load", "media.live2d.model.update", "media.live2d.model.release", "text.glyphs.baked"];
   expect(canBuildLive2dGpuPreview({ capabilities: { requires } })).toBe(true);
+  expect(canBuildLive2dGpuPreview({ capabilities: { requires: [...requires.slice(0, 3), "text.layout.native"] } })).toBe(true);
   expect(canBuildLive2dGpuPreview({ capabilities: { requires: requires.slice(1) } })).toBe(false);
   expect(canBuildLive2dGpuPreview({ capabilities: { requires: [...requires, "native.only"] } })).toBe(false);
   expect(canBuildLive2dGpuPreview({ capabilities: { requires }, worker: {} })).toBe(false);
@@ -109,6 +110,8 @@ test.skipIf(!realArtifacts)("GPU preview publishes only the current generation a
   expect(configuration.status).toBe(200);
   const config = await configuration.json();
   expect(config.live2d.gpuMesh).toBe(true);
+  const metadata = JSON.parse(readFileSync(project.metadataPath!, "utf8"));
+  expect(config.nativeText).toBe(metadata.fonts === "host");
 
   const guest = await handle(suffix + "app.qjbc");
   expect(guest.status).toBe(200);

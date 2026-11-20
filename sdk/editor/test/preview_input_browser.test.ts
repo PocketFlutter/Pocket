@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -372,3 +372,85 @@ async function runInputBrowserAcceptance(): Promise<void> {
 }
 
 test("Editor browser preview routes real textarea keyboard, selection, IME and blur input to guest Draft", { timeout: 210_000 }, runInputBrowserAcceptance);
+
+test("Editor paints one canvas copy of selected input text", async () => {
+  const { chromium } = await import(pathToFileURL(playwrightPath).href);
+  const width = 200;
+  const height = 100;
+  const rect = { x: 24, y: 20, width: 152, height: 40 };
+  const text = { type: "text", text: "123", x: 36, y: 32, w: 120, h: 19, size: 16, color: 0xff000000 };
+  const frame = {
+    frame: 1, width, height,
+    ops: [text],
+    events: [{
+      name: "textInput.open",
+      payload: {
+        id: "selected-value", editingSession: "test-1", rect,
+        text: text.text, selectionBase: 3, selectionExtent: 3,
+        fontSize: 16, paddingHorizontal: 12, paddingVertical: 10, textOffsetY: 2,
+      },
+    }],
+  };
+  const server = Bun.serve({
+    port: 0,
+    fetch: request => request.method === "POST"
+      ? Response.json({})
+      : new Response("<!doctype html><body></body>", { headers: { "content-type": "text/html" } }),
+  });
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width, height } });
+    await page.addInitScript(() => {
+      (window as any).EventSource = class { constructor() { (window as any).fixtureSource = this; } close() {} };
+    });
+    await page.goto(server.url.href);
+    await page.addScriptTag({ content: readFileSync(new URL("../client/preview.js", import.meta.url), "utf8") });
+    await page.evaluate(frame => {
+      (window as any).PocketEditorPreview.mount(document.body, { projectId: "selection", width: frame.width, height: frame.height });
+      (window as any).fixtureSource.onmessage({ data: JSON.stringify({ type: "frame", frame }) });
+    }, frame);
+    const textarea = page.locator("#pocket-preview-text-input");
+    assert.equal(await textarea.inputValue(), "123");
+    assert.deepEqual(await textarea.evaluate(element => {
+      const style = getComputedStyle(element);
+      return [style.paddingTop, style.paddingBottom, element.getBoundingClientRect().height];
+    }), ["12px", "8px", rect.height]);
+    const preview = page.locator("canvas");
+    const collapse = await preview.screenshot();
+    await textarea.selectText();
+    const selected = await preview.screenshot();
+    const pixels = await page.evaluate(async ({ collapse, selected, width }) => {
+      async function rgba(encoded: string) {
+        const image = await createImageBitmap(new Blob([Uint8Array.from(atob(encoded), byte => byte.charCodeAt(0))], { type: "image/png" }));
+        const canvas = new OffscreenCanvas(image.width, image.height);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(image, 0, 0);
+        return ctx.getImageData(0, 0, image.width, image.height).data;
+      }
+      const baseline = await rgba(collapse);
+      const highlighted = await rgba(selected);
+      let canvasInk = 0;
+      let minX = Infinity;
+      let minY = Infinity;
+      let untintedChanges = 0;
+      for (let i = 0; i < highlighted.length; i += 4) {
+        if (baseline[i] < 128) canvasInk++;
+        if ([0, 1, 2].every(channel => baseline[i + channel] === highlighted[i + channel])) continue;
+        minX = Math.min(minX, i / 4 % width);
+        minY = Math.min(minY, Math.floor(i / 4 / width));
+        // An opaque second text copy would change these pixels beyond the
+        // translucent highlight composited over the existing canvas glyphs.
+        if ([30, 105, 219].some((channel, index) =>
+          Math.abs(highlighted[i + index] - (baseline[i + index] * 0.72 + channel * 0.28)) > 3)) untintedChanges++;
+      }
+      return { canvasInk, minX, minY, untintedChanges };
+    }, { collapse: collapse.toString("base64"), selected: selected.toString("base64"), width });
+    assert.ok(pixels.canvasInk > 30);
+    assert.equal(pixels.minX, text.x);
+    assert.ok(Math.abs(pixels.minY - text.y) <= 2, JSON.stringify(pixels));
+    assert.equal(pixels.untintedChanges, 0, JSON.stringify(pixels));
+  } finally {
+    await browser.close();
+    server.stop(true);
+  }
+});

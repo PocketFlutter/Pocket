@@ -255,7 +255,8 @@ async function boot() {
   const wasmBytes = await wasmResponse.arrayBuffer();
   const qjbc = new Uint8Array(await qjbcResponse.arrayBuffer());
   const imports = { env: { __rquickjs_host_now_us: nowMicros }, pocket_web_worker: { now_micros: nowMicros, operation },
-    pocket_wechat: { host_emit: () => 0 }, pocket_web_mesh: { frame: () => 0 } };
+    pocket_wechat: { host_emit: () => 0 }, pocket_web_mesh: { frame: () => 0 },
+    pocket_web_text: { measure: () => 0, raster: () => 0 } };
   const loaded = await WebAssembly.instantiate(wasmBytes, imports);
   exportsRef = loaded.instance?.exports || loaded.exports; memory = exportsRef.memory;
   if (typeof exportsRef.web_worker_create !== "function") throw new Error("PocketJS Web engine has no pinned Worker ABI");

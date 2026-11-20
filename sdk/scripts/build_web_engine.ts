@@ -34,6 +34,8 @@ const SOURCE_GUEST_IMPORTS = /(?:guest_eval|guest_start|pocket_web\.)/i;
 
 const LIVE2D_MESH_IMPORT = "pocket_web_mesh.frame";
 const LIVE2D_MESH_EXPORT = "web_live2d_mesh_try_present";
+const NATIVE_TEXT_IMPORTS = ["pocket_web_text.measure", "pocket_web_text.raster"];
+const NATIVE_TEXT_EXPORT = "web_set_native_text";
 
 export type BuildWebEngineOptions = {
   outDir: string;
@@ -87,6 +89,9 @@ export async function verifyWebEngine(bytes: Uint8Array): Promise<{ exports: str
   if (sourceImports.length) throw new Error(`build_web_engine: source-guest imports are forbidden: ${sourceImports.join(", ")}`);
   if (imports.includes(LIVE2D_MESH_IMPORT) !== exports.includes(LIVE2D_MESH_EXPORT)) {
     throw new Error("build_web_engine: incomplete browser Live2D mesh ABI");
+  }
+  if (NATIVE_TEXT_IMPORTS.some((name) => imports.includes(name) !== exports.includes(NATIVE_TEXT_EXPORT))) {
+    throw new Error("build_web_engine: incomplete browser native text ABI");
   }
   return { exports, imports };
 }

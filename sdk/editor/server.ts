@@ -39,7 +39,6 @@ import {
 } from "../scripts/package_update.ts";
 import { pickProjectDirectory } from "./directory_picker.ts";
 import { buildGuest } from "../scripts/build_guest.ts";
-import { canBuildLive2dGpuPreview, live2dGpuEngineDirectory } from "./live2d-gpu-preview.ts";
 import {
   ECOSYSTEM_MODULES,
   enabledProfileIdsForModules,
@@ -1934,13 +1933,10 @@ async function runProcess(command: string[], cwd: string, log: (line: string) =>
 
 async function realBuild(input: Parameters<BuildRunner>[0]): Promise<BuildOutput> {
   await mkdir(input.outDir, { recursive: true });
-  const bakeGpuFonts = live2dGpuEngineDirectory() &&
-    canBuildLive2dGpuPreview(await readJsonFile<Record<string, unknown>>(join(input.projectDir, "manifest.json"), {}));
   const built = await buildGuest({
     projectRoot: input.projectDir,
     outDir: input.outDir,
     tickHz: input.config.tickHz,
-    ...(bakeGpuFonts ? { bakeFonts: true } : {}),
     log: input.log,
     ...(input.signal ? { signal: input.signal } : {}),
   });

@@ -78,6 +78,7 @@ class PocketWechatHost {
     this.isActive = options.isActive;
     this.sampleInput = options.sampleInput;
     this.createWebMesh = options.createWebMesh;
+    this.createWebNativeText = options.createWebNativeText;
     this.modelFrameClock = options.modelFrameClock;
     this.modelFrame = null;
     this.nextModelFrameTime = null;
@@ -188,6 +189,10 @@ class PocketWechatHost {
       pocket_web_mesh: {
         frame: (...args) => this.webMesh?.frame(this.exports.memory, ...args) ?? 0,
       },
+      pocket_web_text: {
+        measure: (...args) => this.webNativeText?.measure(this.exports.memory, ...args) ?? 0,
+        raster: (...args) => this.webNativeText?.raster(this.exports.memory, ...args) ?? 0,
+      },
     };
     const loaded = await this.wx.WXWebAssembly.instantiate(this.config.enginePath, imports);
     if (this.disposed) return;
@@ -195,6 +200,14 @@ class PocketWechatHost {
     this.exports = this.instance.exports;
     this.host = this.exports.web_create(this.logicalWidth, this.logicalHeight, this.scale, 0, 0);
     if (!this.host) throw new Error("PocketJS WASM could not allocate its runtime host.");
+    if (this.createWebNativeText) {
+      if (typeof this.exports.web_set_native_text !== "function") {
+        throw new Error("PocketJS Web engine does not support browser native text.");
+      }
+      this.webNativeText = this.createWebNativeText(this.context);
+      if (!this.webNativeText) throw new Error("PocketJS browser native text is unavailable.");
+      this.check(this.exports.web_set_native_text(this.host, 1), "PocketJS could not enable browser native text.");
+    }
     if (!this.headless && !this.system && typeof this.exports.web_live2d_mesh_try_present === "function") {
       this.webMesh = this.createWebMesh?.(this.context) ?? null;
     }
@@ -908,6 +921,7 @@ class PocketWechatHost {
       this.exports = null;
       const webMesh = this.webMesh;
       this.webMesh = null;
+      this.webNativeText = null;
       try { webMesh?.dispose(); }
       finally { if (exports && host) exports.web_destroy(host); }
     }
