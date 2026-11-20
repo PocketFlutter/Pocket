@@ -4374,7 +4374,7 @@ function setPreviewState(label, kind = "") {
 function resetPreviewSurface() {
   previewLoadSequence++;
   previewGpuAvailable = false;
-  previewGpuRequested = currentId ? savedGpuPreviewPreference() : false;
+  previewGpuRequested = Boolean(currentId) && gpuPreviewEnabledForProject();
   setPreviewRenderer(false);
   previewFrame.hidden = true;
   previewFrame.src = "about:blank";
@@ -4395,15 +4395,15 @@ function gpuPreviewSupportsViewport(viewportKey = $("viewport-picker").value) {
   return viewportKey === "mobile" || Object.values(safeAreaForViewport(viewportKey)).every(inset => inset === 0);
 }
 
-function savedGpuPreviewPreference() {
-  try { return localStorage.getItem(PREVIEW_GPU_STORAGE_PREFIX + currentId) === "1"; } catch { return false; }
+function gpuPreviewEnabledForProject() {
+  try { return localStorage.getItem(PREVIEW_GPU_STORAGE_PREFIX + currentId) !== "0"; } catch { return true; }
 }
 
 function setPreviewRenderer(gpu) {
   previewGpuActive = gpu;
   setText("preview-renderer-label", gpu ? "Web" : "Flutter");
   setText("preview-surface-renderer", gpu ? "Web" : "Flutter");
-  setText("preview-surface-engine", gpu ? "直连预览 · 位图文字" : "原生画布");
+  setText("preview-surface-engine", gpu ? "直连预览" : "原生画布");
   setText("copy-preview-link", gpu ? "复制 Web 链接" : "复制 Flutter 链接");
 }
 

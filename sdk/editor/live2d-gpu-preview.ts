@@ -10,7 +10,7 @@ const modelPattern = /^native-models\/([a-f0-9]{64})\.moc3$/;
 const sha256 = (bytes: string | Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const live2dCapabilities = ["media.live2d.model.load", "media.live2d.model.update", "media.live2d.model.release"];
 const supportedCapabilities = new Set([
-  ...live2dCapabilities, "text.glyphs.baked",
+  ...live2dCapabilities, "text.glyphs.baked", "text.layout.native",
   "platform.storage.get", "platform.storage.set", "platform.storage.remove", "platform.storage.keys",
 ]);
 const clientScript = join(import.meta.dir, "client/live2d-gpu-preview.js");
@@ -97,8 +97,8 @@ async function projectFiles(project: PreviewProject | undefined) {
   if (!canBuildLive2dGpuPreview(manifest) || plainObject(manifest.domains) && manifest.domains.worker !== undefined) {
     throw new Error("GPU preview is unavailable for this guest's capabilities");
   }
-  if (metadata.fonts !== "baked" || manifest.fonts !== "baked") {
-    throw new Error("Rebuild this project to bake fonts for GPU preview");
+  if (metadata.fonts !== manifest.fonts || (manifest.fonts !== "host" && manifest.fonts !== "baked")) {
+    throw new Error("Rebuild this project to prepare fonts for GPU preview");
   }
   const bindingGeneration = metadata.bindingGeneration;
   if (metadata.entryFormat !== "quickjs-bytecode" || typeof bindingGeneration !== "number" ||
@@ -123,6 +123,7 @@ async function projectFiles(project: PreviewProject | undefined) {
       appId: project.appId, tickHz: project.tickHz ?? 60, bindingGeneration,
       enginePath: "engine/pocketjs.wasm", qjbcUrl: "app.qjbc", pakUrl: "app.pak",
       requires: declaredCapabilities.requires, optional: declaredCapabilities.optional ?? [],
+      nativeText: manifest.fonts === "host",
       live2d: { gpuMesh: true, coreUrl: "./" + coreName, assets },
     },
   };
@@ -141,7 +142,7 @@ async function engineFiles(directory: string) {
   if (!verified.exports.includes("web_live2d_mesh_try_present")) {
     throw new Error("GPU preview engine must be built with --live2d-mesh");
   }
-  return { wasm, runtime, core };
+  return { wasm, runtime, core, nativeText: verified.exports.includes("web_set_native_text") };
 }
 
 const unavailable = (reason: string, status = 404) => Response.json({ available: false, reason }, { status, headers });
@@ -165,6 +166,9 @@ export function createLive2dGpuPreview(engineDirectory?: string) {
         const project = await projectFiles(await resolveArtifacts());
         engine ??= engineFiles(engineDirectory).catch(error => { engine = undefined; throw error; });
         const toolchain = await engine;
+        if (project.config.nativeText && !toolchain.nativeText) {
+          throw new Error("Update the Web engine to enable GPU preview with browser fonts");
+        }
         if (status) return Response.json({ available: true }, { headers });
         if (!suffix) {
           const pathname = new URL(request.url).pathname.replace(/\/$/, "");

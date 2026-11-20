@@ -1612,6 +1612,13 @@ void main() {
     document.body.style.overflow = "hidden";
     root.style.cssText += ";display:flex;flex-direction:column;align-items:stretch;min-height:100%;position:relative;background:#0b1020;color:#e5e7eb";
     canvas.style.cssText += ";display:block;width:100%;height:auto;max-width:100%;background:#fff;touch-action:none;outline:none;image-rendering:auto";
+    const textInputSelectionStyle = document.createElement("style");
+    textInputSelectionStyle.textContent = `#pocket-preview-text-input::selection {
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      background-color: rgba(30, 105, 219, 0.28);
+    }`;
+    root.appendChild(textInputSelectionStyle);
     const semanticLayer = document.createElement("div");
     semanticLayer.dataset.pocketSemanticLayer = "true";
     semanticLayer.style.cssText = "position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;z-index:20";
@@ -2472,9 +2479,10 @@ void main() {
         "overflow:hidden",
         "background:transparent",
         "color:transparent",
+        "-webkit-text-fill-color:transparent",
         "caret-color:transparent",
         "z-index:10",
-        "font:inherit",
+        `font-family:${fontFamily(0)}`,
         "line-height:normal",
         "white-space:pre",
       ].join(";");
@@ -2518,6 +2526,16 @@ void main() {
       element.style.top = `${canvasRect.top - rootRect.top + rect.y * scaleY}px`;
       element.style.width = `${Math.max(1, rect.width * scaleX)}px`;
       element.style.height = `${Math.max(1, rect.height * scaleY)}px`;
+      const horizontal = Math.max(0, number(state.params.paddingHorizontal, 0)) * scaleX;
+      const vertical = Math.max(0, number(state.params.paddingVertical, 0)) * scaleY;
+      const size = Math.max(1, number(state.params.fontSize, fontSize(0))) * scaleY;
+      const singleLine = state.params.keyboardType !== "multiline" &&
+        (state.params.maxLines === undefined || state.params.maxLines === 1);
+      const textOffsetY = singleLine
+        ? Math.min(vertical, Math.max(0, number(state.params.textOffsetY, 0)) * scaleY)
+        : 0;
+      element.style.padding = `${vertical + textOffsetY}px ${horizontal}px ${vertical - textOffsetY}px`;
+      element.style.fontSize = `${size}px`;
       element.style.display = "block";
     }
 
@@ -3727,6 +3745,7 @@ void main() {
       resetVideoProjection(true);
       clearSemanticDOM();
       semanticLayer.remove();
+      textInputSelectionStyle.remove();
       cancelAllExternalResourceLoads();
       clearTimeout(resourceReconnectTimer);
       resourceReconnectTimer = 0;

@@ -46,9 +46,8 @@ software presentation. [Renderer scope and fallback](WEB_LIVE2D.md#opt-in-direct
 
 ### Use GPU preview inside Web Editor
 
-The default Flutter preview keeps browser-rendered Canvas2D text and
-uses WebGL2 for compatible Live2D mesh batches. To test the optional
-direct Web preview, start Studio on the same computer as the browser.
+Studio opens eligible Live2D builds in direct Web preview by default.
+Start Studio on the same computer as the browser.
 A managed installation finds the engine in its platform tools package.
 Source checkouts can pass an engine directory explicitly. Both use the
 locally configured official Cubism Web Core.
@@ -58,12 +57,13 @@ POCKET_EDITOR_GPU_ENGINE_DIR="$PWD/.pocket-build/mao-web-gpu-engine" \
   bun sdk/editor/server.ts --host=127.0.0.1 --port=8791
 ```
 
-Open the Workbench folder in Editor, build it once, then click **直连 Web**
-in the preview toolbar. The editor bakes glyphs into the PAK for eligible
-projects when a Web GPU engine is configured. The direct mode displays
-these baked glyphs. The button appears after a compatible build and the
-editor remembers the selection for the project in that browser. Click
-**直连 Web** again to return to the Flutter preview.
+Open the Workbench folder in Editor and build it. For projects using the
+default fonts, direct Web draws text through Canvas2D at the preview
+canvas resolution and accelerates supported Live2D mesh frames with
+WebGL2. Rebuild older Workbench builds to use the browser fonts. Projects
+that specify custom project fonts retain their baked glyphs. Toggle
+**直连 Web** to switch to Flutter. Studio remembers an explicit selection
+for the project in that browser.
 
 The browser uses the Editor build's actual QJBC, PAK, and allowlisted model
 assets. Dragging, outfit changes, ordinary viewport resizing and PNG capture

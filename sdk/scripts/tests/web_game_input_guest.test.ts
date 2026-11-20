@@ -51,6 +51,7 @@ mount(() => <App />);`);
       pocket_wechat: { host_emit: () => 1 },
       pocket_web_worker: { operation: () => -6, now_micros: () => Math.floor(performance.now() * 1000) },
       pocket_web_mesh: { frame: () => 0 },
+      pocket_web_text: { measure: () => 0, raster: () => 0 },
     });
     ex = loaded.instance.exports;
     const result = () => new TextDecoder().decode(new Uint8Array(ex.memory.buffer, ex.web_result_ptr(host), ex.web_result_len(host)));
