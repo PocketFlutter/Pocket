@@ -159,11 +159,11 @@ void main() {
     }
 
     Future<void> tap(String label, {int nth = 0}) async {
+      await pump(10);
       final ops = frame.ops.whereType<PocketTextOp>().where((o) => o.text == label).toList();
       if (ops.length <= nth) throw StateError('no "$label" #$nth in\n${textOf()}');
       final op = ops[nth];
       final point = {'id': 0, 'x': op.x + (op.width / 2 < 60 ? op.width / 2 : 40), 'y': op.y + (op.height / 2 < 20 ? op.height / 2 : 10)};
-      await pump(10);
       for (final phase in const ['down', 'up']) {
         runtime.send({'type': 'event', 'name': 'input.pointer', 'payload': {...point, 'phase': phase}});
         await pump(2);
@@ -183,7 +183,7 @@ void main() {
       // ---- upload ----------------------------------------------------------------------------------------------
       final imagesBefore = imageOps();
       await tap('上传资源…');
-      await until(() => textOf().contains('art.png · ') && textOf().contains('已拒绝') && textOf().contains('不支持') == false && File('${project.path}/assets/icon.svg').existsSync(), 'the uploads to finish');
+      await until(() => textOf().contains('art.png · ') && textOf().contains('已拒绝') && textOf().contains('不支持') == false && textOf().contains('清除记录') && File('${project.path}/assets/icon.svg').existsSync(), 'the uploads to finish');
       expect(dialogCalls, 1);
       expect(File('${project.path}/assets/art.png').readAsBytesSync(), artBytes, reason: 'the exact picked bytes landed in assets/');
       expect(File('${project.path}/assets/bad name.png').existsSync(), isFalse, reason: 'an unsafe name never reaches the service');

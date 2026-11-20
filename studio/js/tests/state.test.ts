@@ -657,6 +657,68 @@ describe("preview", () => {
     expect(log.at(-1)).toBe("destroy:i1");
     expect(preview.state()).toMatchObject({ phase: "idle", instanceId: undefined });
   });
+
+  test("toggling or setting targets during an active build coalesces onlyTargets and prunes removed slots", async () => {
+    const { fake, preview, log } = previewFixture();
+    await flush();
+    preview.setSurfaceVisible(true, "flutter");
+    preview.setSurfaceVisible(true, "web");
+    preview.setSurfaceVisible(true, "wechat");
+
+    let finishFirstBuild!: () => void;
+    fake.state.startBuildHook = () => {
+      finishFirstBuild = () => fake.finishBuild(true);
+    };
+
+    const firstRun = preview.run({ build: true });
+    await flush();
+    expect(preview.isRunning()).toBe(true);
+
+    const toggleWeb = preview.toggleTarget("web");
+    const toggleWechat = preview.toggleTarget("wechat");
+    await preview.toggleTarget("wechat");
+    expect(preview.state().activeTargets).toEqual(["flutter", "web"]);
+
+    fake.state.startBuildHook = () => { setTimeout(() => fake.finishBuild(true), 0); };
+    finishFirstBuild();
+    await Promise.all([firstRun, toggleWeb, toggleWechat]);
+    await flush(30);
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(fake.count("build.start")).toBe(1);
+    expect(log.filter((l) => l.startsWith("create:"))).toEqual([
+      "create:dev.pocket.studio.preview",
+      "create:dev.pocket.studio.preview.web",
+    ]);
+    expect(preview.state().slots.flutter.phase).toBe("running");
+    expect(preview.state().slots.web.phase).toBe("running");
+    expect(preview.state().slots.wechat.phase).toBe("idle");
+  });
+
+  test("refreshEndpoints coalesces concurrent requests into a single studio.wechat.status call", async () => {
+    const { fake, preview } = previewFixture();
+    let statusCalls = 0;
+    let releaseStatus!: () => void;
+    (fake.client as any).wechat = {
+      status: async () => {
+        statusCalls += 1;
+        await new Promise<void>((r) => { releaseStatus = r; });
+        return {
+          webPreviewUrl: "https://preview.pocket.local/web",
+          state: { state: "running", url: "https://preview.pocket.local/wx", logs: ["ready"] },
+        };
+      },
+    };
+    const p1 = preview.refreshEndpoints();
+    const p2 = preview.refreshEndpoints();
+    const p3 = preview.refreshEndpoints();
+    await flush();
+    expect(statusCalls).toBe(1);
+    releaseStatus();
+    await Promise.all([p1, p2, p3]);
+    expect(preview.state().webPreviewUrl).toBe("https://preview.pocket.local/web");
+    expect(preview.state().wechatService.state).toBe("running");
+  });
 });
 
 describe("settings", () => {

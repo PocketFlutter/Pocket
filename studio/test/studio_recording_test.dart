@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pocket_flutter/pocket_flutter.dart';
 import 'package:pocket_sdk/pocket_sdk.dart';
 import 'package:pocket_studio/pocket_studio.dart';
 import 'package:pocket_studio_app/main.dart';
@@ -114,6 +115,19 @@ void main() {
       messenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), null);
     });
 
+    var latestTexts = <PocketTextOp>[];
+    debugPocketFrameDeltaAtOverride = (runtime, delta) {
+      final frame = pocketFrameDeltaAt(runtime, delta);
+      if (frame != null) {
+        final texts = frame.ops.whereType<PocketTextOp>().toList();
+        final labels = texts.map((t) => t.text);
+        if (labels.contains('设置') && labels.contains('项目')) latestTexts = texts;
+      }
+      return frame;
+    };
+    addTearDown(() => debugPocketFrameDeltaAtOverride = null);
+
+    final studioMetadata = File('$repo/studio/assets/app.bytecode.json').readAsStringSync();
     // The library is recording from the very first transaction of the Studio runtime (recordOnStart).
     final recordings = PocketRecordingLibrary(recordOnStart: true);
     final controller = PocketSystemHostController();
@@ -123,7 +137,8 @@ void main() {
         debugShowCheckedModeBanner: false,
         home: RepaintBoundary(key: boundaryKey, child: PocketSystemHost(
           systemUI: studioSystemUI(config),
-          applications: {PocketStudioConfig.previewAppId: studioPreviewChild(config, previewBootstrapMetadata: previewBootstrap(File('$repo/studio/assets/app.bytecode.json').readAsStringSync()))},
+          applications: studioPreviewChildren(config, previewBootstrapMetadata: previewBootstrap(studioMetadata)),
+          maxInstances: 12,
           controller: controller,
           recordings: recordings,
         )),
@@ -170,6 +185,16 @@ void main() {
       await pumpFor(const Duration(milliseconds: 200));
     }
 
+    bool hasText(String needle) => latestTexts.any((t) => t.text.contains(needle));
+    Future<void> tapTextWhere(bool Function(PocketTextOp) pred, String what) async {
+      await waitUntil(() => latestTexts.any(pred), 'text $what');
+      final op = latestTexts.firstWhere(pred);
+      final x = op.x + (op.width < 60 ? op.width / 2 : 30);
+      final y = op.y + (op.height < 24 ? op.height / 2 : 10);
+      await tapAt(x, y);
+    }
+    Future<void> tapLabel(String label) => tapTextWhere((t) => t.text == label, label);
+
     Future<void> chord(List<LogicalKeyboardKey> modifiers, LogicalKeyboardKey key) async {
       for (final m in modifiers) {
         await tester.sendKeyDownEvent(m);
@@ -211,18 +236,18 @@ void main() {
     Future<Map<String, dynamic>> versions() async => (await tester.runAsync(() => _getJson(config.port, '/api/projects/rec-app/versions')))!;
     Future<Map<String, dynamic>> filesList() async => (await tester.runAsync(() => _getJson(config.port, '/api/projects/rec-app/files')))!;
 
-    await waitUntil(() => controller.instances.any((i) => i.appId == studioAppId && i.firstFrameReady), 'Studio first frame');
-    await pumpFor(const Duration(seconds: 3));
+    await waitUntil(() => controller.instances.any((i) => i.appId == studioAppId && i.firstFrameReady) && latestTexts.isNotEmpty, 'Studio first frame');
+    await waitUntil(() => hasText('Rec App'), 'project list');
     await shot('start');
 
     // 1. open: Projects -> the temp project -> its file tree.
-    await tapAt(30, 39);
-    await tapAt(300, 78);
+    await tapLabel('Rec App');
     await waitUntil(() async => (await _getJson(config.port, '/api/projects/rec-app/status'))['id'] == 'rec-app', 'project status');
-    await pumpFor(const Duration(seconds: 2));
+    await waitUntil(() => hasText('app.tsx'), 'file tree');
     await shot('project-open');
-    await tapAt(130, 160); // app.tsx, first file row
-    await pumpFor(const Duration(seconds: 6));
+    await tapLabel('app.tsx');
+    await waitUntil(() => hasText('app.tsx · '), 'app.tsx metadata bar');
+    await pumpFor(const Duration(seconds: 2));
     await shot('file-open');
     checkpoints['open'] = {
       'projectFiles': (await filesList())['files'].map((f) => (f as Map)['path']).toList()..sort(),
@@ -230,8 +255,11 @@ void main() {
     };
 
     // 2. edit: focus the code view (raw text session), jump to the document start, commit "ab" through the IME channel.
+    final metaOp = latestTexts.firstWhere((t) => t.text.startsWith('app.tsx · '));
+    final codeFocusX = metaOp.x + 150;
+    final codeFocusY = metaOp.y + 48;
     for (var attempt = 0; attempt < 4 && !tester.testTextInput.hasAnyClients; attempt++) {
-      await tapAt(520, 124);
+      await tapAt(codeFocusX, codeFocusY);
     }
     await waitUntil(() => tester.testTextInput.hasAnyClients, 'IME client for the raw text session');
     await chord([LogicalKeyboardKey.metaLeft], LogicalKeyboardKey.arrowUp);
@@ -240,7 +268,7 @@ void main() {
 
     // 3. save: Cmd+S is the CodeView's save intent.
     await chord([LogicalKeyboardKey.metaLeft], LogicalKeyboardKey.keyS);
-    await waitUntil(() => File('${project.path}/app.tsx').readAsStringSync() != original, 'saved file on disk');
+    await waitUntil(() => File('${project.path}/app.tsx').readAsStringSync() != original && hasText('已保存'), 'saved file on disk and Studio ack');
     final saved = File('${project.path}/app.tsx').readAsStringSync();
     checkpoints['save'] = {'insertedAtHead': saved.substring(0, saved.length - original.length), 'tailUnchanged': saved.endsWith(original)};
     await shot('saved');
@@ -257,9 +285,9 @@ void main() {
 
     // 5. publish: Cmd+Shift+P opens the Publish page, a tap on 发布测试包 signs a test update.
     await chord([LogicalKeyboardKey.metaLeft, LogicalKeyboardKey.shiftLeft], LogicalKeyboardKey.keyP);
-    await pumpFor(const Duration(seconds: 2));
+    await waitUntil(() => hasText('已构建（可发布）') && hasText('发布测试包'), 'publish plan ready');
     await shot('publish-page');
-    await tapAt(_publishButtonX, _publishButtonY);
+    await tapLabel('发布测试包');
     await waitUntil(() async => ((await _getJson(config.port, '/api/projects/rec-app/versions'))['history'] as List).isNotEmpty, 'a published release in the journal', timeout: const Duration(seconds: 120));
     await pumpFor(const Duration(seconds: 2));
     await shot('published');
@@ -329,9 +357,7 @@ void main() {
   }, skip: skip != false, timeout: const Timeout(Duration(minutes: 12)));
 }
 
-// Publish-page button, in the 900x700 window (found with STUDIO_SHOT_DIR screenshots).
-const double _publishButtonX = 855;
-const double _publishButtonY = 79;
+// Publish-page button is resolved semantically via PocketTextOp ('发布测试包').
 
 Iterable<Map> _runtimes(Map<String, dynamic> result) => (result['runtimes'] as Map).values.cast<Map>();
 

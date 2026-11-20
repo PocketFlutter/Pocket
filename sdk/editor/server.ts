@@ -67,7 +67,7 @@ import { createStudioUpgradeManager, readInstalledSdkInfo } from "../scripts/stu
 import { resolveProjectTemplate } from "../scripts/project_templates.ts";
 import { renameProjectAppIdentity } from "./project_identity.ts";
 import { chooseUpdateHost, isLocalNetworkAddress, startUpdateEndpoint } from "./update_endpoint.ts";
-import { previewTrust, publishPreview, readPreviewSlot } from "./preview_publish.ts";
+import { previewTrust, publishPreview, publishPreviews, readPreviewSlot } from "./preview_publish.ts";
 import {
   currentVersion,
   emptyVersionHistory,
@@ -5959,7 +5959,25 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
             return json({ status: publicStatus(id, state) }, 202);
           }
           if (parts[3] === "preview-publish" && parts.length === 4 && method === "POST") {
-            await parseJsonBody(request);
+            const body = await parseJsonBody(request);
+            const previewSlotPattern = /^dev\.pocket\.studio\.preview(?:\.[a-z][a-z0-9-]{0,31})?$/;
+            const requestedIds: string[] = [];
+            if (body.previewAppIds !== undefined) {
+              if (!Array.isArray(body.previewAppIds) || body.previewAppIds.length === 0 || body.previewAppIds.length > 8) {
+                return failure("previewAppIds must be a non-empty array of at most 8 preview slot IDs", 400);
+              }
+              for (const rawId of body.previewAppIds) {
+                if (typeof rawId !== "string" || !previewSlotPattern.test(rawId)) {
+                  return failure("previewAppIds entries must match dev.pocket.studio.preview[.<slot>]", 400);
+                }
+                if (!requestedIds.includes(rawId)) requestedIds.push(rawId);
+              }
+            } else if (body.previewAppId !== undefined) {
+              if (typeof body.previewAppId !== "string" || !previewSlotPattern.test(body.previewAppId)) {
+                return failure("previewAppId must match dev.pocket.studio.preview[.<slot>]", 400);
+              }
+              requestedIds.push(body.previewAppId);
+            }
             if (state.busy) return failure("build is still running", 409);
             if (state.builtRevision === null || !state.artifacts || state.builtRevision !== state.revision) {
               return failure("build the current source successfully before preview publish", 409);
@@ -5970,7 +5988,7 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
             const rootPackage = snapshot.packages.find((pkg) => pkg.id === config.appId);
             if (!rootPackage) return failure("resource snapshot does not contain the root package", 409);
             const network = resourcePackageNetwork(snapshot, rootPackage.id);
-            const result = await publishPreview({
+            const baseInput = {
               workspace,
               projectId: id,
               origin: new URL(request.url).origin,
@@ -5982,8 +6000,16 @@ export async function startEditor(options: StartEditorOptions = {}): Promise<Edi
               build: config.build,
               networkPak: network.pak,
               networkAssets: network.assets,
-            });
-            return json(result);
+            };
+            if (requestedIds.length <= 1) {
+              const result = await publishPreview({
+                ...baseInput,
+                ...(requestedIds[0] ? { previewAppId: requestedIds[0] } : {}),
+              });
+              return json(result);
+            }
+            const batch = await publishPreviews({ ...baseInput, previewAppIds: requestedIds });
+            return json({ ...batch.primary, slots: batch.slots });
           }
           if (parts[3] === "versions" && method === "GET") {
             const config = await loadConfig(projectDir(id), id);

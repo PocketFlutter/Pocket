@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pocket_flutter/pocket_flutter.dart';
 import 'package:pocket_sdk/pocket_sdk.dart';
 import 'package:pocket_studio/pocket_studio.dart';
 import 'package:pocket_studio_app/main.dart';
@@ -88,6 +89,18 @@ void main() {
     final support = (await tester.runAsync(() => Directory.systemTemp.createTemp('studio-loop-support-')))!;
     binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (_) async => support.path);
 
+    var latestTexts = <PocketTextOp>[];
+    debugPocketFrameDeltaAtOverride = (runtime, delta) {
+      final frame = pocketFrameDeltaAt(runtime, delta);
+      if (frame != null) {
+        final texts = frame.ops.whereType<PocketTextOp>().toList();
+        final labels = texts.map((t) => t.text);
+        if (labels.contains('设置') && labels.contains('项目')) latestTexts = texts;
+      }
+      return frame;
+    };
+    addTearDown(() => debugPocketFrameDeltaAtOverride = null);
+
     final studioMetadata = File('$repo/studio/assets/app.bytecode.json').readAsStringSync();
     final childRecordings = <PocketRecordingController>[];
     final controller = PocketSystemHostController();
@@ -107,7 +120,10 @@ void main() {
           key: boundaryKey,
           child: PocketSystemHost(
             systemUI: studioSystemUI(config),
-            applications: {PocketStudioConfig.previewAppId: child},
+            applications: {
+              ...studioPreviewChildren(config, previewBootstrapMetadata: previewBootstrap(studioMetadata)),
+              PocketStudioConfig.previewAppId: child,
+            },
             controller: controller,
           ),
         ),
@@ -160,30 +176,41 @@ void main() {
       return null;
     }
 
-    await waitUntil(() => controller.instances.any((i) => i.appId == studioAppId && i.firstFrameReady), 'Studio first frame');
-    await pumpFor(const Duration(seconds: 3)); // project list, settings load
+    bool hasText(String needle) => latestTexts.any((t) => t.text.contains(needle));
+    Future<void> tapTextWhere(bool Function(PocketTextOp) pred, String what) async {
+      await waitUntil(() => latestTexts.any(pred), 'text $what');
+      final op = latestTexts.firstWhere(pred);
+      final x = op.x + (op.width < 60 ? op.width / 2 : 30);
+      final y = op.y + (op.height < 24 ? op.height / 2 : 10);
+      await tapAt(x, y);
+    }
+    Future<void> tapLabel(String label) => tapTextWhere((t) => t.text == label, label);
+
+    await waitUntil(() => controller.instances.any((i) => i.appId == studioAppId && i.firstFrameReady) && latestTexts.isNotEmpty, 'Studio first frame');
+    await waitUntil(() => hasText('Loop App'), 'project list');
     await shot('boot');
 
-    // Settings -> turn auto-build on (a real pointer tap on the switch).
-    await tapAt(30, 244);
+    // Settings -> turn auto-build on and switch editor to InputField.
+    await tapLabel('设置');
+    await waitUntil(() => hasText('保存后自动构建并刷新预览') && hasText('多行输入框（备用）'), 'settings page');
     await shot('settings');
-    await tapAt(140, 74);
-    await tapAt(300, 314); // editor: the multi-line InputField (the default is the CodeView; this M3 test types through the text overlay)
+    await tapLabel('保存后自动构建并刷新预览');
+    await tapLabel('多行输入框（备用）');
     await pumpFor(const Duration(seconds: 1));
     await shot('settings-autobuild');
 
     // Projects -> open the temp project.
-    await tapAt(30, 39);
-    await tapAt(300, 78);
-    await pumpFor(const Duration(seconds: 2));
+    await tapLabel('项目');
+    await tapLabel('Loop App');
+    await waitUntil(() => hasText('app.tsx'), 'file tree');
     await shot('project-open');
 
     // Source: open app.tsx and type a new version through the real Flutter text overlay.
-    await tapAt(130, 160);
-    await pumpFor(const Duration(seconds: 1));
+    await tapLabel('app.tsx');
+    await waitUntil(() => hasText('PREVIEW_V0'), 'app.tsx loaded');
     await shot('file-open');
-    await tapAt(420, 130); // the multi-line InputField shell
-    await pumpFor(const Duration(milliseconds: 500));
+    await tapTextWhere((t) => t.text.contains('PREVIEW_V0'), 'InputField body');
+    await waitUntil(() => find.byType(EditableText).evaluate().isNotEmpty, 'Flutter EditableText overlay');
     await shot('editing');
 
     Future<void> editAndSave(String marker) async {
@@ -192,7 +219,7 @@ void main() {
       await tester.enterText(field.last, _source(marker));
       await pumpFor(const Duration(milliseconds: 500));
       await shot('typed-$marker');
-      await tapAt(396, 34); // toolbar "保存"
+      await tapTextWhere((t) => t.text.startsWith('保存'), 'toolbar 保存');
       await shot('saved-$marker');
     }
 
@@ -212,8 +239,10 @@ void main() {
     await shot('preview-v1');
 
     // --- v2: the child is reloaded (destroy + create) with the new signed build. -----------------
-    await tapAt(420, 130);
-    await pumpFor(const Duration(milliseconds: 400));
+    if (find.byType(EditableText).evaluate().isEmpty) {
+      await tapTextWhere((t) => t.text.contains('PREVIEW_V1'), 'InputField body v2');
+      await waitUntil(() => find.byType(EditableText).evaluate().isNotEmpty, 'EditableText overlay v2');
+    }
     final save2 = Stopwatch()..start();
     await editAndSave('PREVIEW_V2');
     await waitUntil(() => File('${project.path}/app.tsx').readAsStringSync().contains('PREVIEW_V2'), 'v2 on disk');

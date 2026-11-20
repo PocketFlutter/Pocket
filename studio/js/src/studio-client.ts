@@ -537,11 +537,37 @@ export function createStudioClient(host: StudioHost, streams?: StudioStreams, op
       diagnostics: (project: string, kind?: "log" | "crash") => call<DiagnosticsExport>("studio.logs.diagnostics", { project, ...(kind ? { kind } : {}) }),
     },
     preview: {
-      publish: (project: string) => call<Record<string, unknown>>("studio.preview.publish", { project }),
+      publish: (project: string, slotIds?: string | readonly string[]) => {
+        const extra = typeof slotIds === "string"
+          ? { previewAppId: slotIds }
+          : Array.isArray(slotIds) && slotIds.length > 0
+            ? slotIds.length === 1 && slotIds[0] === "dev.pocket.studio.preview"
+              ? {}
+              : { previewAppIds: [...slotIds] }
+            : {};
+        return call<Record<string, unknown>>("studio.preview.publish", { project, ...extra });
+      },
       devices: () => call<{ devices: unknown[] }>("studio.preview.devices"),
       deploy: (project: string, deviceId: string) => call<Record<string, unknown>>("studio.preview.deploy", { project, deviceId }),
       deployStatus: (project: string, job: string) => call<Record<string, unknown>>("studio.preview.deployStatus", { project, job }),
       deployCancel: (project: string, job: string) => call<Record<string, unknown>>("studio.preview.deployCancel", { project, job }),
+    },
+    wechat: {
+      status: (project: string) => call<{
+        targets: Array<{ id: string; label: string; appId: string }>;
+        state: { state: "idle" | "building" | "running" | "error" | "stopped"; targetId?: string; url?: string; error?: string; logs: string[] };
+        webPreviewUrl?: string;
+      }>("studio.wechat.status", { project }),
+      start: (project: string, targetId = "main") => call<{
+        targets: Array<{ id: string; label: string; appId: string }>;
+        state: { state: "idle" | "building" | "running" | "error" | "stopped"; targetId?: string; url?: string; error?: string; logs: string[] };
+        webPreviewUrl?: string;
+      }>("studio.wechat.start", { project, targetId }),
+      stop: (project: string) => call<{
+        targets: Array<{ id: string; label: string; appId: string }>;
+        state: { state: "idle" | "building" | "running" | "error" | "stopped"; targetId?: string; url?: string; error?: string; logs: string[] };
+        webPreviewUrl?: string;
+      }>("studio.wechat.stop", { project }),
     },
     publish: {
       plan: (project: string, channel: "test" | "release" = "test") => call<Record<string, unknown>>("studio.publish.plan", { project, channel }),

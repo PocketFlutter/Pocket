@@ -7,7 +7,15 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
 import { join, resolve } from "node:path";
 
-export type DrawOp = { type?: string; text?: string; x?: number; y?: number; w?: number; h?: number };
+export type DrawOp = { type?: string; text?: string; x?: number; y?: number; w?: number; h?: number; package?: string; surfaceHandle?: number };
+
+export const DEFAULT_COMPOSITOR_SURFACES: Readonly<Record<string, number>> = Object.freeze({
+  "dev.pocket.studio.preview": 4,
+  "dev.pocket.studio.preview.web": 5,
+  "dev.pocket.studio.preview.wechat": 6,
+  "dev.pocket.studio.preview.widget": 7,
+  "dev.pocket.studio.preview.widget-alt": 8,
+});
 export type Frame = { events?: Array<{ name?: string; payload?: Record<string, any> }>; ops?: DrawOp[]; width?: number; height?: number };
 export type HostRequest = { requestId: string; capability: string; params: Record<string, any> };
 export type Reply = { ok: true; result: unknown } | { ok: false; error: { code: string; message: string } };
@@ -76,7 +84,12 @@ export class ProbeSession {
   /** Every guest -> host event other than host.request, newest last (bounded). */
   readonly guestEvents: Array<{ name: string; payload: Record<string, any> }> = [];
 
-  constructor(private readonly responder: Responder, private readonly size = { width: 900, height: 640 }, private readonly memory?: { heapLimitBytes?: number; maxPakBytes?: number }) {
+  constructor(
+    private readonly responder: Responder,
+    private readonly size = { width: 900, height: 640 },
+    private readonly memory?: { heapLimitBytes?: number; maxPakBytes?: number },
+    private readonly compositorSurfaces: Readonly<Record<string, number>> = DEFAULT_COMPOSITOR_SURFACES,
+  ) {
     this.child = spawn(probePath(), [], { stdio: ["pipe", "pipe", "pipe"] });
     const decoder = new StringDecoder("utf8");
     this.child.stdout.on("data", (chunk: Buffer) => this.accept(decoder.write(chunk)));
@@ -167,7 +180,7 @@ export class ProbeSession {
   }
 
   async boot(): Promise<Frame> {
-    this.send({ op: "create", ...this.size, ...(this.memory ? { memory: this.memory } : {}), compositorSurfaces: { "dev.pocket.studio.preview": 4 } });
+    this.send({ op: "create", ...this.size, ...(this.memory ? { memory: this.memory } : {}), compositorSurfaces: this.compositorSurfaces });
     assert.equal((await this.line()).ok, true, "create failed");
     const { bytecodePath, pakPath } = artifacts();
     this.send({ op: "loadBytecode", bytecodePath, pakPath });

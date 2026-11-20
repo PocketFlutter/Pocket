@@ -15,4 +15,4 @@ if [[ "${POCKET_BUILD_GUEST:-1}" == "1" ]]; then
 fi
 
 echo "test_guest: built bytecode on the real native probe with a fake studio.* responder"
-bun test tests/studio_guest_native.test.ts tests/studio_guest_workflows.test.ts tests/studio_guest_preview.test.ts tests/studio_guest_publish.test.ts tests/studio_guest_code.test.ts tests/studio_guest_update.test.ts tests/studio_guest_settings.test.ts tests/studio_guest_keys.test.ts tests/studio_guest_resources.test.ts tests/studio_guest_parity.test.ts tests/studio_profile.test.ts
+bun test tests/studio_guest_native.test.ts tests/studio_guest_workflows.test.ts tests/studio_guest_preview.test.ts tests/studio_guest_publish.test.ts tests/studio_guest_code.test.ts tests/studio_guest_update.test.ts tests/studio_guest_settings.test.ts tests/studio_guest_keys.test.ts tests/studio_guest_resources.test.ts tests/studio_guest_parity.test.ts tests/studio_guest_workbench.test.ts tests/studio_profile.test.ts

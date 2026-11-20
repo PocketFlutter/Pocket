@@ -494,8 +494,41 @@ final List<StudioCall> studioCalls = <StudioCall>[
     return StudioRequest('GET', [..._project(p), 'diagnostics'],
         query: kind == null ? null : <String, String>{'kind': kind as String});
   }),
-  StudioCall('studio.preview.publish', PocketStudioPermissions.build, 'Publish the current build to the signed preview slot',
-      _p(), const {'project'}, (p) => StudioRequest('POST', [..._project(p), 'preview-publish'], write: true, body: const <String, Object?>{})),
+  StudioCall('studio.preview.publish', PocketStudioPermissions.build, 'Publish the current build to one or more signed preview slots',
+      _p(extra: {'previewAppId': _s, 'previewAppIds': _o}), const {'project'}, (p) {
+    final slotPattern = RegExp(r'^dev\.pocket\.studio\.preview(?:\.[a-z][a-z0-9-]{0,31})?$');
+    final body = <String, Object?>{};
+    if (p['previewAppIds'] != null) {
+      final rawList = p['previewAppIds'];
+      if (rawList is! List || rawList.length > 8 || rawList.isEmpty) {
+        throw const PocketCapabilityException('invalid_params', 'previewAppIds must be an array of 1..8 slot ids');
+      }
+      final ids = <String>[];
+      for (final item in rawList) {
+        if (item is! String || !slotPattern.hasMatch(item)) {
+          throw const PocketCapabilityException('invalid_params', 'previewAppIds entries must match dev.pocket.studio.preview[.<slot>]');
+        }
+        if (!ids.contains(item)) ids.add(item);
+      }
+      body['previewAppIds'] = ids;
+    } else if (p['previewAppId'] != null) {
+      final rawId = p['previewAppId'];
+      if (rawId is! String || !slotPattern.hasMatch(rawId)) {
+        throw const PocketCapabilityException('invalid_params', 'previewAppId must match dev.pocket.studio.preview[.<slot>]');
+      }
+      body['previewAppId'] = rawId;
+    }
+    return StudioRequest('POST', [..._project(p), 'preview-publish'], write: true, body: body);
+  }),
+  StudioCall('studio.wechat.status', PocketStudioPermissions.read, 'Read WeChat Mini Program & Web loopback preview status',
+      _p(), const {'project'}, (p) => StudioRequest('GET', [..._project(p), 'wechat'])),
+  StudioCall('studio.wechat.start', PocketStudioPermissions.build, 'Start WeChat Mini Program preview server for a project',
+      _p(extra: {'targetId': _s}), const {'project'}, (p) {
+    final targetId = p['targetId'] == null ? 'main' : _boundedString(p['targetId'], 'targetId', 200);
+    return StudioRequest('POST', [..._project(p), 'wechat'], write: true, body: <String, Object?>{'targetId': targetId});
+  }),
+  StudioCall('studio.wechat.stop', PocketStudioPermissions.build, 'Stop WeChat Mini Program preview server for a project',
+      _p(), const {'project'}, (p) => StudioRequest('DELETE', [..._project(p), 'wechat'], write: true)),
   StudioCall('studio.preview.devices', PocketStudioPermissions.read, 'List deployment devices',
       _p(project: false), const {}, (p) => const StudioRequest('GET', ['api', 'devices'])),
   StudioCall('studio.preview.deploy', PocketStudioPermissions.deploy, 'Start a device deployment',

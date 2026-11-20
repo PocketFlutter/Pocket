@@ -1,26 +1,27 @@
-import { existsSync, readdirSync } from "node:fs";
-import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { copyFile, cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
-import { createPublicKey } from "node:crypto";
-import { randomUUID } from "node:crypto";
+import { createPrivateKey, createPublicKey, randomUUID } from "node:crypto";
 import {
   generateDevKey,
   packageArtifacts,
   pocketReleaseDirectory,
   sha256Hex,
+  signPayload,
   verifySignedManifest,
+  type PocketUpdatePayload,
   type PublicKeyConfig,
 } from "../scripts/package_update.ts";
 
 /**
  * Pocket Studio signed preview slot.
  *
- * The preview child is an ordinary signed package under one fixed app id. It
- * is published into its own `preview` slot so the `test`/`stable` slots, their
- * package-slot ownership checks and the version history journal never see it.
- * Nothing here loads unsigned bytes: the host fetches the slot through the
- * normal update coordinator, which performs the usual signature, hash, ABI and
- * anti-downgrade checks.
+ * The preview child is an ordinary signed package under fixed preview app ids.
+ * Each target is published into its own `preview` slot so the `test`/`stable`
+ * slots, their package-slot ownership checks and the version history journal
+ * never see it. Nothing here loads unsigned bytes: the host fetches the slot
+ * through the normal update coordinator, which performs the usual signature,
+ * hash, ABI and anti-downgrade checks.
  */
 export const PREVIEW_APP_ID = "dev.pocket.studio.preview";
 export const PREVIEW_PACKAGE_VERSION = "preview";
@@ -53,6 +54,10 @@ export type PreviewPublishInput = {
   networkAssets?: string[];
 };
 
+export type PreviewPublishBatchInput = Omit<PreviewPublishInput, "previewAppId"> & {
+  previewAppIds: readonly string[];
+};
+
 export type PreviewPublishResult = {
   buildId: string;
   revision: number;
@@ -68,7 +73,33 @@ export type PreviewPublishResult = {
   timingsMs: { package: number; sign: number; total: number };
 };
 
+export type PreviewPublishBatchResult = {
+  primary: PreviewPublishResult;
+  slots: Record<string, PreviewPublishResult>;
+};
+
 const slotLocks = new Set<string>();
+const workspaceCounterLocks = new Map<string, Promise<void>>();
+const textEncoder = new TextEncoder();
+
+async function withWorkspaceCounterLock<T>(statesDir: string, fn: () => Promise<T>): Promise<T> {
+  const prev = workspaceCounterLocks.get(statesDir) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const chained = prev.then(() => current, () => current);
+  workspaceCounterLocks.set(statesDir, chained);
+  await prev.catch(() => undefined);
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (workspaceCounterLocks.get(statesDir) === chained) {
+      workspaceCounterLocks.delete(statesDir);
+    }
+  }
+}
 
 function atomicJson(path: string, value: unknown): Promise<void> {
   const temporary = `${path}.${randomUUID()}.tmp`;
@@ -93,6 +124,15 @@ export async function previewTrust(workspace: PreviewWorkspace): Promise<{ keyPa
   return { keyPath, key: { keyId: stored.keyId, publicKeyBase64: stored.publicKeyBase64 } };
 }
 
+function loadPreviewSigningKey(keyPath: string, keyId: string): { keyId: string; privateKey: ReturnType<typeof createPrivateKey> } {
+  const parsed = JSON.parse(readFileSync(keyPath, "utf8")) as { privateKeyPem?: string; privateKey?: string };
+  const pem = parsed.privateKeyPem ?? parsed.privateKey;
+  if (!pem) throw new Error("preview signing key is missing privateKeyPem");
+  const privateKey = createPrivateKey(pem);
+  if (privateKey.asymmetricKeyType !== "ed25519") throw new Error("preview signing key must be Ed25519");
+  return { keyId, privateKey };
+}
+
 export function previewSlotDirectory(workspace: PreviewWorkspace, hostVersion: string, packageId: string): string {
   return pocketReleaseDirectory(join(workspace.updates, PREVIEW_ROOT), hostVersion, packageId, PREVIEW_PACKAGE_VERSION);
 }
@@ -109,6 +149,39 @@ async function pruneUnreferenced(directory: string, keep: Set<string>): Promise<
       if (!keep.has(`${sub}/${name}`) && !keep.has(name)) await rm(join(dir, name), { force: true });
     }
   }
+}
+
+/**
+ * Sanitize a staged copy of `guest-manifest.json` exclusively for Studio's
+ * zero-plugin preview children (`dev.pocket.studio.preview*`).
+ *
+ * Required permissions (`permissions.requires`) are preserved intact so any
+ * package that strictly requires host hardware/system permissions still fails
+ * closed. Optional permissions (`permissions.optional`) are stripped from the
+ * preview-staged manifest because `PocketPluginManager.negotiate` rejects any
+ * declared permission not registered on a host plugin, whereas optional
+ * capabilities degrade cleanly to `unavailableOptional`.
+ */
+async function stagePreviewGuestManifest(sourcePath: string, stagingRoot: string): Promise<string> {
+  const raw = JSON.parse(await readFile(sourcePath, "utf8")) as Record<string, unknown>;
+  const clone = structuredClone(raw);
+  const stripOptionalPermissions = (holder: Record<string, unknown> | undefined): void => {
+    if (!holder) return;
+    const perms = holder.permissions;
+    if (perms && typeof perms === "object" && !Array.isArray(perms)) {
+      const group = perms as Record<string, unknown>;
+      if (Array.isArray(group.optional) && group.optional.length > 0) {
+        group.optional = [];
+      }
+    }
+  };
+  stripOptionalPermissions(clone);
+  if (clone.guest && typeof clone.guest === "object" && !Array.isArray(clone.guest)) {
+    stripOptionalPermissions(clone.guest as Record<string, unknown>);
+  }
+  const stagedPath = join(stagingRoot, "preview-guest-manifest.json");
+  await writeFile(stagedPath, JSON.stringify(clone, null, 2) + "\n");
+  return stagedPath;
 }
 
 /**
@@ -134,152 +207,234 @@ async function publishedSlotBuild(slotDirectory: string, key: PublicKeyConfig): 
 }
 
 /**
- * Package the current successful build into the preview slot. The previous
- * preview's content-addressed files stay readable until the next publish so a
- * host that is still downloading them is not broken by the pointer move.
+ * Package one build into 1..N preview slots in a single pass.
+ *
+ * Content-addressed blobs (`app.qjbc`, `app.pak` parts, loose `assets/`) are
+ * hashed and staged once, then each slot receives its own Ed25519-signed
+ * `PocketUpdatePayload` (`appId`, monotonic `build` & `version`) and atomic
+ * pointer swap while `preview-slots.json` is updated under a workspace mutex.
  */
-export async function publishPreview(input: PreviewPublishInput): Promise<PreviewPublishResult> {
+export async function publishPreviews(input: PreviewPublishBatchInput): Promise<PreviewPublishBatchResult> {
   const started = performance.now();
-  const packageId = input.previewAppId ?? PREVIEW_APP_ID;
-  const slotKey = `${input.hostVersion}/${packageId}`;
-  if (slotLocks.has(slotKey)) {
-    const error = new Error("another preview publish is using this slot; retry when it completes");
-    (error as unknown as { status: number }).status = 409;
-    throw error;
+  const uniqueIds: string[] = [];
+  for (const rawId of input.previewAppIds) {
+    if (rawId && !uniqueIds.includes(rawId)) uniqueIds.push(rawId);
   }
-  slotLocks.add(slotKey);
+  if (uniqueIds.length === 0) uniqueIds.push(PREVIEW_APP_ID);
+
+  const slotKeys = uniqueIds.map((id) => `${input.hostVersion}/${id}`);
+  for (const slotKey of slotKeys) {
+    if (slotLocks.has(slotKey)) {
+      const error = new Error("another preview publish is using this slot; retry when it completes");
+      (error as unknown as { status: number }).status = 409;
+      throw error;
+    }
+  }
+  for (const slotKey of slotKeys) slotLocks.add(slotKey);
+
   try {
     const { keyPath, key } = await previewTrust(input.workspace);
-    const countersPath = join(input.workspace.states, COUNTER_FILE);
-    const counters = await readJson<PreviewCounters>(countersPath, { schemaVersion: 1, slots: {} });
-    const previousBuild = Number(counters.slots[slotKey]?.build ?? 0);
     const metadata = await readJson<Record<string, unknown>>(join(input.buildDirectory, "app.bytecode.json"));
-    if (typeof metadata.runtimeAbi !== "string" || !metadata.runtimeAbi) throw new Error("build metadata has no runtime ABI");
-    // Strictly above the project's own build, the bootstrap floor and every
-    // earlier preview build, so the host's anti-downgrade floor only moves up.
-    // The currently published (signature-verified) slot build also counts, so a
-    // deleted counter file cannot drop below the host's floor.
-    const slotBuild = await publishedSlotBuild(previewSlotDirectory(input.workspace, input.hostVersion, packageId), key);
-    const build = Math.max(input.build, Number(metadata.build ?? 0), previousBuild, slotBuild) + 1;
-    if (!Number.isSafeInteger(build)) throw new Error("preview build number is outside the safe integer range");
-    const version = `${input.version}-preview.${build}`;
+    if (typeof metadata.runtimeAbi !== "string" || !metadata.runtimeAbi) {
+      throw new Error("build metadata has no runtime ABI");
+    }
+    const runtimeAbi = metadata.runtimeAbi;
 
-    const slotDirectory = previewSlotDirectory(input.workspace, input.hostVersion, packageId);
+    // Allocate monotonic per-slot build numbers and persist counters atomically under the workspace lock.
+    const countersPath = join(input.workspace.states, COUNTER_FILE);
+    const allocated = await withWorkspaceCounterLock(input.workspace.states, async () => {
+      const counters = await readJson<PreviewCounters>(countersPath, { schemaVersion: 1, slots: {} });
+      const plans: Array<{ packageId: string; slotKey: string; slotDirectory: string; build: number; version: string }> = [];
+      for (let i = 0; i < uniqueIds.length; i += 1) {
+        const packageId = uniqueIds[i]!;
+        const slotKey = slotKeys[i]!;
+        const slotDirectory = previewSlotDirectory(input.workspace, input.hostVersion, packageId);
+        const previousBuild = Number(counters.slots[slotKey]?.build ?? 0);
+        const slotBuild = await publishedSlotBuild(slotDirectory, key);
+        const build = Math.max(input.build, Number(metadata.build ?? 0), previousBuild, slotBuild) + 1;
+        if (!Number.isSafeInteger(build)) throw new Error("preview build number is outside the safe integer range");
+        const version = `${input.version}-preview.${build}`;
+        plans.push({ packageId, slotKey, slotDirectory, build, version });
+      }
+      const publishedAt = new Date().toISOString();
+      for (const plan of plans) {
+        counters.slots[plan.slotKey] = {
+          build: plan.build,
+          version: plan.version,
+          projectId: input.projectId,
+          publishedAt,
+        };
+      }
+      await mkdir(input.workspace.states, { recursive: true });
+      await atomicJson(countersPath, counters);
+      return plans;
+    });
+
     const stagingRoot = join(input.workspace.updates, PREVIEW_ROOT, `.staging-${randomUUID()}`);
-    const staging = join(stagingRoot, "package");
-    await mkdir(staging, { recursive: true });
-    let signMs = 0;
-    const packageStarted = performance.now();
+    const primaryStaging = join(stagingRoot, "primary");
+    await mkdir(primaryStaging, { recursive: true });
+
     try {
+      const sourceGuestManifest = join(input.buildDirectory, "guest-manifest.json");
+      const stagedGuestManifest = existsSync(sourceGuestManifest)
+        ? await stagePreviewGuestManifest(sourceGuestManifest, stagingRoot)
+        : undefined;
       const assetDirectory = join(input.buildDirectory, "assets");
       const hasAssets = existsSync(assetDirectory) && readdirSync(assetDirectory).length > 0;
-      // The signed payload carries the fixed preview id; the project's own
-      // appId in pocket.json and source is never touched.
-      const result = packageArtifacts({
-        appId: packageId,
-        version,
-        build,
+
+      const primaryPlan = allocated[0]!;
+      let totalSignMs = 0;
+      const packageStarted = performance.now();
+      const primaryPkg = packageArtifacts({
+        appId: primaryPlan.packageId,
+        version: primaryPlan.version,
+        build: primaryPlan.build,
         bytecodePath: join(input.buildDirectory, "app.qjbc"),
         entryFormat: "quickjs-bytecode",
-        runtimeAbi: metadata.runtimeAbi,
+        runtimeAbi,
         pakPath: join(input.buildDirectory, "app.pak"),
-        outDir: staging,
+        outDir: primaryStaging,
         keyFile: keyPath,
-        ...(existsSync(join(input.buildDirectory, "guest-manifest.json"))
-          ? { guestManifestPath: join(input.buildDirectory, "guest-manifest.json") }
-          : {}),
+        ...(stagedGuestManifest ? { guestManifestPath: stagedGuestManifest } : {}),
         ...(hasAssets ? { assetDir: assetDirectory, assetPrefix: "assets" } : {}),
         networkPakKeys: input.networkPak ?? [],
         networkAssets: input.networkAssets ?? [],
-        // No one-shot archive: a preview is re-published on every save, the
-        // granular blob path only downloads what changed, and it needs no
-        // native archive extractor in the host.
         includeBundle: false,
-        onSignTiming: (ms) => { signMs = ms; },
+        onSignTiming: (ms) => { totalSignMs += ms; },
       });
-      const packageMs = performance.now() - packageStarted;
-      const payloadSha256 = sha256Hex(result.payloadBytes);
+      const sharedPackageMs = performance.now() - packageStarted - totalSignMs;
+      const signingKey = uniqueIds.length > 1 ? loadPreviewSigningKey(keyPath, key.keyId) : undefined;
+      const signedAt = primaryPkg.payload.signedAt ?? Math.floor(Date.now() / 1000);
+      const blobNames = existsSync(join(primaryStaging, "blobs"))
+        ? await readdir(join(primaryStaging, "blobs"))
+        : [];
 
-      // Bootstrap metadata is public, small and pinned by the host config; the
-      // signed package remains the only source of executable bytes.
-      await mkdir(join(staging, "bootstrap"), { recursive: true });
-      await writeFile(join(staging, "bootstrap", "app.bytecode.json"), JSON.stringify(metadata, null, 2) + "\n");
-      if (existsSync(join(input.buildDirectory, "guest-manifest.json"))) {
-        await cp(join(input.buildDirectory, "guest-manifest.json"), join(staging, "bootstrap", "guest-manifest.json"));
-      }
-      const route = previewRoute(input.hostVersion, packageId);
-      await writeFile(join(staging, "host.json"), JSON.stringify({
-        kind: "pocket-studio-preview-host",
-        schemaVersion: 1,
-        appId: packageId,
-        hostVersion: input.hostVersion,
-        packageVersion: PREVIEW_PACKAGE_VERSION,
-        // Absolute URLs are filled from the request origin when served.
-        POCKET_UPDATE_URL: `${route}/latest.json`,
-        POCKET_UPDATE_KEY_ID: key.keyId,
-        POCKET_UPDATE_PUBLIC_KEY: key.publicKeyBase64,
-        POCKET_HOST_VERSION: input.hostVersion,
-        POCKET_STORE_NAMESPACE: "studio-preview",
-        version,
-        build,
-        runtimeAbi: metadata.runtimeAbi,
-        payloadSha256,
-      }, null, 2) + "\n");
+      const slots: Record<string, PreviewPublishResult> = {};
+      for (let i = 0; i < allocated.length; i += 1) {
+        const plan = allocated[i]!;
+        const slotStaging = i === 0 ? primaryStaging : join(stagingRoot, `slot-${i}`);
+        let payload: PocketUpdatePayload;
+        let payloadBytes: Uint8Array;
 
-      // Persist the build counter before any pointer file so a crash cannot reuse a build number.
-      counters.slots[slotKey] = { build, version, projectId: input.projectId, publishedAt: new Date().toISOString() };
-      await mkdir(input.workspace.states, { recursive: true });
-      await atomicJson(countersPath, counters);
-
-      // Swap in: immutable content-addressed files first, pointer files last.
-      const previousPayload = await readJson<{ files?: Array<{ url: string }> }>(join(slotDirectory, "payload.json"), {});
-      await mkdir(slotDirectory, { recursive: true });
-      for (const sub of ["blobs", "bundles", "bootstrap"]) {
-        const source = join(staging, sub);
-        if (!existsSync(source)) continue;
-        await mkdir(join(slotDirectory, sub), { recursive: true });
-        for (const name of await readdir(source)) {
-          const target = join(slotDirectory, sub, name);
-          if (sub !== "bootstrap" && existsSync(target)) continue; // content addressed
-          await rename(join(source, name), target);
+        if (i === 0) {
+          payload = primaryPkg.payload;
+          payloadBytes = primaryPkg.payloadBytes;
+        } else {
+          await mkdir(slotStaging, { recursive: true });
+          payload = {
+            ...primaryPkg.payload,
+            appId: plan.packageId,
+            version: plan.version,
+            build: plan.build,
+            signedAt,
+          };
+          payloadBytes = textEncoder.encode(JSON.stringify(payload));
+          const signStart = performance.now();
+          const envelope = signPayload(payloadBytes, signingKey!);
+          totalSignMs += performance.now() - signStart;
+          const envelopeBytes = textEncoder.encode(JSON.stringify(envelope));
+          await writeFile(join(slotStaging, "payload.json"), payloadBytes);
+          await writeFile(join(slotStaging, "signed-manifest.json"), envelopeBytes);
+          await writeFile(join(slotStaging, "latest.json"), envelopeBytes);
         }
-      }
-      for (const name of ["bundle.7z", "bundle.zip", "payload.json", "signed-manifest.json", "host.json", "latest.json"]) {
-        const source = join(staging, name);
-        if (!existsSync(source)) continue;
-        const temporary = join(slotDirectory, `.${name}.${randomUUID()}.tmp`);
-        await rename(source, temporary);
-        await rename(temporary, join(slotDirectory, name));
-      }
-      const keep = new Set<string>();
-      for (const file of [...result.payload.files, ...(previousPayload.files ?? [])]) keep.add(file.url);
-      if (result.payload.bundle) keep.add(result.payload.bundle.url);
-      await pruneUnreferenced(slotDirectory, keep);
 
-      return {
-        buildId: `${input.projectId}@${input.revision}`,
-        revision: input.revision,
-        generation: input.generation,
-        version,
-        build,
-        packageId,
-        manifestUrl: `${input.origin}${route}/latest.json`,
-        hostConfigUrl: `${input.origin}${route}/host.json`,
-        payloadSha256,
-        runtimeAbi: metadata.runtimeAbi,
-        keyId: key.keyId,
-        timingsMs: {
-          package: round(packageMs - signMs),
-          sign: round(signMs),
-          total: round(performance.now() - started),
-        },
-      };
+        const payloadSha256 = sha256Hex(payloadBytes);
+        await mkdir(join(slotStaging, "bootstrap"), { recursive: true });
+        await writeFile(join(slotStaging, "bootstrap", "app.bytecode.json"), JSON.stringify(metadata, null, 2) + "\n");
+        if (stagedGuestManifest) {
+          await cp(stagedGuestManifest, join(slotStaging, "bootstrap", "guest-manifest.json"));
+        }
+        const route = previewRoute(input.hostVersion, plan.packageId);
+        await writeFile(join(slotStaging, "host.json"), JSON.stringify({
+          kind: "pocket-studio-preview-host",
+          schemaVersion: 1,
+          appId: plan.packageId,
+          hostVersion: input.hostVersion,
+          packageVersion: PREVIEW_PACKAGE_VERSION,
+          POCKET_UPDATE_URL: `${route}/latest.json`,
+          POCKET_UPDATE_KEY_ID: key.keyId,
+          POCKET_UPDATE_PUBLIC_KEY: key.publicKeyBase64,
+          POCKET_HOST_VERSION: input.hostVersion,
+          POCKET_STORE_NAMESPACE: "studio-preview",
+          version: plan.version,
+          build: plan.build,
+          runtimeAbi,
+          payloadSha256,
+        }, null, 2) + "\n");
+
+        // Swap in: immutable content-addressed blobs first, pointer files last.
+        const previousPayload = await readJson<{ files?: Array<{ url: string }> }>(join(plan.slotDirectory, "payload.json"), {});
+        await mkdir(join(plan.slotDirectory, "blobs"), { recursive: true });
+        for (const blobName of blobNames) {
+          const targetBlob = join(plan.slotDirectory, "blobs", blobName);
+          if (existsSync(targetBlob)) continue;
+          const sourceBlob = join(primaryStaging, "blobs", blobName);
+          if (i === allocated.length - 1) {
+            await rename(sourceBlob, targetBlob);
+          } else {
+            const tempBlob = join(plan.slotDirectory, "blobs", `.${blobName}.${randomUUID()}.tmp`);
+            await copyFile(sourceBlob, tempBlob);
+            await rename(tempBlob, targetBlob);
+          }
+        }
+        await mkdir(join(plan.slotDirectory, "bootstrap"), { recursive: true });
+        for (const bootName of await readdir(join(slotStaging, "bootstrap"))) {
+          const tempBoot = join(plan.slotDirectory, "bootstrap", `.${bootName}.${randomUUID()}.tmp`);
+          await rename(join(slotStaging, "bootstrap", bootName), tempBoot);
+          await rename(tempBoot, join(plan.slotDirectory, "bootstrap", bootName));
+        }
+        for (const name of ["bundle.7z", "bundle.zip", "payload.json", "signed-manifest.json", "host.json", "latest.json"]) {
+          const source = join(slotStaging, name);
+          if (!existsSync(source)) continue;
+          const temporary = join(plan.slotDirectory, `.${name}.${randomUUID()}.tmp`);
+          await rename(source, temporary);
+          await rename(temporary, join(plan.slotDirectory, name));
+        }
+
+        const keep = new Set<string>();
+        for (const file of [...payload.files, ...(previousPayload.files ?? [])]) keep.add(file.url);
+        if (payload.bundle) keep.add(payload.bundle.url);
+        await pruneUnreferenced(plan.slotDirectory, keep);
+
+        slots[plan.packageId] = {
+          buildId: `${input.projectId}@${input.revision}`,
+          revision: input.revision,
+          generation: input.generation,
+          version: plan.version,
+          build: plan.build,
+          packageId: plan.packageId,
+          manifestUrl: `${input.origin}${route}/latest.json`,
+          hostConfigUrl: `${input.origin}${route}/host.json`,
+          payloadSha256,
+          runtimeAbi,
+          keyId: key.keyId,
+          timingsMs: {
+            package: round(sharedPackageMs),
+            sign: round(totalSignMs),
+            total: round(performance.now() - started),
+          },
+        };
+      }
+
+      const primary = slots[primaryPlan.packageId]!;
+      return { primary, slots };
     } finally {
       await rm(stagingRoot, { recursive: true, force: true });
     }
   } finally {
-    slotLocks.delete(slotKey);
+    for (const slotKey of slotKeys) slotLocks.delete(slotKey);
   }
+}
+
+/**
+ * Package the current successful build into a single preview slot.
+ */
+export async function publishPreview(input: PreviewPublishInput): Promise<PreviewPublishResult> {
+  const batch = await publishPreviews({
+    ...input,
+    previewAppIds: [input.previewAppId ?? PREVIEW_APP_ID],
+  });
+  return batch.primary;
 }
 
 function round(value: number): number {
