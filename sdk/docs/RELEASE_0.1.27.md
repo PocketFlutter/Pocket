@@ -13,7 +13,7 @@
 ## Fixed
 
 - Cloudflare release history includes verified artifacts for each target and keeps a reused package's owner index intact. Test publishing preserves the stable Flutter endpoint asset (`a21d691`). [Cloudflare publishing](CLOUDFLARE_PUBLISH.md) · [Integration notes](CLOUDFLARE_REGISTRY_INTEGRATION.md)
-- Package mutations serialize per project, verify cached archives, recover interrupted writes, and preserve customized vendor copies. Registry archive URLs include their content digest (`a21d691`, `ecd4f40`). [Package registry](PACKAGE_REGISTRY.md)
+- Package mutations serialize per project, verify cached archives, recover interrupted writes, and preserve customized vendor copies. Registry archive URLs include their content digest, and install results list changed dependency manifests (`a21d691`, `ecd4f40`, `fb0afb3`). [Package registry](PACKAGE_REGISTRY.md)
 - The Flutter IME bridge keeps overlay text scaling, selection geometry, and CJK composition in sync (`dbb334b`). [Flutter API](FLUTTER_API.md) · [Framework guide](FRAMEWORK_GUIDE.md)
 
 ## Compatibility
