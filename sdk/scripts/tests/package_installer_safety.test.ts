@@ -89,3 +89,82 @@ test("keeps the remote registry error when a partial SDK has no local source fal
     rmSync(temp, { recursive: true, force: true });
   }
 });
+
+test("recovers a killed installer before the next project operation", async () => {
+  const temp = mkdtempSync(join(tmpdir(), "pocket-interrupted-install-"));
+  try {
+    const registry = join(temp, "registry");
+    const projectDir = join(temp, "app");
+    mkdirSync(projectDir);
+    const pkg = join(projectDir, "package.json");
+    writeFileSync(pkg, '{ "name": "example" }\n');
+    buildPackageRegistry({ sdkRoot, outDir: registry });
+
+    const driver = join(temp, "interrupt.ts");
+    writeFileSync(driver, `
+      import { mock } from "bun:test";
+      import * as fs from "node:fs";
+      const rename = fs.renameSync;
+      mock.module("node:fs", () => ({
+        ...fs,
+        renameSync(from: string, to: string) {
+          rename(from, to);
+          if (to === ${JSON.stringify(pkg)}) process.kill(process.pid, "SIGKILL");
+        },
+      }));
+      const { installProjectPackages } = await import(${JSON.stringify(resolve(import.meta.dir, "../package_installer.ts"))});
+      await installProjectPackages(${JSON.stringify({ projectDir, registry, packages: ["looseleaf"] })});
+    `);
+    const child = Bun.spawn([process.execPath, driver], { stdout: "ignore", stderr: "pipe" });
+    await child.exited;
+    expect(child.signalCode).toBe("SIGKILL");
+    expect(readFileSync(pkg, "utf8")).toContain("file:vendor/pocket-looseleaf");
+    expect(existsSync(join(projectDir, "vendor/pocket-looseleaf"))).toBe(true);
+    expect(existsSync(join(projectDir, "pocket-lock.json"))).toBe(false);
+
+    const next = removeProjectPackages({ projectDir, packages: ["looseleaf"] });
+    expect(next.removed).toEqual([]);
+    expect(readFileSync(pkg, "utf8")).toBe('{ "name": "example" }\n');
+    expect(existsSync(join(projectDir, "vendor"))).toBe(false);
+    expect(Object.keys(readProjectLockfile(projectDir).packages)).toEqual([]);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+});
+
+test("leaves an active package operation and its project untouched", () => {
+  const projectDir = mkdtempSync(join(tmpdir(), "pocket-live-install-"));
+  try {
+    const active = join(
+      projectDir,
+      ".pocket-build/package-operations",
+      `op-${process.pid}-00000000-0000-4000-8000-000000000000`,
+    );
+    mkdirSync(active, { recursive: true });
+    writeFileSync(join(active, "marker"), "active");
+    expect(() => removeProjectPackages({ projectDir, packages: ["looseleaf"] }))
+      .toThrow("A Pocket package operation is already active");
+    expect(readFileSync(join(active, "marker"), "utf8")).toBe("active");
+    expect(existsSync(join(projectDir, "pocket-lock.json"))).toBe(false);
+  } finally {
+    rmSync(projectDir, { recursive: true, force: true });
+  }
+});
+
+test("accepts a local registry directory from the environment and gives explicit options precedence", async () => {
+  const temp = mkdtempSync(join(tmpdir(), "pocket-local-registry-"));
+  const previous = process.env.POCKET_REGISTRY_PATH;
+  try {
+    const registry = join(temp, "registry");
+    buildPackageRegistry({ sdkRoot, outDir: registry });
+    process.env.POCKET_REGISTRY_PATH = registry;
+    expect((await loadRegistryIndex({})).baseLocation).toBe(registry);
+    process.env.POCKET_REGISTRY_PATH = "https://invalid.example";
+    await expect(loadRegistryIndex({})).rejects.toThrow("must be a local registry directory");
+    expect((await loadRegistryIndex({ registry })).baseLocation).toBe(registry);
+  } finally {
+    if (previous === undefined) delete process.env.POCKET_REGISTRY_PATH;
+    else process.env.POCKET_REGISTRY_PATH = previous;
+    rmSync(temp, { recursive: true, force: true });
+  }
+});

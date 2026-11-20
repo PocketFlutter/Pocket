@@ -15,7 +15,7 @@ Pocket SDK 内置全部 **28 个官方包**的静态签名包注册表生成与�
 1. 默认优先请求 Cloudflare R2 加速源（可通过 `POCKET_REGISTRY_R2_URL` 覆盖），遇到网络异常或 HTTP 5xx 自动无感回退至 GitHub 静态源（可通过 `POCKET_REGISTRY_GITHUB_URL` 覆盖）；在完整 SDK 源码检出环境下若离线未指定远程源，还会自动回退到本地 SDK 构建索引。
 2. 每个 `.tgz` 下载后先校验字节长度与 `SHA-256` 摘要，本地缓存保存的是原始归档。每次安装都会重新校验缓存归档的长度和摘要，并通过 `extractSafeTarGz` 安全解包。
 
-发行版 Studio 可以通过 `npm run search`、`npm run add -- <目录> <包>`、`npm run packages -- <目录>` 和 `npm run remove -- <目录> <包>` 使用同一个安装器。远程使用依赖配置好的签名注册表。完整源码检出可以生成本地注册表并通过 `--registry=<目录>` 使用。
+发行版 Studio 可以通过 `npm run search`、`npm run add -- <目录> <包>`、`npm run packages -- <目录>` 和 `npm run remove -- <目录> <包>` 使用同一个安装器。远程使用依赖配置好的签名注册表。完整源码检出可以生成本地注册表并通过 `--registry=<目录>` 使用。将 `POCKET_REGISTRY_PATH` 设为该本地目录的绝对路径，再从同一环境启动已安装的 Studio，Studio 和包管理命令就会使用此注册表。显式 `--registry` 优先。
 
 ## 2. 按需搜索、安装与移除命令
 
@@ -48,7 +48,7 @@ bun sdk/pocket.ts remove ./my-app camera
   3. 自动维护 `<project>/flutter/lib/pocket_plugins.g.dart`（生成 `generatedPocketPluginFactories`、`generatedPocketAllowedPermissions`、`generatedPocketRuntimePermissions` 与 `applyGeneratedPocketPlugins(PocketAppConfig)` 包装函数），并在默认 `flutter/lib/main.dart` 中自动接入；
   4. 幂等补齐 `<project>/manifest.json` 的可选能力/权限声明、`AndroidManifest.xml` 的 `<uses-permission>` 以及 iOS `Info.plist` 的权限用途说明文案。
 
-`pocket-lock.json` 记录包依赖关系、安装器管理的依赖项以及 vendored 内容摘要。卸载会检查仍安装的反向依赖，仅清理安装器管理且未被修改的副本和配置。旧锁文件缺少内容摘要时保留现有副本，避免误删。安装和卸载按项目串行，并在写入失败时回滚已应用的项目变更。
+`pocket-lock.json` 记录包依赖关系、安装器管理的依赖项以及 vendored 内容摘要。卸载会检查仍安装的反向依赖，仅清理安装器管理且未被修改的副本和配置。旧锁文件缺少内容摘要时保留现有副本，避免误删。安装和卸载按项目串行。写入失败时回滚已应用的项目变更，进程中断后下一次包操作会先恢复项目文件。
 
 ## 4. 维护者构建与同步 `PocketFlutter/registry`
 

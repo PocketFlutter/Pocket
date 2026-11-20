@@ -82,6 +82,10 @@ const { sha1Hex, verifyLocalPackageDirectory } = await load("@pocket/cos");
 strictEqual(sha1Hex("abc"), "a9993e364706816aba3e25717850c26c9cd0d89d");
 strictEqual(typeof verifyLocalPackageDirectory, "function");
 
+const { normalizeCloudflarePlatforms, publishStudioVersionToCloudflareMatrix } = await load("@pocket/cloudflare");
+deepStrictEqual(normalizeCloudflarePlatforms(["web", "ios"]), ["web", "ios"]);
+strictEqual(typeof publishStudioVersionToCloudflareMatrix, "function");
+
 const { createNovelEngine } = await load("@pocket/vn");
 const story = createNovelEngine({
   id: "registry-smoke", version: 1, start: "start",
