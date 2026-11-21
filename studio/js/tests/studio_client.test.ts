@@ -73,6 +73,10 @@ test("request shapes: every wrapper sends the frozen capability and params", asy
   await c.build.status("p-1");
   await c.logs.tail("p-1");
   await c.preview.publish("p-1");
+  await c.preview.publish("p-1", ["dev.pocket.studio.preview", "dev.pocket.studio.preview.web", "dev.pocket.studio.preview.wechat"]);
+  await c.wechat.status("p-1");
+  await c.wechat.start("p-1", "main");
+  await c.wechat.stop("p-1");
   await c.preview.devices();
   await c.preview.deploy("p-1", "sim");
   await c.preview.deployStatus("p-1", "j1");
@@ -96,11 +100,18 @@ test("request shapes: every wrapper sends the frozen capability and params", asy
     "studio.cos.get", "studio.cos.set", "studio.cos.check", "studio.cos.publish",
     "studio.fs.tree", "studio.fs.read", "studio.fs.write", "studio.fs.rename", "studio.fs.delete", "studio.fs.stat", "studio.fs.mkdir", "studio.fs.rmdir",
     "studio.build.start", "studio.build.cancel", "studio.build.status", "studio.logs.tail",
-    "studio.preview.publish", "studio.preview.devices", "studio.preview.deploy", "studio.preview.deployStatus", "studio.preview.deployCancel",
+    "studio.preview.publish", "studio.preview.publish",
+    "studio.wechat.status", "studio.wechat.start", "studio.wechat.stop",
+    "studio.preview.devices", "studio.preview.deploy", "studio.preview.deployStatus", "studio.preview.deployCancel",
     "studio.publish.plan", "studio.publish.publish", "studio.publish.history", "studio.publish.offline",
     "studio.artifacts.list", "studio.artifacts.inspect", "studio.service.health", "studio.service.upgrade.status",
     "studio.service.upgrade.check", "studio.service.upgrade.apply", "studio.logs.diagnostics", "studio.logs.diagnostics",
   ]);
+  assert.deepEqual(calls[26]!.params, {
+    project: "p-1",
+    previewAppIds: ["dev.pocket.studio.preview", "dev.pocket.studio.preview.web", "dev.pocket.studio.preview.wechat"],
+  });
+  assert.deepEqual(calls[28]!.params, { project: "p-1", targetId: "main" });
   assert.deepEqual(calls[calls.length - 2]!.params, { project: "p-1" });
   assert.deepEqual(calls[calls.length - 1]!.params, { project: "p-1", kind: "crash" });
   assert.deepEqual(calls[1]!.params, { id: "p-1", template: "game", settings: { name: "N" } });
@@ -352,6 +363,9 @@ test("guest manifest declares exactly the capabilities the Dart provider registe
     "studio.logs.diagnostics",
     "studio.service.upgrade.check",
     "studio.service.upgrade.apply",
+    "studio.wechat.status",
+    "studio.wechat.start",
+    "studio.wechat.stop",
   ]) {
     assert.ok(names.includes(added), added);
   }

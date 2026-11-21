@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,12 +44,34 @@ void main() {
   requireReal(skip);
 
   late Directory work;
+  late Directory multiPreviewProject;
   late PocketStudioConfig config;
   late PocketStudioService service;
 
   setUpAll(() async {
     if (skip != false) return;
     work = await Directory.systemTemp.createTemp('studio-host-');
+    multiPreviewProject = Directory('${work.path}/multi-preview-demo')..createSync();
+    File('${multiPreviewProject.path}/pocket.json').writeAsStringSync(
+      jsonEncode({'app': {'entry': 'app.tsx'}, 'version': '1.0.0', 'build': 1}),
+    );
+    File('${multiPreviewProject.path}/editor.json').writeAsStringSync(
+      jsonEncode({
+        'id': 'multi-preview-demo',
+        'appId': 'pocket.multipreview',
+        'name': 'Multi-Surface Preview Showcase',
+        'title': 'Multi-Surface Preview Showcase',
+        'version': '1.0.0',
+        'build': 1,
+        'tickHz': 60,
+        'entry': 'app.tsx',
+        'output': 'app',
+        'framework': 'solid',
+      }),
+    );
+    File('${multiPreviewProject.path}/manifest.json').writeAsStringSync('{"capabilities":{"requires":[],"optional":["camera.capture"]},"permissions":{"requires":[],"optional":["hardware.camera","hardware.microphone"]}}');
+    File('${multiPreviewProject.path}/app.tsx').writeAsStringSync(_multiPreviewSource());
+
     final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
     final port = probe.port;
     await probe.close();
@@ -55,6 +79,7 @@ void main() {
       port: port,
       sdkRoot: '$repo/sdk',
       projectRoot: projectRoot,
+      extraProjectRoots: <String>[multiPreviewProject.path],
       workspace: '${work.path}/ws',
       bunExecutable: bun,
       environment: {...Platform.environment, 'POCKET_SOURCE_BUILD': '1', 'TMPDIR': '/tmp'},
@@ -69,10 +94,12 @@ void main() {
     await work.delete(recursive: true);
   });
 
-  test('preview child gets no studio, clipboard or file grants; Studio gets exactly those', () {
+  test('preview children get no studio, clipboard or file grants; Studio registers all 5 preview compositor surfaces', () {
     final studio = studioSystemUI(PocketStudioConfig(port: 1));
     final child = studioPreviewChild(PocketStudioConfig(port: 1));
+    final children = studioPreviewChildren(PocketStudioConfig(port: 1));
     expect(studio.appId, 'dev.pocket.studio');
+    expect(studio.compositorSurfaces, PocketStudioConfig.previewCompositorSurfaces);
     expect(studio.allowedPermissions, {...PocketStudioPermissions.all, 'clipboard.read', 'clipboard.write', 'files.open'});
     expect(studio.allowedPermissions, PocketStudioConfig.hostPermissions);
     expect([for (final f in studio.pluginFactories) f(PocketViewController()).descriptor.id], ['pocket.studio', 'flutter.clipboard', 'flutter.files']);
@@ -81,9 +108,13 @@ void main() {
     expect(child.textLayoutCacheCapacity, 256, reason: 'the preview child keeps the default');
     expect(studio.memoryLimits.heapLimitBytes, PocketMemoryLimits.maximumHeapBytes);
     expect(child.appId, PocketStudioConfig.previewAppId);
-    expect(child.allowedPermissions, isEmpty);
-    expect(child.pluginFactories, isEmpty);
-    expect(child.additionalCapabilities, isEmpty);
+    expect(children.keys.toList(), PocketStudioConfig.allPreviewAppIds);
+    for (final entry in children.entries) {
+      expect(entry.value.appId, entry.key);
+      expect(entry.value.allowedPermissions, isEmpty);
+      expect(entry.value.pluginFactories, isEmpty);
+      expect(entry.value.additionalCapabilities, isEmpty);
+    }
   });
 
   test('Studio window lists the files of demo/js using capabilities only', () async {
@@ -159,7 +190,6 @@ void main() {
       }
     }
 
-
     // The Studio's default editor is the CodeView (M4); these M2 tests drive the multi-line InputField, so pick it in Settings.
     Future<void> useInputFieldEditor() async {
       await tap('设置');
@@ -194,26 +224,22 @@ void main() {
       // 3. Tapping a folder expands it and reveals its children.
       final folders = RegExp(r'^▸ (.+)$', multiLine: true).allMatches(tree).map((m) => m[1]!).toList();
       expect(folders, isNotEmpty, reason: 'demo/js has source folders\n$tree');
-      final folder = folders.firstWhere((f) => onDisk.any((n) => n.startsWith('$f/')));
+      final folder = folders.firstWhere((f) => onDisk.any((n) => n.startsWith('$f/') && n.split('/').length == 2));
       await tap('▸ $folder');
       final child = onDisk.firstWhere((n) => n.startsWith('$folder/') && n.split('/').length == 2).split('/').last;
       await until(() => textOf().contains('▾ $folder') && textOf().contains(child), 'expanded folder');
 
       // 4. Tapping a file shows its real text in the read-only viewer.
-      // A small file: the multi-line InputField shapes the whole text, which is slow on the debug native build.
       await useInputFieldEditor();
-      await pump(10); // let layout settle after the expand before the next tap
+      await pump(10);
       await tap('manifest.json');
       final firstLine = File('$projectRoot/manifest.json').readAsLinesSync().firstWhere((l) => l.trim().length > 8).trim();
       await until(() => textOf().contains(firstLine.length > 60 ? firstLine.substring(0, 60) : firstLine), 'editor text');
 
       // 5. Capabilities only: every request the guest made was a studio.* call.
       expect(requested, isNotEmpty);
-      // studio.* calls are the provider's; the System kernel's own requests (system.*) are not served in
-      // this harness (no PocketSystemHost) and the guest tolerates that.
       final studioCalls = requested.where((c) => c.startsWith('studio.')).toSet();
       expect(studioCalls.difference(pocketStudioCapabilityNames), isEmpty, reason: requested.toString());
-      // M6: the guest's update client also asks the host's own updates.status (not served by this harness either).
       expect(requested.where((c) => !c.startsWith('studio.') && !c.startsWith('system.') && !c.startsWith('updates.')), isEmpty, reason: requested.toString());
       expect(requested, containsAll(<String>['studio.project.list', 'studio.fs.tree', 'studio.fs.read']));
       // 6. Nothing absolute reached the guest.
@@ -225,26 +251,165 @@ void main() {
     }
   }, skip: skip, timeout: const Timeout(Duration(minutes: 3)));
 
-  testWidgets('PocketSystemHost boots the Studio config on the real native runtime', (tester) async {
+  testWidgets('PocketSystemHost boots the Studio 1440x900 5-zone desktop workbench and runs 4 simultaneous native preview sandboxes', (tester) async {
+    tester.view.physicalSize = const Size(2880, 1800);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final support = (await tester.runAsync(() => Directory.systemTemp.createTemp('studio-support-')))!;
     binding.defaultBinaryMessenger.setMockMethodCallHandler(
       const MethodChannel('plugins.flutter.io/path_provider'),
       (_) async => support.path,
     );
+
+    var latestTexts = <PocketTextOp>[];
+    debugPocketFrameDeltaAtOverride = (runtime, delta) {
+      final frame = pocketFrameDeltaAt(runtime, delta);
+      if (frame != null) {
+        final texts = frame.ops.whereType<PocketTextOp>().toList();
+        if (texts.any((t) => t.text == 'POCKET STUDIO')) latestTexts = texts;
+      }
+      return frame;
+    };
+    addTearDown(() => debugPocketFrameDeltaAtOverride = null);
+
+    final studioMetadata = File('$repo/studio/assets/app.bytecode.json').readAsStringSync();
+    final boundaryKey = GlobalKey();
     final controller = PocketSystemHostController();
-    await tester.pumpWidget(Directionality(textDirection: TextDirection.ltr, child: studioApp(config, controller: controller)));
-    for (var i = 0; i < 100; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
-      await tester.pump(const Duration(milliseconds: 16));
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: RepaintBoundary(
+          key: boundaryKey,
+          child: studioApp(
+            config,
+            controller: controller,
+            previewBootstrapMetadata: previewBootstrap(studioMetadata),
+          ),
+        ),
+      ),
+    );
+
+    Future<void> pumpFor(int turns) async {
+      for (var i = 0; i < turns; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 15)));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
     }
+
+    final shotDir = Platform.environment['STUDIO_SHOT_DIR'];
+    Future<void> saveShot(String name) async {
+      if (shotDir == null) return;
+      await tester.runAsync(() async {
+        final boundary = boundaryKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+        final image = await boundary.toImage(pixelRatio: 2.0);
+        final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!;
+        Directory(shotDir).createSync(recursive: true);
+        File('$shotDir/$name.png').writeAsBytesSync(bytes.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+
+    Future<void> tapOp(PocketSession studioSession, PocketTextOp op) async {
+      for (final phase in const ['down', 'up']) {
+        studioSession.controller.send(
+          method: 'input.pointer',
+          params: {'phase': phase, 'id': 0, 'x': op.x + op.width / 2, 'y': op.y + op.height / 2},
+        );
+        await pumpFor(4);
+      }
+    }
+
+    await pumpFor(80);
     final studio = controller.instances.singleWhere((i) => i.appId == 'dev.pocket.studio');
     expect(studio.firstFrameReady, isTrue);
     expect(studio.session.failure, isNull);
     expect(studio.session.active, isNull, reason: 'embedded bytecode, no remote package');
+    expect(latestTexts.any((t) => t.text == '立即构建'), isTrue);
+    expect(latestTexts.any((t) => t.text == '包资源'), isTrue);
+    await saveShot('01-studio-1440x900-welcome');
+
+    // Open demo/js first to verify full 5-zone split view on large project tree.
+    final showcaseOp = latestTexts.where((t) => t.text == 'PocketJS Flutter host showcase').firstOrNull;
+    expect(showcaseOp, isNotNull);
+    await tapOp(studio.session, showcaseOp!);
+    await pumpFor(50);
+    final demoAppTsx = latestTexts.where((t) => t.text == 'app.tsx').firstOrNull;
+    if (demoAppTsx != null) {
+      await tapOp(studio.session, demoAppTsx);
+      await pumpFor(50);
+    }
+    await saveShot('02-studio-1440x900-workbench-split');
+
+    // Switch via top command bar project pill to Multi-Surface Preview Showcase and launch 4 simultaneous previews!
+    final topProjectPill = latestTexts.where((t) => t.text == 'PocketJS Flutter host showcase').firstOrNull;
+    expect(topProjectPill, isNotNull);
+    await tapOp(studio.session, topProjectPill!);
+    await pumpFor(20);
+    final multiProjOp = latestTexts.where((t) => t.text == 'Multi-Surface Preview Showcase').firstOrNull;
+    expect(multiProjOp, isNotNull);
+    await tapOp(studio.session, multiProjOp!);
+    await pumpFor(45);
+
+    final multiAppTsx = latestTexts.where((t) => t.text == 'app.tsx').firstOrNull;
+    if (multiAppTsx != null) {
+      await tapOp(studio.session, multiAppTsx);
+      await pumpFor(30);
+    }
+
+    final fourUp = latestTexts.where((t) => t.text == '四端同屏').firstOrNull;
+    expect(fourUp, isNotNull);
+    await tapOp(studio.session, fourUp!);
+    await pumpFor(20);
+
+    final buildPreview = latestTexts.where((t) => t.text == '构建并刷新预览').firstOrNull;
+    expect(buildPreview, isNotNull);
+    await tapOp(studio.session, buildPreview!);
+
+    for (var i = 0; i < 360; i++) {
+      final readyChildren = controller.instances
+          .where((inst) => inst.appId.startsWith('dev.pocket.studio.preview') && inst.firstFrameReady)
+          .length;
+      final runningChip = latestTexts.any((t) => t.text == '运行中');
+      if (readyChildren >= 4 && runningChip) break;
+      await pumpFor(5);
+    }
+    await pumpFor(35);
+
+    expect(
+      controller.instances
+          .where((inst) => inst.appId.startsWith('dev.pocket.studio.preview') && inst.firstFrameReady)
+          .length,
+      4,
+      reason:
+          'Flutter, Web, WeChat Mini Program, and Widget preview sandboxes must all render first frames simultaneously: '
+          '${controller.instances.map((i) => "${i.appId}:ready=${i.firstFrameReady}:fail=${i.session.failure}").toList()}',
+    );
+    await saveShot('03-studio-1440x900-multi-preview');
+
+    // Enable 5th simultaneous preview slot (灵动岛/穿戴) to verify maxInstances: 12 headroom without rebuilding!
+    final fifthSlotOp = latestTexts.where((t) => t.text == '灵动岛/穿戴').firstOrNull;
+    expect(fifthSlotOp, isNotNull);
+    await tapOp(studio.session, fifthSlotOp!);
+    for (var i = 0; i < 200; i++) {
+      final readyChildren = controller.instances
+          .where((inst) => inst.appId.startsWith('dev.pocket.studio.preview') && inst.firstFrameReady)
+          .length;
+      if (readyChildren >= 5) break;
+      await pumpFor(5);
+    }
+    expect(
+      controller.instances
+          .where((inst) => inst.appId.startsWith('dev.pocket.studio.preview') && inst.firstFrameReady)
+          .length,
+      5,
+      reason: 'All 5 simultaneous preview slots must run under maxInstances: 12',
+    );
+
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 100));
     binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), null);
-  }, skip: skip != false, timeout: const Timeout(Duration(seconds: 90)));
+  }, skip: skip != false, timeout: const Timeout(Duration(minutes: 3)));
 }
 
 /// Editable source files of a project directory, as the service lists them.
@@ -261,3 +426,21 @@ List<String> projectFileNames(String root) {
   }
   return result;
 }
+
+String _multiPreviewSource() => '''
+import { mount } from "@pocketjs/framework/solid";
+import { Screen, Text, View } from "@pocketjs/framework/solid/components";
+
+mount(() => (
+  <Screen class="w-full h-full flex-col bg-[#0F172A] p-3">
+    <View class="flex-col gap-1.5 p-2.5 rounded-xl bg-[#1E293B] flex-1 justify-between">
+      <View class="flex-row items-center justify-between">
+        <Text class="text-xs font-bold text-[#60A5FA]">POCKET LIVE</Text>
+        <Text class="text-xs font-bold text-[#34D399]">60 FPS</Text>
+      </View>
+      <Text class="text-sm font-bold text-[#F8FAFC]">多端实时同屏预览</Text>
+      <Text class="text-xs text-[#94A3B8]">Flutter · Web · 微信小程序 · 小组件</Text>
+    </View>
+  </Screen>
+));
+''';

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pocket_flutter/pocket_flutter.dart';
 import 'package:pocket_sdk/pocket_sdk.dart';
 import 'package:pocket_studio/pocket_studio.dart';
 import 'package:pocket_studio_app/main.dart';
@@ -81,6 +82,19 @@ void main() {
     final support = (await tester.runAsync(() => Directory.systemTemp.createTemp('studio-code-support-')))!;
     binding.defaultBinaryMessenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (_) async => support.path);
 
+    var latestTexts = <PocketTextOp>[];
+    debugPocketFrameDeltaAtOverride = (runtime, delta) {
+      final frame = pocketFrameDeltaAt(runtime, delta);
+      if (frame != null) {
+        final texts = frame.ops.whereType<PocketTextOp>().toList();
+        final labels = texts.map((t) => t.text);
+        if (labels.contains('设置') && labels.contains('项目')) latestTexts = texts;
+      }
+      return frame;
+    };
+    addTearDown(() => debugPocketFrameDeltaAtOverride = null);
+
+    final studioMetadata = File('$repo/studio/assets/app.bytecode.json').readAsStringSync();
     final controller = PocketSystemHostController();
     final boundaryKey = GlobalKey();
     await tester.pumpWidget(
@@ -88,7 +102,8 @@ void main() {
         debugShowCheckedModeBanner: false,
         home: RepaintBoundary(key: boundaryKey, child: PocketSystemHost(
           systemUI: studioSystemUI(config),
-          applications: {PocketStudioConfig.previewAppId: studioPreviewChild(config, previewBootstrapMetadata: previewBootstrap(File('$repo/studio/assets/app.bytecode.json').readAsStringSync()))},
+          applications: studioPreviewChildren(config, previewBootstrapMetadata: previewBootstrap(studioMetadata)),
+          maxInstances: 12,
           controller: controller,
         )),
       ),
@@ -105,7 +120,6 @@ void main() {
         File('$shotDir/${(++shotIndex).toString().padLeft(2, '0')}-$name.png').writeAsBytesSync(bytes.buffer.asUint8List());
       });
     }
-
 
     Future<void> pumpFor(Duration d) async {
       final end = DateTime.now().add(d);
@@ -133,6 +147,16 @@ void main() {
       }
       await pumpFor(const Duration(milliseconds: 200));
     }
+
+    bool hasText(String needle) => latestTexts.any((t) => t.text.contains(needle));
+    Future<void> tapTextWhere(bool Function(PocketTextOp) pred, String what) async {
+      await waitUntil(() => latestTexts.any(pred), 'text $what');
+      final op = latestTexts.firstWhere(pred);
+      final x = op.x + (op.width < 60 ? op.width / 2 : 30);
+      final y = op.y + (op.height < 24 ? op.height / 2 : 10);
+      await tapAt(x, y);
+    }
+    Future<void> tapLabel(String label) => tapTextWhere((t) => t.text == label, label);
 
     Future<void> chord(LogicalKeyboardKey modifier, LogicalKeyboardKey key) async {
       await tester.sendKeyDownEvent(modifier);
@@ -164,33 +188,37 @@ void main() {
       await pumpFor(const Duration(milliseconds: 150));
     }
 
-    await waitUntil(() => controller.instances.any((i) => i.appId == studioAppId && i.firstFrameReady), 'Studio first frame');
-    await pumpFor(const Duration(seconds: 3));
-    // Projects -> open the temp project -> open app.tsx (same layout as the M3 loop test).
-    await tapAt(30, 39);
-    await tapAt(300, 78);
-    await pumpFor(const Duration(seconds: 2));
+    await waitUntil(() => controller.instances.any((i) => i.appId == studioAppId && i.firstFrameReady) && latestTexts.isNotEmpty, 'Studio first frame');
+    await waitUntil(() => hasText('Code App'), 'project list');
+    // Projects -> open the temp project -> open app.tsx.
+    await tapLabel('Code App');
+    await waitUntil(() => hasText('app.tsx'), 'file tree');
     await shot('project');
-    await tapAt(130, 160);
-    await pumpFor(const Duration(seconds: 10)); // read + CodeEditor + first CodeView frames (debug native build)
+    await tapLabel('app.tsx');
+    await waitUntil(() => hasText('app.tsx · '), 'app.tsx metadata bar');
+    await pumpFor(const Duration(seconds: 4)); // read + CodeEditor + first CodeView frames
     await shot('file-open');
+
+    final metaOp = latestTexts.firstWhere((t) => t.text.startsWith('app.tsx · '));
+    final codeFocusX = metaOp.x + 150;
+    final codeFocusY = metaOp.y + 48;
 
     // Scroll the virtualised view down and back (wheel), watching the layout cache.
     final cache0 = studioSession().controller.textLayoutCacheStats;
     expect(cache0?.capacity, 2048, reason: 'studioSystemUI carries textLayoutCacheCapacity to the PocketView');
     for (var i = 0; i < 40; i++) {
-      studioSession().controller.send(method: 'input.scroll', params: {'x': 500, 'y': 300, 'deltaY': 60.0, 'source': 'wheel', 'phase': 'update'});
+      studioSession().controller.send(method: 'input.scroll', params: {'x': codeFocusX, 'y': codeFocusY + 120, 'deltaY': 60.0, 'source': 'wheel', 'phase': 'update'});
       await pumpFor(const Duration(milliseconds: 20));
     }
     for (var i = 0; i < 40; i++) {
-      studioSession().controller.send(method: 'input.scroll', params: {'x': 500, 'y': 300, 'deltaY': -60.0, 'source': 'wheel', 'phase': 'update'});
+      studioSession().controller.send(method: 'input.scroll', params: {'x': codeFocusX, 'y': codeFocusY + 120, 'deltaY': -60.0, 'source': 'wheel', 'phase': 'update'});
       await pumpFor(const Duration(milliseconds: 20));
     }
     final cache1 = studioSession().controller.textLayoutCacheStats;
 
     // Focus the code view at the first row: the guest opens a raw text session and the host attaches an IME client.
     for (var attempt = 0; attempt < 4 && !tester.testTextInput.hasAnyClients; attempt++) {
-      await tapAt(520, 124); // inside the text area (the gutter widens with the line count)
+      await tapAt(codeFocusX, codeFocusY); // inside the text area below the file metadata strip
     }
     // ignore: avoid_print
     await waitUntil(() => tester.testTextInput.hasAnyClients, 'IME client for the raw text session');

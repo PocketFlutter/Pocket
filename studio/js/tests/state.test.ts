@@ -657,6 +657,237 @@ describe("preview", () => {
     expect(log.at(-1)).toBe("destroy:i1");
     expect(preview.state()).toMatchObject({ phase: "idle", instanceId: undefined });
   });
+
+  test("toggling or setting targets during an active build coalesces onlyTargets and prunes removed slots", async () => {
+    const { fake, preview, log } = previewFixture();
+    await flush();
+    preview.setSurfaceVisible(true, "flutter");
+    preview.setSurfaceVisible(true, "web");
+    preview.setSurfaceVisible(true, "wechat");
+
+    let finishFirstBuild!: () => void;
+    fake.state.startBuildHook = () => {
+      finishFirstBuild = () => fake.finishBuild(true);
+    };
+
+    const firstRun = preview.run({ build: true });
+    await flush();
+    expect(preview.isRunning()).toBe(true);
+
+    const toggleWeb = preview.toggleTarget("web");
+    const toggleWechat = preview.toggleTarget("wechat");
+    await preview.toggleTarget("wechat");
+    expect(preview.state().activeTargets).toEqual(["flutter", "web"]);
+
+    fake.state.startBuildHook = () => { setTimeout(() => fake.finishBuild(true), 0); };
+    finishFirstBuild();
+    await Promise.all([firstRun, toggleWeb, toggleWechat]);
+    await flush(30);
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(fake.count("build.start")).toBe(1);
+    expect(log.filter((l) => l.startsWith("create:"))).toEqual([
+      "create:dev.pocket.studio.preview",
+      "create:dev.pocket.studio.preview.web",
+    ]);
+    expect(preview.state().slots.flutter.phase).toBe("running");
+    expect(preview.state().slots.web.phase).toBe("running");
+    expect(preview.state().slots.wechat.phase).toBe("idle");
+  });
+
+  test("refreshEndpoints coalesces concurrent requests into a single studio.wechat.status call", async () => {
+    const { fake, preview } = previewFixture();
+    let statusCalls = 0;
+    let releaseStatus!: () => void;
+    (fake.client as any).wechat = {
+      status: async () => {
+        statusCalls += 1;
+        await new Promise<void>((r) => { releaseStatus = r; });
+        return {
+          webPreviewUrl: "https://preview.pocket.local/web",
+          state: { state: "running", url: "https://preview.pocket.local/wx", logs: ["ready"] },
+        };
+      },
+    };
+    const p1 = preview.refreshEndpoints();
+    const p2 = preview.refreshEndpoints();
+    const p3 = preview.refreshEndpoints();
+    await flush();
+    expect(statusCalls).toBe(1);
+    releaseStatus();
+    await Promise.all([p1, p2, p3]);
+    expect(preview.state().webPreviewUrl).toBe("https://preview.pocket.local/web");
+    expect(preview.state().wechatService.state).toBe("running");
+  });
+
+  test("mountSurface reference-counts overlapping mounts and finishSlotFrame never masks an errored hidden slot", async () => {
+    const { preview, runtime } = previewFixture();
+    await flush();
+    const unmountA = preview.mountSurface("flutter");
+    const unmountB = preview.mountSurface("flutter");
+    expect(preview.state().slots.flutter.surfaceVisible).toBe(true);
+    // Simulate responsive layout swap where new surface mounted before old onCleanup ran:
+    unmountA();
+    expect(preview.state().slots.flutter.surfaceVisible).toBe(true);
+    unmountB();
+    expect(preview.state().slots.flutter.surfaceVisible).toBe(false);
+
+    // Enable flutter + web; make web fail first-frame while flutter awaits its frame, then unmount web (as in zoom mode).
+    const keepFlutter = preview.mountSurface("flutter");
+    const keepWeb = preview.mountSurface("web");
+    await preview.setTargets(["flutter", "web"]);
+    await flush();
+
+    let resolveFlutterFrame!: () => void;
+    runtime.awaitFirstFrame = async (id) => {
+      if (id === preview.state().slots.web.instanceId) {
+        throw Object.assign(new Error("web shader compile error"), { code: "web_frame_failed" });
+      }
+      await new Promise<void>((r) => { resolveFlutterFrame = r; });
+    };
+    const runPromise = preview.run({ build: true });
+    await flush(30);
+    await new Promise((r) => setTimeout(r, 15));
+    expect(preview.state().slots.web.phase).toBe("error");
+    expect(preview.state().phase).toBe("error");
+    // Unmount errored web slot (e.g. user zooms into flutter card) and finish flutter's frame:
+    keepWeb();
+    resolveFlutterFrame();
+    expect(await runPromise).toBe(false);
+    expect(preview.state().slots.flutter.phase).toBe("running");
+    expect(preview.state().slots.web.phase).toBe("error");
+    expect(preview.state().phase).toBe("error");
+    keepFlutter();
+  });
+
+  test("multi-target execute creates slots in parallel, cleans up siblings on partial failure, and preserves primary version on incremental spin-up", async () => {
+    const { fake, preview, runtime, log } = previewFixture();
+    await flush();
+    preview.setSurfaceVisible(true, "flutter");
+    preview.setSurfaceVisible(true, "web");
+    preview.setSurfaceVisible(true, "widget");
+
+    // 1. Primary run establishes build version 0.1.0-preview.2, bumped to preview.4 across 3 builds:
+    await preview.run({ build: true });
+    fake.state.revision += 1;
+    await preview.run({ build: true });
+    const primaryVersion = preview.state().version;
+    expect(primaryVersion).toBe("0.1.0-preview.3");
+
+    // 2. Incremental spin-up of widget (returning lower slot build 0.1.0-preview.2) preserves primary version:
+    let nextPublishOverride: string | undefined = "0.1.0-preview.2";
+    const origPublish = fake.client.preview.publish.bind(fake.client.preview);
+    fake.client.preview.publish = async (proj: string, slotIds?: readonly string[]) => {
+      const res = await origPublish(proj, slotIds);
+      if (nextPublishOverride) {
+        const v = nextPublishOverride;
+        nextPublishOverride = undefined;
+        return { ...res, version: v, build: 2 };
+      }
+      return res;
+    };
+    await preview.toggleTarget("widget");
+    expect(preview.state().version).toBe(primaryVersion);
+
+    // 3. Parallel create + sibling cleanup when one slot fails create:
+    let activeCreates = 0;
+    let peakConcurrentCreates = 0;
+    const origCreate = runtime.create.bind(runtime);
+    runtime.create = async (appId, initEvents) => {
+      activeCreates += 1;
+      peakConcurrentCreates = Math.max(peakConcurrentCreates, activeCreates);
+      await new Promise((r) => setTimeout(r, 10));
+      activeCreates -= 1;
+      if (appId.endsWith(".widget")) {
+        throw Object.assign(new Error("widget quota exceeded"), { code: "spawn_failed" });
+      }
+      return origCreate(appId, initEvents);
+    };
+    await preview.toggleTarget("web");
+    log.length = 0;
+    fake.state.revision += 1;
+    expect(await preview.run({ build: true })).toBe(false);
+    expect(peakConcurrentCreates).toBeGreaterThanOrEqual(2);
+    expect(preview.state().slots.flutter.instanceId).toBeUndefined();
+    expect(preview.state().slots.web.instanceId).toBeUndefined();
+    expect(preview.state().slots.widget.phase).toBe("error");
+    expect(log.filter((l) => l.startsWith("destroy:")).length).toBeGreaterThanOrEqual(2);
+  });
+
+  test("syncFlutterViewport pushes live platform.surface updates to a running flutter slot", async () => {
+    const fake = createFakeClient();
+    const timers = createManualTimers();
+    const toasts = createToasts(timers);
+    const build = createBuild({ client: fake.client, timers, toasts });
+    build.attach("p");
+    fake.state.startBuildHook = () => { setTimeout(() => fake.finishBuild(true), 0); };
+    let preset: "mobile" | "tablet" | "desktop" = "mobile";
+    const posted: Array<{ id: string; event: string; profileId: unknown }> = [];
+    const runtime: PreviewRuntime = {
+      async ensure() {},
+      async create() { return { instanceId: "fl-1", generation: 1 }; },
+      async post(id, event, params) {
+        posted.push({ id, event, profileId: params.profileId });
+        return true;
+      },
+      async destroy() {},
+      async awaitFirstFrame() {},
+    };
+    const preview = createPreview({
+      client: fake.client,
+      runtime,
+      build,
+      timers,
+      toasts,
+      project: () => "p",
+      viewportPreset: () => preset,
+      setViewportPreset: (next) => {
+        preset = next;
+        preview.syncFlutterViewport();
+      },
+    });
+    await flush();
+    preview.setSurfaceVisible(true, "flutter");
+    await preview.run({ build: true });
+    preset = "tablet";
+    preview.syncFlutterViewport();
+    await flush();
+    preset = "mobile";
+    preview.syncFlutterViewport();
+    await flush();
+    expect(posted).toEqual([
+      { id: "fl-1", event: "platform.surface", profileId: "ipad-pro" },
+      { id: "fl-1", event: "platform.surface", profileId: "iphone-16-pro" },
+    ]);
+  });
+
+  test("disabling an errored secondary slot reconciles aggregate phase back to running or idle", async () => {
+    const { preview, runtime } = previewFixture();
+    await flush();
+    preview.setSurfaceVisible(true, "flutter");
+    preview.setSurfaceVisible(true, "widget");
+
+    // Boot flutter cleanly -> running:
+    expect(await preview.run({ build: true })).toBe(true);
+    expect(preview.state().phase).toBe("running");
+
+    // Enable widget and make its first frame fail -> aggregate phase becomes error:
+    runtime.awaitFirstFrame = async (id) => {
+      if (id === preview.state().slots.widget.instanceId) {
+        throw Object.assign(new Error("widget crash"), { code: "widget_boom" });
+      }
+    };
+    await preview.toggleTarget("widget");
+    expect(preview.state().slots.widget.phase).toBe("error");
+    expect(preview.state().phase).toBe("error");
+
+    // Toggling widget OFF restores aggregate phase to running (flutter is still running):
+    await preview.toggleTarget("widget");
+    expect(preview.state().activeTargets).toEqual(["flutter"]);
+    expect(preview.state().phase).toBe("running");
+    expect(preview.state().code).toBeUndefined();
+    expect(preview.state().message).toBeUndefined();
+  });
 });
 
 describe("settings", () => {

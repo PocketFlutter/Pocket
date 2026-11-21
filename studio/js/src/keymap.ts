@@ -2,20 +2,11 @@
 // (sdk/docs/STUDIO_TEXT_INPUT.md: modifiers folded in the order Control, Alt, Shift, Meta, e.g. "Meta+s",
 // "Shift+Meta+B", "Control+Shift+p"). Pure TypeScript: no Solid, no host. The shell executes the resulting
 // command id (state/commands.ts) and the Settings page renders the same table, so help can never drift.
-//
-// Precedence with the CodeView's own keymap (@pocket/ui/code `lookupKey`):
-//  - "editor" scope bindings (save, find) are editor commands while a CodeView has the keyboard: the CodeView
-//    handles them itself (its save intent calls the same save flow; Cmd+F opens its find bar) and the shell
-//    does NOT act. When no editor has the keyboard (another page, a focused plain field's neighbours) the shell
-//    runs them.
-//  - "global" bindings win over the editor even when the CodeView's keymap also maps the key (the shell sees
-//    the key first through CodeView's `onKeyDown` hook). A global binding whose command is not applicable at
-//    that moment (Esc/arrows with nothing open) reports "not handled", so the key still reaches the editor.
-//  - Keys no binding names always reach the editor untouched.
 import { parseKey } from "@pocket/ui/code";
 
 export type ShellCommand =
   | "save" | "find" | "build" | "buildPreview" | "quickOpen" | "closeTab" | "prevTab" | "nextTab" | "publish"
+  | "toggleSource" | "toggleConsole"
   | "closeOverlay" | "listUp" | "listDown" | "listAccept"
   | "page1" | "page2" | "page3" | "page4" | "page5" | "page6" | "page7" | "page8" | "page9";
 
@@ -41,6 +32,8 @@ export const KEYMAP: readonly Binding[] = [
   { command: "find", chord: "Mod+f", scope: "editor", label: "在当前文件中查找" },
   { command: "build", chord: "Mod+b", scope: "global", label: "构建项目" },
   { command: "buildPreview", chord: "Mod+Shift+b", scope: "global", label: "构建并刷新预览" },
+  { command: "toggleSource", chord: "Mod+e", scope: "global", label: "切换左侧源码分栏" },
+  { command: "toggleConsole", chord: "Mod+j", scope: "global", label: "折叠 / 展开终端面板" },
   { command: "quickOpen", chord: "Mod+p", scope: "global", label: "快速打开文件" },
   { command: "closeTab", chord: "Mod+w", scope: "global", label: "关闭当前标签" },
   { command: "prevTab", chord: "Mod+Shift+[", scope: "global", label: "上一个标签" },

@@ -84,8 +84,32 @@ final class PocketStudioConfig {
   String? get effectiveWorkspace =>
       workspace ?? (projectRoot == null ? null : '$projectRoot/.pocket-editor');
 
-  /// Fixed preview child package id (STUDIO_SIGNED_PREVIEW.md).
+  /// Fixed primary preview child package id (STUDIO_SIGNED_PREVIEW.md).
   static const String previewAppId = 'dev.pocket.studio.preview';
+
+  /// Simultaneous multi-target preview child package ids (Web, WeChat Mini Program, and Ecosystem Widgets).
+  static const String previewWebAppId = 'dev.pocket.studio.preview.web';
+  static const String previewWechatAppId = 'dev.pocket.studio.preview.wechat';
+  static const String previewWidgetAppId = 'dev.pocket.studio.preview.widget';
+  static const String previewWidgetSecondaryAppId = 'dev.pocket.studio.preview.widget-alt';
+
+  /// Fixed compositor handle table for all simultaneous Studio preview surfaces.
+  static const Map<String, int> previewCompositorSurfaces = <String, int>{
+    previewAppId: 4,
+    previewWebAppId: 5,
+    previewWechatAppId: 6,
+    previewWidgetAppId: 7,
+    previewWidgetSecondaryAppId: 8,
+  };
+
+  /// All trusted preview child package ids in slot order.
+  static const List<String> allPreviewAppIds = <String>[
+    previewAppId,
+    previewWebAppId,
+    previewWechatAppId,
+    previewWidgetAppId,
+    previewWidgetSecondaryAppId,
+  ];
 
   /// Bootstrap metadata the preview child needs before any package exists: this host's runtime ABI and a
   /// build floor of 1, so any signed preview (build >= 2) is admitted. The executable bytes and manifest
@@ -106,15 +130,28 @@ final class PocketStudioConfig {
   /// Package index of the service's signed slot for the Studio's own project ([updateChannel]).
   String get selfUpdateUrl => '$origin/$updateChannel/pocket/$hostVersion/$studioAppId/latest.json';
 
-  /// Host-store namespace of the preview child, scoped to the preview signing key. A new workspace (new key)
-  /// or a reset service-side counter then starts from a fresh anti-downgrade floor instead of colliding
-  /// with a machine-global one.
-  String previewNamespace(String publicKey) =>
-      'studio-preview-${sha256.convert(utf8.encode(publicKey)).toString().substring(0, 12)}';
+  /// Host-store namespace of the primary preview child, scoped to the preview signing key. A new workspace
+  /// (new key) or a reset service-side counter starts from a fresh anti-downgrade floor.
+  String previewNamespace(String publicKey) => previewNamespaceFor(publicKey, previewAppId);
 
-  /// Signed update URL of the service's preview slot.
-  String get previewUpdateUrl =>
-      '$origin/preview/pocket/$hostVersion/$previewAppId/preview/latest.json';
+  /// Host-store namespace of any preview child slot, keeping each simultaneous runtime's update store isolated.
+  String previewNamespaceFor(String publicKey, [String slotAppId = previewAppId]) {
+    final keyDigest = sha256.convert(utf8.encode(publicKey)).toString().substring(0, 12);
+    if (slotAppId == previewAppId) {
+      return 'studio-preview-$keyDigest';
+    }
+    final suffix = slotAppId.startsWith('$previewAppId.')
+        ? slotAppId.substring(previewAppId.length + 1)
+        : sha256.convert(utf8.encode(slotAppId)).toString().substring(0, 8);
+    return 'studio-preview-$suffix-$keyDigest';
+  }
+
+  /// Signed update URL of the service's primary preview slot.
+  String get previewUpdateUrl => previewUpdateUrlFor(previewAppId);
+
+  /// Signed update URL of a specific preview child slot.
+  String previewUpdateUrlFor(String slotAppId) =>
+      '$origin/preview/pocket/$hostVersion/${Uri.encodeComponent(slotAppId)}/preview/latest.json';
 
   /// Public preview signing key written by the service at startup, read from the trusted workspace.
   ({String keyId, String publicKey})? readPreviewKey() => _readPublicKey('editor-preview-key.json');

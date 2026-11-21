@@ -316,6 +316,16 @@ final class PocketStudioPlugin extends PocketPlugin {
         return json;
       case 'studio.logs.diagnostics':
         return _diagnostics(json, params);
+      case 'studio.wechat.status':
+      case 'studio.wechat.start':
+      case 'studio.wechat.stop':
+        final project = params['project'] as String;
+        final map = json is Map ? <String, Object?>{...json.cast<String, Object?>()} : <String, Object?>{};
+        if (map['state'] is Map) {
+          map['state'] = _capLogs(map['state']);
+        }
+        map['webPreviewUrl'] = _origin.replace(path: '/api/projects/$project/preview').toString();
+        return map;
       case 'studio.project.resources.get':
       case 'studio.project.resources.set':
         return _resources(json);

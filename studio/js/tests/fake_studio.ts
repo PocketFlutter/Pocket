@@ -45,6 +45,10 @@ export class FakeStudio {
   previewBuild = 1;
   failPublish: Reply | undefined;
   failCreate: Reply | undefined;
+  wechatState: { state: "idle" | "building" | "running" | "error" | "stopped"; url?: string; error?: string; logs: string[] } = {
+    state: "idle",
+    logs: [],
+  };
   storage = new Map<string, unknown>();
   storageAvailable = true;
   /** Host update facts (`updates.*`) for the self-update tests. */
@@ -713,7 +717,49 @@ export class FakeStudio {
         if (this.failPublish) return this.failPublish;
         if (this.builtRevision !== this.revision) return err("conflict", "build the current source successfully before preview publish (HTTP 409)");
         this.previewBuild += 1;
-        return ok({ buildId: `alpha-app@${this.revision}`, revision: this.revision, version: `0.1.0-preview.${this.previewBuild}`, build: this.previewBuild, packageId: "dev.pocket.studio.preview" });
+        const slotIds = Array.isArray(p.previewAppIds)
+          ? (p.previewAppIds as string[])
+          : typeof p.previewAppId === "string"
+            ? [p.previewAppId]
+            : ["dev.pocket.studio.preview"];
+        return ok({
+          buildId: `alpha-app@${this.revision}`,
+          revision: this.revision,
+          version: `0.1.0-preview.${this.previewBuild}`,
+          build: this.previewBuild,
+          packageId: slotIds[0] ?? "dev.pocket.studio.preview",
+          packageIds: slotIds,
+        });
+      }
+      case "studio.wechat.status": {
+        const projId = String(p.project ?? "alpha-app");
+        return ok({
+          project: projId,
+          state: { ...this.wechatState, logs: [...this.wechatState.logs] },
+          webPreviewUrl: `https://preview.pocket.local/api/projects/${projId}/preview`,
+        });
+      }
+      case "studio.wechat.start": {
+        const projId = String(p.project ?? "alpha-app");
+        this.wechatState = {
+          state: "running",
+          url: `https://wechat.pocket.local/mp/${projId}?target=${String(p.targetId ?? "main")}`,
+          logs: ["wechat: bundle ready (1.18 MiB <= 2.00 MiB)"],
+        };
+        return ok({
+          project: projId,
+          state: { ...this.wechatState, logs: [...this.wechatState.logs] },
+          webPreviewUrl: `https://preview.pocket.local/api/projects/${projId}/preview`,
+        });
+      }
+      case "studio.wechat.stop": {
+        const projId = String(p.project ?? "alpha-app");
+        this.wechatState = { state: "stopped", logs: [] };
+        return ok({
+          project: projId,
+          state: { ...this.wechatState, logs: [] },
+          webPreviewUrl: `https://preview.pocket.local/api/projects/${projId}/preview`,
+        });
       }
       case "studio.preview.devices": return ok({ devices: this.devices });
       case "studio.preview.deploy": {
@@ -730,7 +776,7 @@ export class FakeStudio {
       }
       case "studio.preview.deployCancel": return ok({ id: "job-1", status: "cancelled", logs: [] });
       case "system.runtime.configure": return ok({ systemInstanceId: "system-ui", generation: 1 });
-      case "system.runtime.post": return ok({ delivered: true });
+      case "system.runtime.post": return ok({ accepted: true, delivered: true });
       case "system.runtime.create": {
         if (this.failCreate) return this.failCreate;
         const instanceId = `pocket-app-${++this.instanceSeq}`;

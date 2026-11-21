@@ -211,6 +211,33 @@ describe("shell commands (keyboard -> stores)", () => {
     await flush();
     expect(fake.files.get("app.tsx")).toBe("export const edited = 1;\n");
   });
+
+  test("Cmd+E and Cmd+J switch pages in narrow mode and toggle workbench docks in wide mode", async () => {
+    const { studio } = makeStudio();
+    await studio.projects.open("alpha");
+    await flush();
+    // Narrow mode (`wide === false`): switches pages cleanly.
+    expect(studio.workbench.state().wide).toBe(false);
+    expect(studio.page()).toBe("source");
+    expect(studio.commands.handleKey("Meta+e")).toBe(true);
+    expect(studio.page()).toBe("preview");
+    expect(studio.commands.handleKey("Meta+e")).toBe(true);
+    expect(studio.page()).toBe("source");
+    expect(studio.commands.handleKey("Meta+j")).toBe(true);
+    expect(studio.page()).toBe("console");
+    expect(studio.commands.handleKey("Meta+j")).toBe(true);
+    expect(studio.page()).toBe("preview");
+
+    // Wide 5-zone mode (`wide === true`): toggles docked panels in place.
+    studio.workbench.setWide(true);
+    studio.workbench.patch({ sourceOpen: true, consoleOpen: true });
+    studio.setPage("source");
+    expect(studio.commands.handleKey("Meta+j")).toBe(true);
+    expect(studio.workbench.state().consoleOpen).toBe(false);
+    expect(studio.commands.handleKey("Meta+e")).toBe(true);
+    expect(studio.workbench.state().sourceOpen).toBe(false);
+    expect(studio.page()).toBe("preview");
+  });
 });
 
 describe("resources are released (M7 leak checks)", () => {

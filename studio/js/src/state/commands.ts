@@ -11,6 +11,7 @@ import type { Publish } from "./publish.ts";
 import type { Dialogs } from "./dialogs.ts";
 import type { QuickOpen } from "./quick-open.ts";
 import type { Toasts } from "./toasts.ts";
+import type { Workbench } from "./workbench.ts";
 
 export interface CommandDeps {
   pages: readonly StudioPage[];
@@ -24,11 +25,12 @@ export interface CommandDeps {
   dialogs: Dialogs;
   quickOpen: QuickOpen;
   toasts: Toasts;
+  workbench?: Workbench;
   platform?: KeyContext["platform"];
 }
 
 export function createCommands(deps: CommandDeps) {
-  const { workspace, build, preview, publish, dialogs, quickOpen, toasts } = deps;
+  const { workspace, build, preview, publish, dialogs, quickOpen, toasts, workbench } = deps;
   /** Counters the editor pane watches: a request to focus the code view's find bar. */
   const requests = createStore<{ find: number }>({ find: 0 });
 
@@ -58,6 +60,24 @@ export function createCommands(deps: CommandDeps) {
         if (!needProject()) return true;
         void preview.run({ build: true });
         return true;
+      case "toggleSource":
+        if (!needProject()) return true;
+        if (workbench?.state().wide) {
+          const opening = !workbench.state().sourceOpen;
+          workbench.toggleSource();
+          if (opening) deps.setPage("source");
+          else if (deps.page() === "source") deps.setPage("preview");
+        } else {
+          deps.setPage(deps.page() === "source" ? "preview" : "source");
+        }
+        return true;
+      case "toggleConsole":
+        if (workbench?.state().wide) {
+          workbench.toggleConsole();
+        } else {
+          deps.setPage(deps.page() === "console" ? "preview" : "console");
+        }
+        return true;
       case "quickOpen":
         if (!needProject()) return true;
         quickOpen.toggle();
@@ -85,6 +105,7 @@ export function createCommands(deps: CommandDeps) {
       case "closeOverlay":
         if (dialogs.active()) { dialogs.cancel(); return true; }
         if (quickOpen.isOpen()) { quickOpen.hide(); return true; }
+        if (workbench?.closeProjectMenu()) return true;
         return false;
       case "listUp":
         if (!quickOpen.isOpen()) return false;
