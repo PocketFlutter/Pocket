@@ -650,6 +650,40 @@ export function createPreview(deps: {
     syncSurfaceVisibility(targetId);
   }
 
+  /** Recomputes aggregate preview phase after removing/disabling slots so stale slot errors never linger. */
+  function reconcileAggregatePhase(): void {
+    if (running) return;
+    const cur = state();
+    if (cur.runtime === "unavailable") return;
+    const activeSupported = cur.activeTargets.filter(isTargetSupported);
+    if (activeSupported.length === 0) return;
+    const errorSlot = activeSupported.map((t) => cur.slots[t]).find((s) => s.phase === "error");
+    if (errorSlot) {
+      if (cur.phase !== "error" || cur.message !== errorSlot.message) {
+        store.update({
+          phase: "error",
+          code: errorSlot.code ?? "slot_error",
+          message: errorSlot.message,
+        });
+      }
+      return;
+    }
+    const anyLoading = activeSupported.some(
+      (t) => cur.slots[t].phase === "building" || cur.slots[t].phase === "publishing" || cur.slots[t].phase === "loading",
+    );
+    if (anyLoading) return;
+    const anyRunning = activeSupported.some((t) => cur.slots[t].phase === "running");
+    if (anyRunning) {
+      if (cur.phase !== "running" || cur.code !== undefined || cur.message !== undefined) {
+        store.update({ phase: "running", code: undefined, message: undefined });
+      }
+      return;
+    }
+    if (cur.phase !== "idle" || cur.code !== undefined || cur.message !== undefined) {
+      store.update({ phase: "idle", code: undefined, message: undefined });
+    }
+  }
+
   /** Toggle one preview target ON/OFF while keeping at least 1 target active. */
   async function toggleTarget(targetId: PreviewTargetId): Promise<void> {
     const current = state().activeTargets;
@@ -659,6 +693,7 @@ export function createPreview(deps: {
       store.update({ activeTargets: next });
       pruneQueuedTargets([targetId]);
       await destroySlot(targetId);
+      reconcileAggregatePhase();
       return;
     }
     const next = TARGET_ORDER.filter((id) => current.includes(id) || id === targetId);
@@ -682,15 +717,18 @@ export function createPreview(deps: {
     const added = next.filter((id) => !prev.includes(id));
     store.update({ activeTargets: next });
     pruneQueuedTargets(removed);
-    for (const r of removed) await destroySlot(r);
+    await Promise.all(removed.map((r) => destroySlot(r)));
     const status = build.state().status;
     const hasBuild = status !== undefined && status.builtRevision !== null && !status.error;
     const supportedAdded = added.filter(isTargetSupported);
     const shouldSpinUp = supportedAdded.length > 0 && (running || state().reloads > 0 || hasBuild);
     if (shouldSpinUp) {
       await run({ build: false, onlyTargets: supportedAdded });
-    } else if (next.includes("wechat") || next.includes("web")) {
-      void refreshEndpoints();
+    } else {
+      if (removed.length > 0) reconcileAggregatePhase();
+      if (next.includes("wechat") || next.includes("web")) {
+        void refreshEndpoints();
+      }
     }
   }
 

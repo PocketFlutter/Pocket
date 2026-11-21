@@ -47,19 +47,25 @@ function buildStudioManifest(previewAppIds: readonly string[]): PocketSystemV1 {
 
 export function createSystemLink(host: HostBridge): PreviewRuntime & SettingsBackend {
   let installed: Promise<void> | undefined;
+  let configured = false;
   let supportedIds: readonly string[] = [PREVIEW_APP_ID];
   const ensure = (): Promise<void> => {
     if (!installed) {
       installed = (async () => {
-        supportedIds = detectSupportedPreviewAppIds();
-        const maxResidentApps = Math.max(2, supportedIds.length + 1);
-        const system = installPocketSystem(buildStudioManifest(supportedIds), {
+        const detected = Object.freeze([...detectSupportedPreviewAppIds()]);
+        const maxResidentApps = Math.max(2, detected.length + 1);
+        const system = installPocketSystem(buildStudioManifest(detected), {
           bridge: host,
           maxResidentApps,
         });
         await system.ready;
+        supportedIds = detected;
+        configured = true;
       })();
-      installed.catch(() => { installed = undefined; }); // allow a later retry
+      installed.catch(() => {
+        configured = false;
+        installed = undefined;
+      }); // allow a later retry
     }
     return installed;
   };
@@ -69,7 +75,7 @@ export function createSystemLink(host: HostBridge): PreviewRuntime & SettingsBac
   };
   return {
     ensure,
-    supportedAppIds: () => detectSupportedPreviewAppIds(),
+    supportedAppIds: () => (configured ? supportedIds : detectSupportedPreviewAppIds()),
     async create(appId: string, initialEvents?: readonly PreviewInitialEvent[]) {
       // prepareForOpen without cacheFirst: the signed update is checked and verified before the child can run.
       const created = await request<{ instanceId: string; generation: number | string }>("system.runtime.create", {

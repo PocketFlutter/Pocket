@@ -860,6 +860,34 @@ describe("preview", () => {
       { id: "fl-1", event: "platform.surface", profileId: "iphone-16-pro" },
     ]);
   });
+
+  test("disabling an errored secondary slot reconciles aggregate phase back to running or idle", async () => {
+    const { preview, runtime } = previewFixture();
+    await flush();
+    preview.setSurfaceVisible(true, "flutter");
+    preview.setSurfaceVisible(true, "widget");
+
+    // Boot flutter cleanly -> running:
+    expect(await preview.run({ build: true })).toBe(true);
+    expect(preview.state().phase).toBe("running");
+
+    // Enable widget and make its first frame fail -> aggregate phase becomes error:
+    runtime.awaitFirstFrame = async (id) => {
+      if (id === preview.state().slots.widget.instanceId) {
+        throw Object.assign(new Error("widget crash"), { code: "widget_boom" });
+      }
+    };
+    await preview.toggleTarget("widget");
+    expect(preview.state().slots.widget.phase).toBe("error");
+    expect(preview.state().phase).toBe("error");
+
+    // Toggling widget OFF restores aggregate phase to running (flutter is still running):
+    await preview.toggleTarget("widget");
+    expect(preview.state().activeTargets).toEqual(["flutter"]);
+    expect(preview.state().phase).toBe("running");
+    expect(preview.state().code).toBeUndefined();
+    expect(preview.state().message).toBeUndefined();
+  });
 });
 
 describe("settings", () => {

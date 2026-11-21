@@ -62,16 +62,17 @@ export function createCommands(deps: CommandDeps) {
         return true;
       case "toggleSource":
         if (!needProject()) return true;
-        if (workbench) {
+        if (workbench?.state().wide) {
           const opening = !workbench.state().sourceOpen;
           workbench.toggleSource();
           if (opening) deps.setPage("source");
+          else if (deps.page() === "source") deps.setPage("preview");
         } else {
           deps.setPage(deps.page() === "source" ? "preview" : "source");
         }
         return true;
       case "toggleConsole":
-        if (workbench) {
+        if (workbench?.state().wide) {
           workbench.toggleConsole();
         } else {
           deps.setPage(deps.page() === "console" ? "preview" : "console");

@@ -5,7 +5,7 @@
 // Zone D: Center Preview Stage & Collapsible 4-Tab Console Dock (`StageColumn`)
 // Zone E: Right 3-Tab Inspector (`InspectorColumn`, 368px)
 // Below WIDE_WORKBENCH_MIN_WIDTH (<1160px), gracefully adapts to responsive single-pane focus mode.
-import { Show, createSignal, onCleanup } from "solid-js";
+import { Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { MobileThemeProvider, deliverTextInputEvent } from "@pocket/ui";
 import { createDisplayGeometry } from "@pocket/ui/display";
 import { SplitPane } from "@pocket/ui/split-pane";
@@ -53,6 +53,9 @@ function Shell(props: { studio: Studio; host: HostBridge }) {
   const [liveSourceWidth, setLiveSourceWidth] = createSignal<number | undefined>(undefined);
 
   const wide = () => geometry().width >= WIDE_WORKBENCH_MIN_WIDTH;
+  createEffect(() => {
+    s.workbench.setWide(wide());
+  });
   const sourceWidth = () => liveSourceWidth() ?? wb().sourceWidth;
 
   // Route Flutter text overlay events to InputField sessions.

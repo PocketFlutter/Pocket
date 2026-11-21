@@ -11,6 +11,8 @@ export type ViewportPreset = "mobile" | "tablet" | "desktop";
 export type WorkbenchPreviewTargetId = "flutter" | "web" | "wechat" | "widget" | "widgetAlt";
 
 export interface WorkbenchState {
+  /** Whether the viewport is currently in wide 5-zone desktop mode (`>= 1160px`). */
+  wide: boolean;
   /** Zone C: Docked Left Source Split (`#source-dock`). */
   sourceOpen: boolean;
   /** Collapsible FileTree inside Zone C. */
@@ -50,6 +52,7 @@ const clampSourceWidth = (w: number): number =>
 
 export function createWorkbench() {
   const store = createStore<WorkbenchState>({
+    wide: false,
     sourceOpen: false,
     treeOpen: true,
     sourceWidth: 388,
@@ -73,6 +76,9 @@ export function createWorkbench() {
     store,
     state,
     patch: (patch: Partial<WorkbenchState>) => store.update(patch),
+    setWide: (wide: boolean) => {
+      if (state().wide !== wide) store.update({ wide });
+    },
     setSourceWidth: (width: number) => store.update({ sourceWidth: clampSourceWidth(width) }),
     toggleSource: () => store.update({ sourceOpen: !state().sourceOpen, projectMenuOpen: false }),
     toggleTree: () => store.update({ treeOpen: !state().treeOpen }),
