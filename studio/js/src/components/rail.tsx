@@ -128,7 +128,7 @@ export function Rail(props: { studio: Studio; wide?: boolean }) {
     <View class="flex-row h-full" style={{ shrink: 0 }}>
       <View class="flex-col items-center justify-between py-2 px-1 h-full" style={{ width: 55, bgColor: C.bgRaised }}>
         <View class="flex-col items-center gap-1 w-full">
-          {/* Keep exact POCKET STUDIO</Text> anchor for studio_self_update_test.dart */}
+          {/* Rail brand header (self-update verification anchor) */}
           <View class="px-1 pb-1 items-center">
             <Text class="text-2xs text-[#5D677A] font-bold">POCKET STUDIO</Text>
           </View>
